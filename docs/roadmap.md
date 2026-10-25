@@ -1,6 +1,6 @@
 # Status and roadmap
 
-Pre-release: no tagged version yet, images not published. Progress is tracked on [GitHub](https://github.com/dennisklappe/openminutes).
+Pre-release: v0.1.0 is being published, the images and the tagged version follow shortly. Progress is tracked on [GitHub](https://github.com/dennisklappe/openminutes).
 
 ## Roadmap to v0.1
 
