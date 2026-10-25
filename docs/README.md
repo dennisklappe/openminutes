@@ -5,7 +5,7 @@
 Open source, self-hosted notetaker. A bot joins your Google Meet and Microsoft Teams meetings, records audio, notes who said what, and writes the transcript and an optional summary. Docker Compose, your own provider keys or a local transcriber, no telemetry.
 
 > [!NOTE]
-> Pre-release: expect breaking changes until v0.1. The [roadmap](roadmap.md) lists what works today.
+> Early release (v0.1): expect breaking changes. The [roadmap](roadmap.md) lists what works today.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/meeting-dark.webp">

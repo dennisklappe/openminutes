@@ -26,21 +26,13 @@ How the public repository is configured. A fork or a mirror needs the same setti
 
 - **History**: the public repository starts from one commit. There is no older history to read, and all development continues from there with pull requests and Conventional Commit titles.
 - **Visibility and runners**: GitHub-hosted runners only. Never attach a self-hosted runner to a public repository: a fork PR runs its own code on it, which would give strangers a shell on the host. The `RUNNER` variable is `ubuntu-latest` (or unset, the default is the same).
-- **Publishing**: the `PUBLISH_IMAGES` variable is unset until the first release is wanted. Set it with `gh variable set PUBLISH_IMAGES --body true` to switch on release-please and the image build.
+- **Publishing**: `PUBLISH_IMAGES` is `true`, so release-please and the image build are on. v0.1.0 was the first release.
 - **Merging**: squash merge only, delete branches on merge.
 - **Features**: Issues and Discussions on (categories Q&A, Ideas, Show and tell), Wiki and Projects off.
 - **Security**: private vulnerability reporting, dependency graph, Dependabot alerts and security updates, secret scanning and push protection on. Fork pull request workflows from outside collaborators need approval for all outside collaborators. Workflow permissions stay at read, except that Actions may create pull requests so release-please can open the release PR.
 - **Branch protection**: `main` blocks force pushes and deletion. CI (`check`) must be green before merging; that is a convention, not a setting.
 - **Secrets and variables**: `CLOUDFLARE_API_TOKEN` (an API token with only the account permission Cloudflare Pages: Edit, nothing else) and `CLOUDFLARE_ACCOUNT_ID` (secrets) and `PUBLIC_TURNSTILE_SITEKEY` (variable) let `Deploy site` publish the website. The workflow only runs in the upstream repository, so forks need none of them.
 - **Description and website**: "Self-hosted meeting recorder, transcripts and minutes for Google Meet and Microsoft Teams", `https://openminut.es`. Topics: `meeting-minutes`, `transcription`, `self-hosted`, `google-meet`, `microsoft-teams`, `whisper`, `docker`, `agpl`. The social preview is `brand/og.png` and can only be uploaded in the web UI (Settings, General, Social preview).
-
-## First release
-
-The first release is `v0.1.0`. After `PUBLISH_IMAGES` is set, merge a pull request whose squash title is `feat: first release`. release-please then opens a release PR that bumps `0.0.0` to `0.1.0` and writes `CHANGELOG.md`. Merge it, wait for `Publish images`, then:
-
-1. GHCR: open each package (`openminutes-web`, `openminutes-worker`, `openminutes-bot`, `openminutes-whisper`), Package settings, change visibility to **Public** and link it to the repository. Pushing the image does not make it public.
-2. From a machine without credentials, run `docker pull ghcr.io/dennisklappe/openminutes-web:latest` and bring the compose stack up from [getting started](getting-started.md).
-3. Remove the pre-release notes that say there is no tagged version or published image: the README, [getting started](getting-started.md), the [roadmap](roadmap.md) and the [FAQ](faq.md).
 
 ## Writing an exporter
 
