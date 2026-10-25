@@ -2,7 +2,7 @@
   "name": "openminutes",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Self-hosted meeting notetaker: joins Meet and Teams, records, transcribes and writes minutes.",
   "homepage": "https://openminut.es",
   "repository": {
