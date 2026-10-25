@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@openminutes/providers": "workspace:^",
-    "nodemailer": "^10.0.10",
+    "nodemailer": "^10.2.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

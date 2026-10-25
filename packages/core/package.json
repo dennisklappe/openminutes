@@ -32,7 +32,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1153.0",
+    "@aws-sdk/client-s3": "^3.1155.0",
     "@openminutes/db": "workspace:^",
     "@openminutes/platforms": "workspace:^",
     "@openminutes/providers": "workspace:^",
