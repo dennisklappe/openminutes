@@ -1,0 +1,137 @@
+---
+import { company, repo, supportEmail } from '../lib/site';
+
+const columns = [
+  {
+    title: 'Product',
+    links: [
+      { href: '/docs/getting-started', label: 'Getting started' },
+      { href: '/docs', label: 'Documentation' },
+      { href: '/hosting', label: 'Hosting' },
+      { href: '/docs/roadmap', label: 'Roadmap' },
+    ],
+  },
+  {
+    title: 'Compare and use',
+    links: [
+      { href: '/compare', label: 'Compare notetakers' },
+      { href: '/alternatives/free-fireflies-alternative', label: 'Free Fireflies alternative' },
+      { href: '/use/self-hosted-ai-meeting-notetaker', label: 'Self-hosted notetaker' },
+      { href: '/use/open-source-meeting-recorder', label: 'Open source recorder' },
+      { href: '/use/microsoft-teams-transcription-self-hosted', label: 'Teams transcription' },
+      { href: '/use/google-meet-notes-self-hosted', label: 'Google Meet notes' },
+      { href: '/use/gdpr-meeting-notes', label: 'GDPR meeting notes' },
+    ],
+  },
+  {
+    title: 'Project',
+    links: [
+      { href: repo, label: 'GitHub' },
+      { href: `${repo}/releases`, label: 'Releases' },
+      { href: `${repo}/issues`, label: 'Report a problem' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { href: '/privacy', label: 'Privacy' },
+      { href: '/terms', label: 'Terms' },
+      { href: '/security', label: 'Security' },
+      { href: `mailto:${supportEmail}`, label: supportEmail },
+    ],
+  },
+];
+---
+
+<footer class="foot">
+  <div class="wide foot-in">
+    <div class="about">
+      <a class="brand" href="/">
+        <img src="/brand/mark.svg" alt="" width="24" height="24" />
+        <span>OpenMinutes</span>
+      </a>
+      <p>Open source meeting notes that stay on your own server. AGPL-3.0, no telemetry.</p>
+    </div>
+    {
+      columns.map((c) => (
+        <nav aria-label={c.title}>
+          <p class="col">{c.title}</p>
+          <ul>
+            {c.links.map((l) => (
+              <li>
+                <a href={l.href}>{l.label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ))
+    }
+  </div>
+  <div class="wide fine">
+    <span>Made in the Netherlands by <a href={company.url} rel="noopener">Klappe Development</a>.</span>
+    <span>Other product names are trademarks of their owners and used only to identify them. OpenMinutes is not affiliated with them.</span>
+  </div>
+</footer>
+
+<style>
+  .foot {
+    margin-top: 6rem;
+    border-top: 1px solid var(--line);
+    padding: 3rem 0 2rem;
+    font-size: 0.9375rem;
+  }
+  .foot-in {
+    display: grid;
+    gap: 2.5rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 760px) {
+    .foot-in {
+      grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
+    }
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .about p {
+    max-width: 30ch;
+    margin: 0.75rem 0 0;
+    color: var(--muted);
+  }
+  .col {
+    margin: 0 0 0.75rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  li a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  li a:hover {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+  .fine {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+</style>

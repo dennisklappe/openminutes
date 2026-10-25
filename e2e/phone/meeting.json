@@ -1,0 +1,44 @@
+{
+  "voices": {
+    "anna": "en_US-amy-medium",
+    "ben": "en_US-ryan-medium",
+    "carl": "en_GB-alan-medium"
+  },
+  "utterances": [
+    {
+      "speaker": "anna",
+      "text": "Good morning everyone. Let us start with the release plan for next month.",
+      "gapMs": 500
+    },
+    {
+      "speaker": "ben",
+      "text": "The payment integration is almost done. I still need two days to finish the tests.",
+      "gapMs": 600
+    },
+    {
+      "speaker": "carl",
+      "text": "Then we can announce the launch to the customers on the fifteenth.",
+      "gapMs": 500
+    },
+    {
+      "speaker": "anna",
+      "text": "Agreed. Ben, please share the test report on Thursday, and Carl will prepare the announcement.",
+      "gapMs": 700
+    },
+    {
+      "speaker": "ben",
+      "text": "Will do. I will also update the pricing page before the launch.",
+      "gapMs": 500
+    },
+    {
+      "speaker": "carl",
+      "text": "Good. One more thing, we should talk to the biggest customer before we change their contract.",
+      "gapMs": 600
+    },
+    {
+      "speaker": "anna",
+      "text": "I will call them tomorrow. That is everything for today, thank you all.",
+      "gapMs": 600
+    }
+  ]
+}

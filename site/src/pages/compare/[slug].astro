@@ -1,0 +1,142 @@
+---
+import SeoPage from '../../layouts/SeoPage.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import { competitorList, competitors, omLimits, verifiedLabel } from '../../facts/seo-facts.mjs';
+import { tiers } from '../../lib/offer';
+
+export function getStaticPaths() {
+  return competitorList.map((c) => ({ params: { slug: c.slug } }));
+}
+
+const { slug } = Astro.params;
+const c = competitors[slug!];
+const team = 10;
+const seatMonthly = c.entry.annual ?? c.entry.monthly;
+const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+const sym = c.entry.cur === 'EUR' ? 'EUR ' : '$';
+const seatLabel = c.entry.annual ? 'billed annually' : 'billed monthly';
+const teamCost = team * seatMonthly;
+const ownTier = tiers.find((t) => t.id === 'team')!;
+
+const title = `OpenMinutes vs ${c.name}: a self-hosted alternative (${verifiedLabel.split(' ').slice(-1)[0]})`;
+const description = `OpenMinutes vs ${c.name}: price, platforms, bot or no bot, data location and self-hosting. Sourced and dated, with when not to choose OpenMinutes.`;
+const faq = [
+  {
+    q: `Is OpenMinutes a ${c.name} alternative?`,
+    a: `It covers the same job for Google Meet and Microsoft Teams: a bot joins, records and writes a transcript with speakers. It is open source and self-hosted instead of a hosted service, and it is younger and has far fewer integrations. It does not support Zoom.`,
+  },
+  {
+    q: `Can I run ${c.name} on my own server?`,
+    a: `We found no self-hosted option for ${c.name} on its public pages (checked ${verifiedLabel}). OpenMinutes is built to be self-hosted with Docker Compose.`,
+  },
+  {
+    q: `Is OpenMinutes free compared with ${c.name}?`,
+    a: `The software is free to self-host under AGPL-3.0, but you pay for the server and for your own AI provider, unless you transcribe locally. ${c.name} prices are on its pricing page, summarised above.`,
+  },
+  {
+    q: `How current is this comparison?`,
+    a: `Every statement about ${c.name} was read from its own public pages on ${verifiedLabel} and links to the source. Products change, so please tell us if something is out of date.`,
+  },
+];
+---
+
+<SeoPage
+  {title}
+  {description}
+  h1={`OpenMinutes vs ${c.name}`}
+  lede={`${c.name} is ${c.oneLine}. OpenMinutes is an open source notetaker you run yourself. Here is how they differ, what each is better at, and when you should not pick OpenMinutes.`}
+  crumbs={[{ name: 'Compare', path: '/compare' }, { name: `vs ${c.name}`, path: `/compare/${c.slug}` }]}
+  {faq}
+  verified
+  related={[
+    { href: '/compare', label: 'All comparisons' },
+    { href: '/use/self-hosted-ai-meeting-notetaker', label: 'Self-hosted AI meeting notetaker' },
+    { href: '/use/gdpr-meeting-notes', label: 'Meeting notes and GDPR' },
+    { href: '/hosting', label: 'Hosted OpenMinutes' },
+    { href: '/docs/getting-started', label: 'Install OpenMinutes' },
+  ]}
+>
+  <div class="callout">
+    <p>
+      <strong>Short version</strong>
+      Pick {c.name} if you want something that works today with no server, more integrations, or a platform OpenMinutes does not
+      cover. Pick OpenMinutes if you want the audio, transcript and AI choices on infrastructure you control, or you want to
+      read and change the code.
+    </p>
+  </div>
+
+  <h2>Side by side</h2>
+  <CompareTable slug={c.slug} />
+
+  <h2>Where OpenMinutes differs</h2>
+  <ul>
+    <li>
+      <strong>Who holds the data.</strong> With OpenMinutes the audio and transcripts sit in your database and storage. With
+      {c.name} your transcripts and notes sit with the vendor (see the storage row above for where).
+    </li>
+    <li>
+      <strong>Who chooses the AI.</strong> OpenMinutes uses the transcription and summary providers you set up, or local
+      Whisper with no key. {c.name} chooses its own.
+    </li>
+    <li>
+      <strong>How you pay.</strong> {c.name} charges per user. OpenMinutes hosted is priced by how many meetings run at once, and
+      self-hosting is free of licence fees.
+    </li>
+    <li>
+      <strong>Source code.</strong> OpenMinutes is licensed AGPL-3.0, so you can read and change the code. {c.name} is a commercial hosted product.
+    </li>
+  </ul>
+
+  <h2>An example with {team} people</h2>
+  <p>
+    {c.name} {c.entry.plan} costs {sym}{fmt(seatMonthly)} per user per month {seatLabel}, so {team} users come to <strong>{sym}{fmt(teamCost)} a month</strong>,
+    with its AI included. OpenMinutes hosted with {ownTier.concurrent} concurrent meetings is <strong>EUR {ownTier.monthly} a month</strong>,
+    excluding VAT, for unlimited users, plus your own AI provider. Our docs list hosted transcription from $0.04 to $0.36 per
+    hour of audio in October 2026, and local Whisper costs nothing per hour. The currencies differ and taxes are not included.
+    Whether three simultaneous meetings is enough depends on how your team schedules meetings.
+    <a href="/hosting">See hosting</a> and <a href="/docs/providers">providers and cost</a>.
+  </p>
+
+  <h2>Where {c.name} is the better choice</h2>
+  <ul>
+    {
+      c.strengths.map((s: { text: string; src: string[] }) => (
+        <li>
+          {s.text}{' '}
+          {s.src.map((u: string, i: number) => (
+            <a class="src" href={u} target="_blank" rel="nofollow noopener">
+              [{i + 1}]
+            </a>
+          ))}
+        </li>
+      ))
+    }
+  </ul>
+
+  <h2>When not to choose OpenMinutes</h2>
+  <p>Choose {c.name} instead if:</p>
+  <ul>
+    {c.chooseInstead.map((t: string) => <li>{t}</li>)}
+  </ul>
+  <p>OpenMinutes also has limits you should know about before you install it:</p>
+  <ul>
+    {omLimits.map((l: { text: string; href: string; label: string }) => <li>{l.text} <a href={l.href}>{l.label}</a></li>)}
+  </ul>
+
+  <h2>Who OpenMinutes is for</h2>
+  <p>
+    Teams that must or prefer to keep meeting audio and transcripts on their own infrastructure, people who want to choose their
+    own AI provider or run everything locally, and anyone who wants to read the code. See
+    <a href="/use/self-hosted-ai-meeting-notetaker">self-hosted AI meeting notetaker</a>,
+    <a href="/use/gdpr-meeting-notes">meeting notes and GDPR</a> and
+    <a href="/docs/getting-started">getting started</a>.
+  </p>
+
+  <h2>Sources</h2>
+  <p>
+    {c.name} facts come from its own pages, read on {c.verified}:
+    {' '}
+    <a href={c.site} rel="nofollow noopener" target="_blank">{c.site.replace('https://', '')}</a>
+    and the numbered links in the table. OpenMinutes statements link to <a href="/docs">our documentation</a>.
+  </p>
+</SeoPage>

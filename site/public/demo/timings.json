@@ -1,0 +1,113 @@
+{
+  "duration": 82.63,
+  "lines": [
+    {
+      "speaker": "Priya Nair",
+      "text": "Thanks for joining. Today we decide the launch date for the Hartmann pilot, and who owns what.",
+      "start": 0.25,
+      "end": 6.25
+    },
+    {
+      "speaker": "Tom Becker",
+      "text": "The build is stable. I ran the soak test for two days and saw no crashes.",
+      "start": 6.63,
+      "end": 10.68
+    },
+    {
+      "speaker": "Priya Nair",
+      "text": "Great. So can we launch on the third of November, or is anything blocking us?",
+      "start": 11.06,
+      "end": 15.95
+    },
+    {
+      "speaker": "Jonas Weber",
+      "text": "One thing. The Azure app registration is still pending, so Outlook calendars will not sync yet.",
+      "start": 16.33,
+      "end": 22.41
+    },
+    {
+      "speaker": "Priya Nair",
+      "text": "Can we launch with Google calendars only, and add Outlook in a patch?",
+      "start": 22.79,
+      "end": 26.93
+    },
+    {
+      "speaker": "Jonas Weber",
+      "text": "Yes, that works. The tenant admin gave me a slot on Thursday, so Outlook can follow next week.",
+      "start": 27.31,
+      "end": 34.13
+    },
+    {
+      "speaker": "Mei Lin",
+      "text": "From support, Hartmann asked for their pallet label format in the export.",
+      "start": 34.51,
+      "end": 38.89
+    },
+    {
+      "speaker": "Tom Becker",
+      "text": "That is a small change. I can ship it before the launch.",
+      "start": 39.27,
+      "end": 42.09
+    },
+    {
+      "speaker": "Priya Nair",
+      "text": "Then we decide: launch on the third of November with Google only, and Outlook follows in a patch.",
+      "start": 42.47,
+      "end": 48.25
+    },
+    {
+      "speaker": "Mei Lin",
+      "text": "Should we tell Hartmann about the Outlook delay before the launch?",
+      "start": 48.63,
+      "end": 51.9
+    },
+    {
+      "speaker": "Priya Nair",
+      "text": "Yes. Mei, please send them a short note tomorrow.",
+      "start": 52.28,
+      "end": 55.88
+    },
+    {
+      "speaker": "Tom Becker",
+      "text": "I will also write the rollback steps in the runbook, just in case.",
+      "start": 56.26,
+      "end": 59.67
+    },
+    {
+      "speaker": "Jonas Weber",
+      "text": "And I will meet the tenant admin on Thursday and report back in the channel.",
+      "start": 60.05,
+      "end": 64.36
+    },
+    {
+      "speaker": "Priya Nair",
+      "text": "One open question: who answers the support inbox during launch week?",
+      "start": 64.74,
+      "end": 69.09
+    },
+    {
+      "speaker": "Mei Lin",
+      "text": "I can cover the mornings, but I need someone for the afternoons.",
+      "start": 69.47,
+      "end": 73.13
+    },
+    {
+      "speaker": "Priya Nair",
+      "text": "Let's park that. I will ask Sven and we come back to it on Friday.",
+      "start": 73.51,
+      "end": 78.14
+    },
+    {
+      "speaker": "Tom Becker",
+      "text": "Sounds good to me.",
+      "start": 78.52,
+      "end": 79.41
+    },
+    {
+      "speaker": "Priya Nair",
+      "text": "Thanks everyone, that is all for today.",
+      "start": 79.79,
+      "end": 82.25
+    }
+  ]
+}

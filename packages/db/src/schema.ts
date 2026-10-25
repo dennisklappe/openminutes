@@ -1,0 +1,388 @@
+import { sql } from 'drizzle-orm';
+import {
+  type AnyPgColumn,
+  bigint,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
+
+export const meetingPlatforms = ['meet', 'teams', 'recording'] as const;
+export const meetingStatuses = [
+  'scheduled',
+  'uploading',
+  'joining',
+  'in_lobby',
+  'recording',
+  'ended',
+  'processing',
+  'transcribed',
+  'failed',
+  'cancelled',
+  'skipped',
+] as const;
+export const activeMeetingStatuses = ['joining', 'in_lobby', 'recording'] as const;
+export const calendarProviders = ['google', 'microsoft'] as const;
+export const joinRules = ['all', 'organizer', 'external', 'never'] as const;
+
+export const summaryStatuses = ['pending', 'done', 'failed'] as const;
+export const summaryOrigins = ['ai', 'ai-edit', 'edit', 'link', 'restore', 'rename'] as const;
+export const calendarLinkStatuses = [
+  'added',
+  'failed',
+  'no_permission',
+  'needs_reconnect',
+] as const;
+export const companySources = ['calendar', 'ai', 'manual'] as const;
+export const speakerSources = ['indicator', 'diarization', 'user', 'ai', 'guess'] as const;
+export const shareEmailStatuses = ['sent', 'failed'] as const;
+
+export type CompanySource = (typeof companySources)[number];
+export type SpeakerSource = (typeof speakerSources)[number];
+export type SummaryOrigin = (typeof summaryOrigins)[number];
+export type MeetingPlatform = (typeof meetingPlatforms)[number];
+export type MeetingStatus = (typeof meetingStatuses)[number];
+export type CalendarProviderId = (typeof calendarProviders)[number];
+export type JoinRule = (typeof joinRules)[number];
+
+export interface CalendarSyncState {
+  token: string;
+  windowEnd: string;
+}
+
+export interface CalendarInvitee {
+  email: string;
+  name: string | null;
+  declined: boolean;
+}
+export type SummaryStatus = (typeof summaryStatuses)[number];
+
+const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
+const id = () => uuid('id').primaryKey().defaultRandom();
+const meetingId = () =>
+  uuid('meeting_id')
+    .notNull()
+    .references(() => meetings.id, { onDelete: 'cascade' });
+
+export const minuteFolders = pgTable('minute_folders', {
+  id: id(),
+  name: text('name').notNull(),
+  parentId: uuid('parent_id').references((): AnyPgColumn => minuteFolders.id, {
+    onDelete: 'set null',
+  }),
+  createdAt: timestamptz('created_at').notNull().defaultNow(),
+});
+
+export const meetings = pgTable(
+  'meetings',
+  {
+    id: id(),
+    title: text('title').notNull(),
+    platform: text('platform', { enum: meetingPlatforms }).notNull(),
+    joinUrl: text('join_url').notNull(),
+    joinKey: text('join_key'),
+    titleEdited: boolean('title_edited').notNull().default(false),
+    seriesKey: text('series_key'),
+    allowDuplicate: boolean('allow_duplicate').notNull().default(false),
+    scheduledStart: timestamptz('scheduled_start'),
+    location: text('location'),
+    invitees: jsonb('invitees').$type<CalendarInvitee[]>(),
+    dismissedInvitees: jsonb('dismissed_invitees').$type<string[]>(),
+    startedAt: timestamptz('started_at'),
+    endedAt: timestamptz('ended_at'),
+    audioDeletedAt: timestamptz('audio_deleted_at'),
+    archivedAt: timestamptz('archived_at'),
+    deletedAt: timestamptz('deleted_at'),
+    company: text('company'),
+    companySource: text('company_source', { enum: companySources }),
+    folderId: uuid('folder_id').references(() => minuteFolders.id, { onDelete: 'set null' }),
+    speakersRefined: boolean('speakers_refined').notNull().default(false),
+    speakerCheckRequestedAt: timestamptz('speaker_check_requested_at'),
+    speakerCheckedAt: timestamptz('speaker_checked_at'),
+    speakerCheckError: text('speaker_check_error'),
+    language: text('language'),
+    speakerCount: integer('speaker_count'),
+    processingStep: text('processing_step'),
+    processingCurrent: integer('processing_current'),
+    processingTotal: integer('processing_total'),
+    processingStartedAt: timestamptz('processing_started_at'),
+    trimStartMs: integer('trim_start_ms'),
+    trimEndMs: integer('trim_end_ms'),
+    claimedAt: timestamptz('claimed_at'),
+    heartbeatAt: timestamptz('heartbeat_at'),
+    status: text('status', { enum: meetingStatuses }).notNull().default('scheduled'),
+    error: text('error'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('meetings_created_at_idx').on(t.createdAt),
+    index('meetings_deleted_at_idx').on(t.deletedAt),
+    uniqueIndex('meetings_join_key_start_idx').on(t.joinKey, t.scheduledStart),
+  ],
+);
+
+export interface SpeakerCandidate {
+  participantId: string;
+  score: number;
+}
+
+export interface NameSuggestion {
+  name: string;
+  source: 'conversation' | 'voice' | 'calendar';
+}
+
+export const participants = pgTable('participants', {
+  id: id(),
+  meetingId: meetingId(),
+  displayName: text('display_name').notNull(),
+  originalName: text('original_name'),
+  isBot: boolean('is_bot').notNull().default(false),
+  email: text('email'),
+  inviteeEmail: text('invitee_email'),
+  joinedAt: timestamptz('joined_at'),
+  leftAt: timestamptz('left_at'),
+  voiceEmbedding: jsonb('voice_embedding').$type<number[]>(),
+  nameConfirmed: boolean('name_confirmed').notNull().default(false),
+  nameSuggestions: jsonb('name_suggestions').$type<NameSuggestion[]>(),
+});
+
+export const participantAliases = pgTable(
+  'participant_aliases',
+  {
+    id: id(),
+    originalName: text('original_name').notNull(),
+    displayName: text('display_name').notNull(),
+    inviteeEmail: text('invitee_email'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('participant_aliases_original_idx').on(sql`lower(${t.originalName})`)],
+);
+
+export const knownVoices = pgTable(
+  'known_voices',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    embedding: jsonb('embedding').$type<number[]>().notNull(),
+    samples: integer('samples').notNull().default(1),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('known_voices_name_idx').on(t.name)],
+);
+
+export const audioFiles = pgTable('audio_files', {
+  id: id(),
+  meetingId: meetingId(),
+  path: text('path').notNull(),
+  durationMs: integer('duration_ms').notNull(),
+  codec: text('codec').notNull(),
+  size: bigint('size', { mode: 'number' }).notNull(),
+});
+
+const participantRef = () => uuid('participant_id').references(() => participants.id);
+
+export const speakerEvents = pgTable('speaker_events', {
+  id: id(),
+  meetingId: meetingId(),
+  participantId: participantRef().notNull(),
+  startMs: integer('start_ms').notNull(),
+  endMs: integer('end_ms').notNull(),
+});
+
+export const transcriptSegments = pgTable('transcript_segments', {
+  id: id(),
+  meetingId: meetingId(),
+  participantId: participantRef(),
+  startMs: integer('start_ms').notNull(),
+  endMs: integer('end_ms').notNull(),
+  text: text('text').notNull(),
+  confidence: real('confidence'),
+  speakerConfidence: real('speaker_confidence'),
+  speakerSource: text('speaker_source', { enum: speakerSources }),
+  speakerCandidates: jsonb('speaker_candidates').$type<SpeakerCandidate[]>(),
+  previousParticipantId: uuid('previous_participant_id').references(
+    (): AnyPgColumn => participants.id,
+    { onDelete: 'set null' },
+  ),
+});
+
+export const summaries = pgTable('summaries', {
+  id: id(),
+  meetingId: meetingId(),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  promptId: text('prompt_id'),
+  status: text('status', { enum: summaryStatuses }).notNull().default('pending'),
+  error: text('error'),
+  content: text('content').notNull().default(''),
+  origin: text('origin', { enum: summaryOrigins }).notNull().default('ai'),
+  note: text('note'),
+  replay: text('replay'),
+  restoredFrom: uuid('restored_from').references((): AnyPgColumn => summaries.id, {
+    onDelete: 'set null',
+  }),
+  createdAt: timestamptz('created_at').notNull().defaultNow(),
+});
+
+export const calendarAccounts = pgTable(
+  'calendar_accounts',
+  {
+    id: id(),
+    provider: text('provider', { enum: calendarProviders }).notNull(),
+    accountEmail: text('account_email').notNull(),
+    encryptedTokens: text('encrypted_tokens').notNull(),
+    lastError: text('last_error'),
+    lastSyncedAt: timestamptz('last_synced_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('calendar_accounts_account_idx').on(t.provider, t.accountEmail)],
+);
+
+export const calendars = pgTable(
+  'calendars',
+  {
+    id: id(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => calendarAccounts.id, { onDelete: 'cascade' }),
+    externalId: text('external_id').notNull(),
+    name: text('name').notNull(),
+    isPrimary: boolean('is_primary').notNull().default(false),
+    joinRule: text('join_rule', { enum: joinRules }).notNull().default('never'),
+    syncState: jsonb('sync_state').$type<CalendarSyncState>(),
+  },
+  (t) => [uniqueIndex('calendars_external_idx').on(t.accountId, t.externalId)],
+);
+
+export const meetingSources = pgTable(
+  'meeting_sources',
+  {
+    id: id(),
+    meetingId: meetingId(),
+    calendarId: uuid('calendar_id')
+      .notNull()
+      .references(() => calendars.id, { onDelete: 'cascade' }),
+    calendarEventId: text('calendar_event_id').notNull(),
+    joinable: boolean('joinable').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('meeting_sources_event_idx').on(t.calendarId, t.calendarEventId),
+    index('meeting_sources_meeting_idx').on(t.meetingId),
+  ],
+);
+
+export const meetingCalendarLinks = pgTable(
+  'meeting_calendar_links',
+  {
+    id: id(),
+    meetingId: meetingId(),
+    sourceId: uuid('source_id')
+      .notNull()
+      .references(() => meetingSources.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: calendarLinkStatuses }).notNull(),
+    url: text('url'),
+    error: text('error'),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('meeting_calendar_links_source_idx').on(t.sourceId),
+    index('meeting_calendar_links_meeting_idx').on(t.meetingId),
+  ],
+);
+
+export const skippedSeries = pgTable(
+  'skipped_series',
+  {
+    id: id(),
+    seriesKey: text('series_key').notNull(),
+    title: text('title').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('skipped_series_key_idx').on(t.seriesKey)],
+);
+
+export const settings = pgTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  secret: boolean('secret').notNull().default(false),
+});
+
+export const shareLinks = pgTable(
+  'share_links',
+  {
+    id: id(),
+    meetingId: meetingId(),
+    token: text('token').notNull(),
+    includeTranscript: boolean('include_transcript').notNull().default(false),
+    includeChat: boolean('include_chat').notNull().default(false),
+    includeLinks: boolean('include_links').notNull().default(false),
+    expiresAt: timestamptz('expires_at'),
+    revokedAt: timestamptz('revoked_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('share_links_token_idx').on(t.token),
+    index('share_links_meeting_idx').on(t.meetingId),
+  ],
+);
+
+export const meetingExports = pgTable(
+  'meeting_exports',
+  {
+    id: id(),
+    meetingId: meetingId(),
+    exporterId: text('exporter_id').notNull(),
+    ref: text('ref').notNull(),
+    url: text('url').notNull(),
+    /** What went into the output: the minutes always, these parts when ticked. */
+    includeTranscript: boolean('include_transcript').notNull().default(false),
+    includeChat: boolean('include_chat').notNull().default(false),
+    includeLinks: boolean('include_links').notNull().default(false),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('meeting_exports_meeting_exporter_idx').on(t.meetingId, t.exporterId)],
+);
+
+export const shareEmails = pgTable(
+  'share_emails',
+  {
+    id: id(),
+    meetingId: meetingId(),
+    recipient: text('recipient').notNull(),
+    items: jsonb('items').$type<string[]>().notNull(),
+    shareLinkId: uuid('share_link_id').references(() => shareLinks.id, { onDelete: 'set null' }),
+    subject: text('subject').notNull(),
+    status: text('status', { enum: shareEmailStatuses }).notNull(),
+    error: text('error'),
+    sentAt: timestamptz('sent_at').notNull().defaultNow(),
+  },
+  (t) => [index('share_emails_meeting_idx').on(t.meetingId, t.recipient)],
+);
+
+export const chatMessages = pgTable(
+  'chat_messages',
+  {
+    id: id(),
+    meetingId: meetingId(),
+    dedupeKey: text('dedupe_key').notNull(),
+    sender: text('sender').notNull(),
+    text: text('text').notNull(),
+    links: jsonb('links').$type<string[]>().notNull().default([]),
+    sentAt: timestamptz('sent_at').notNull(),
+    offsetMs: integer('offset_ms').notNull(),
+  },
+  (t) => [
+    uniqueIndex('chat_messages_dedupe_idx').on(t.meetingId, t.dedupeKey),
+    index('chat_messages_meeting_offset_idx').on(t.meetingId, t.offsetMs),
+  ],
+);

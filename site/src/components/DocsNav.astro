@@ -1,0 +1,76 @@
+---
+import { docPath, type DocGroup } from '../lib/docs';
+
+interface Props {
+  groups: DocGroup[];
+  current: string;
+}
+
+const { groups, current } = Astro.props;
+---
+
+{
+  groups.map((g) => {
+    const list = (
+      <ul>
+        {g.pages.map((p) => (
+          <li>
+            <a href={docPath(p.slug)} aria-current={p.slug === current ? 'page' : undefined}>
+              {p.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+    const open = g.pages.some((p) => p.slug === current);
+    return g.collapsed ? (
+      <details class="group" open={open}>
+        <summary class="gh">{g.name}</summary>
+        {list}
+      </details>
+    ) : (
+      <div class="group">
+        <p class="gh">{g.name}</p>
+        {list}
+      </div>
+    );
+  })
+}
+
+<style>
+  .group {
+    margin-top: 1rem;
+  }
+  .gh {
+    margin: 0 0 0.375rem;
+    padding-left: 0.75rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  summary.gh {
+    cursor: pointer;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.125rem;
+  }
+  a {
+    display: block;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-m);
+    color: var(--muted);
+    text-decoration: none;
+  }
+  a:hover {
+    background: var(--hover);
+    color: var(--ink);
+  }
+  a[aria-current='page'] {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+  }
+</style>

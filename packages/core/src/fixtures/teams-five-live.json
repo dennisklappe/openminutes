@@ -1,0 +1,1453 @@
+{
+  "note": "Recorded 22 Oct 2026: five synthetic guests, a host and the bot in a Teams meeting. Segments are whisper small output with word times, events are the bot room tracker spans, truth is the schedule of the voice tracks. All times in ms from the first track sample.",
+  "segments": [
+    {
+      "startMs": 2960,
+      "endMs": 9140,
+      "text": "Good morning, everyone. Today we are planning the launch of the new mobile app. The release date is the 14th of November.",
+      "words": [
+        {
+          "startMs": 2960,
+          "endMs": 3480,
+          "text": "Good"
+        },
+        {
+          "startMs": 3480,
+          "endMs": 3820,
+          "text": "morning,"
+        },
+        {
+          "startMs": 3840,
+          "endMs": 4100,
+          "text": "everyone."
+        },
+        {
+          "startMs": 4500,
+          "endMs": 4660,
+          "text": "Today"
+        },
+        {
+          "startMs": 4660,
+          "endMs": 4940,
+          "text": "we"
+        },
+        {
+          "startMs": 4940,
+          "endMs": 5160,
+          "text": "are"
+        },
+        {
+          "startMs": 5160,
+          "endMs": 5500,
+          "text": "planning"
+        },
+        {
+          "startMs": 5500,
+          "endMs": 5740,
+          "text": "the"
+        },
+        {
+          "startMs": 5740,
+          "endMs": 5980,
+          "text": "launch"
+        },
+        {
+          "startMs": 5980,
+          "endMs": 6140,
+          "text": "of"
+        },
+        {
+          "startMs": 6140,
+          "endMs": 6260,
+          "text": "the"
+        },
+        {
+          "startMs": 6260,
+          "endMs": 6440,
+          "text": "new"
+        },
+        {
+          "startMs": 6440,
+          "endMs": 6700,
+          "text": "mobile"
+        },
+        {
+          "startMs": 6700,
+          "endMs": 7040,
+          "text": "app."
+        },
+        {
+          "startMs": 7240,
+          "endMs": 7280,
+          "text": "The"
+        },
+        {
+          "startMs": 7280,
+          "endMs": 7500,
+          "text": "release"
+        },
+        {
+          "startMs": 7500,
+          "endMs": 7800,
+          "text": "date"
+        },
+        {
+          "startMs": 7800,
+          "endMs": 8040,
+          "text": "is"
+        },
+        {
+          "startMs": 8040,
+          "endMs": 8180,
+          "text": "the"
+        },
+        {
+          "startMs": 8180,
+          "endMs": 8700,
+          "text": "14th"
+        },
+        {
+          "startMs": 8700,
+          "endMs": 8800,
+          "text": "of"
+        },
+        {
+          "startMs": 8800,
+          "endMs": 9140,
+          "text": "November."
+        }
+      ]
+    },
+    {
+      "startMs": 10600,
+      "endMs": 16760,
+      "text": "Thanks, Alice. The back-end is almost ready. I still need to finish the payment integration, which should take three days.",
+      "words": [
+        {
+          "startMs": 10600,
+          "endMs": 11160,
+          "text": "Thanks,"
+        },
+        {
+          "startMs": 11380,
+          "endMs": 11580,
+          "text": "Alice."
+        },
+        {
+          "startMs": 11920,
+          "endMs": 11920,
+          "text": "The"
+        },
+        {
+          "startMs": 11920,
+          "endMs": 12100,
+          "text": "back"
+        },
+        {
+          "startMs": 12100,
+          "endMs": 12340,
+          "text": "-end"
+        },
+        {
+          "startMs": 12340,
+          "endMs": 12580,
+          "text": "is"
+        },
+        {
+          "startMs": 12580,
+          "endMs": 12920,
+          "text": "almost"
+        },
+        {
+          "startMs": 12920,
+          "endMs": 13280,
+          "text": "ready."
+        },
+        {
+          "startMs": 13420,
+          "endMs": 13520,
+          "text": "I"
+        },
+        {
+          "startMs": 13520,
+          "endMs": 13740,
+          "text": "still"
+        },
+        {
+          "startMs": 13740,
+          "endMs": 13920,
+          "text": "need"
+        },
+        {
+          "startMs": 13920,
+          "endMs": 14100,
+          "text": "to"
+        },
+        {
+          "startMs": 14100,
+          "endMs": 14300,
+          "text": "finish"
+        },
+        {
+          "startMs": 14300,
+          "endMs": 14480,
+          "text": "the"
+        },
+        {
+          "startMs": 14480,
+          "endMs": 14760,
+          "text": "payment"
+        },
+        {
+          "startMs": 14760,
+          "endMs": 15400,
+          "text": "integration,"
+        },
+        {
+          "startMs": 15700,
+          "endMs": 15880,
+          "text": "which"
+        },
+        {
+          "startMs": 15880,
+          "endMs": 16060,
+          "text": "should"
+        },
+        {
+          "startMs": 16060,
+          "endMs": 16260,
+          "text": "take"
+        },
+        {
+          "startMs": 16260,
+          "endMs": 16480,
+          "text": "three"
+        },
+        {
+          "startMs": 16480,
+          "endMs": 16760,
+          "text": "days."
+        }
+      ]
+    },
+    {
+      "startMs": 17740,
+      "endMs": 23280,
+      "text": "I have finished the new onboarding screens and the design review is scheduled for Wednesday.",
+      "words": [
+        {
+          "startMs": 17740,
+          "endMs": 18300,
+          "text": "I"
+        },
+        {
+          "startMs": 18300,
+          "endMs": 18500,
+          "text": "have"
+        },
+        {
+          "startMs": 18500,
+          "endMs": 18840,
+          "text": "finished"
+        },
+        {
+          "startMs": 18840,
+          "endMs": 19200,
+          "text": "the"
+        },
+        {
+          "startMs": 19200,
+          "endMs": 19380,
+          "text": "new"
+        },
+        {
+          "startMs": 19380,
+          "endMs": 20000,
+          "text": "onboarding"
+        },
+        {
+          "startMs": 20000,
+          "endMs": 20340,
+          "text": "screens"
+        },
+        {
+          "startMs": 20340,
+          "endMs": 20860,
+          "text": "and"
+        },
+        {
+          "startMs": 20860,
+          "endMs": 21000,
+          "text": "the"
+        },
+        {
+          "startMs": 21000,
+          "endMs": 21380,
+          "text": "design"
+        },
+        {
+          "startMs": 21380,
+          "endMs": 21780,
+          "text": "review"
+        },
+        {
+          "startMs": 21780,
+          "endMs": 22240,
+          "text": "is"
+        },
+        {
+          "startMs": 22240,
+          "endMs": 22600,
+          "text": "scheduled"
+        },
+        {
+          "startMs": 22600,
+          "endMs": 22940,
+          "text": "for"
+        },
+        {
+          "startMs": 22940,
+          "endMs": 23280,
+          "text": "Wednesday."
+        }
+      ]
+    },
+    {
+      "startMs": 23520,
+      "endMs": 29680,
+      "text": "On the infrastructure side, the staging servers are ready and I will run the load test on Thursday.",
+      "words": [
+        {
+          "startMs": 23520,
+          "endMs": 23520,
+          "text": "On"
+        },
+        {
+          "startMs": 23520,
+          "endMs": 23680,
+          "text": "the"
+        },
+        {
+          "startMs": 23680,
+          "endMs": 24400,
+          "text": "infrastructure"
+        },
+        {
+          "startMs": 24400,
+          "endMs": 25100,
+          "text": "side,"
+        },
+        {
+          "startMs": 25440,
+          "endMs": 25560,
+          "text": "the"
+        },
+        {
+          "startMs": 25560,
+          "endMs": 25980,
+          "text": "staging"
+        },
+        {
+          "startMs": 25980,
+          "endMs": 26520,
+          "text": "servers"
+        },
+        {
+          "startMs": 26520,
+          "endMs": 26800,
+          "text": "are"
+        },
+        {
+          "startMs": 26800,
+          "endMs": 27100,
+          "text": "ready"
+        },
+        {
+          "startMs": 27100,
+          "endMs": 27380,
+          "text": "and"
+        },
+        {
+          "startMs": 27380,
+          "endMs": 27560,
+          "text": "I"
+        },
+        {
+          "startMs": 27560,
+          "endMs": 27740,
+          "text": "will"
+        },
+        {
+          "startMs": 27740,
+          "endMs": 28040,
+          "text": "run"
+        },
+        {
+          "startMs": 28040,
+          "endMs": 28220,
+          "text": "the"
+        },
+        {
+          "startMs": 28220,
+          "endMs": 28480,
+          "text": "load"
+        },
+        {
+          "startMs": 28480,
+          "endMs": 28820,
+          "text": "test"
+        },
+        {
+          "startMs": 28820,
+          "endMs": 29160,
+          "text": "on"
+        },
+        {
+          "startMs": 29160,
+          "endMs": 29680,
+          "text": "Thursday."
+        }
+      ]
+    },
+    {
+      "startMs": 29680,
+      "endMs": 34900,
+      "text": "I will write the release notes and update the help center before the launch.",
+      "words": [
+        {
+          "startMs": 29680,
+          "endMs": 30240,
+          "text": "I"
+        },
+        {
+          "startMs": 30240,
+          "endMs": 31400,
+          "text": "will"
+        },
+        {
+          "startMs": 31400,
+          "endMs": 31620,
+          "text": "write"
+        },
+        {
+          "startMs": 31620,
+          "endMs": 31820,
+          "text": "the"
+        },
+        {
+          "startMs": 31820,
+          "endMs": 32100,
+          "text": "release"
+        },
+        {
+          "startMs": 32100,
+          "endMs": 32520,
+          "text": "notes"
+        },
+        {
+          "startMs": 32520,
+          "endMs": 32760,
+          "text": "and"
+        },
+        {
+          "startMs": 32760,
+          "endMs": 32960,
+          "text": "update"
+        },
+        {
+          "startMs": 32960,
+          "endMs": 33260,
+          "text": "the"
+        },
+        {
+          "startMs": 33260,
+          "endMs": 33480,
+          "text": "help"
+        },
+        {
+          "startMs": 33480,
+          "endMs": 33940,
+          "text": "center"
+        },
+        {
+          "startMs": 33940,
+          "endMs": 34280,
+          "text": "before"
+        },
+        {
+          "startMs": 34280,
+          "endMs": 34480,
+          "text": "the"
+        },
+        {
+          "startMs": 34480,
+          "endMs": 34900,
+          "text": "launch."
+        }
+      ]
+    },
+    {
+      "startMs": 36420,
+      "endMs": 42460,
+      "text": "Great. Then I will prepare the marketing campaign and send the press release to the newsletter list by next Monday.",
+      "words": [
+        {
+          "startMs": 36420,
+          "endMs": 36900,
+          "text": "Great."
+        },
+        {
+          "startMs": 37300,
+          "endMs": 37420,
+          "text": "Then"
+        },
+        {
+          "startMs": 37420,
+          "endMs": 37540,
+          "text": "I"
+        },
+        {
+          "startMs": 37540,
+          "endMs": 37660,
+          "text": "will"
+        },
+        {
+          "startMs": 37660,
+          "endMs": 37980,
+          "text": "prepare"
+        },
+        {
+          "startMs": 37980,
+          "endMs": 38160,
+          "text": "the"
+        },
+        {
+          "startMs": 38160,
+          "endMs": 38460,
+          "text": "marketing"
+        },
+        {
+          "startMs": 38460,
+          "endMs": 38960,
+          "text": "campaign"
+        },
+        {
+          "startMs": 38960,
+          "endMs": 39240,
+          "text": "and"
+        },
+        {
+          "startMs": 39240,
+          "endMs": 39440,
+          "text": "send"
+        },
+        {
+          "startMs": 39440,
+          "endMs": 39560,
+          "text": "the"
+        },
+        {
+          "startMs": 39560,
+          "endMs": 39760,
+          "text": "press"
+        },
+        {
+          "startMs": 39760,
+          "endMs": 40120,
+          "text": "release"
+        },
+        {
+          "startMs": 40120,
+          "endMs": 40360,
+          "text": "to"
+        },
+        {
+          "startMs": 40360,
+          "endMs": 40460,
+          "text": "the"
+        },
+        {
+          "startMs": 40460,
+          "endMs": 40740,
+          "text": "newsletter"
+        },
+        {
+          "startMs": 40740,
+          "endMs": 41300,
+          "text": "list"
+        },
+        {
+          "startMs": 41300,
+          "endMs": 41840,
+          "text": "by"
+        },
+        {
+          "startMs": 41840,
+          "endMs": 42140,
+          "text": "next"
+        },
+        {
+          "startMs": 42140,
+          "endMs": 42460,
+          "text": "Monday."
+        }
+      ]
+    },
+    {
+      "startMs": 43280,
+      "endMs": 43580,
+      "text": "Yes.",
+      "words": [
+        {
+          "startMs": 43280,
+          "endMs": 43580,
+          "text": "Yes."
+        }
+      ]
+    },
+    {
+      "startMs": 45420,
+      "endMs": 51000,
+      "text": "One risk is the app store review. Last time it took a week, so we should submit the bill by the 7th of November.",
+      "words": [
+        {
+          "startMs": 45420,
+          "endMs": 45900,
+          "text": "One"
+        },
+        {
+          "startMs": 45900,
+          "endMs": 46160,
+          "text": "risk"
+        },
+        {
+          "startMs": 46160,
+          "endMs": 46400,
+          "text": "is"
+        },
+        {
+          "startMs": 46400,
+          "endMs": 46540,
+          "text": "the"
+        },
+        {
+          "startMs": 46540,
+          "endMs": 46780,
+          "text": "app"
+        },
+        {
+          "startMs": 46780,
+          "endMs": 47000,
+          "text": "store"
+        },
+        {
+          "startMs": 47000,
+          "endMs": 47380,
+          "text": "review."
+        },
+        {
+          "startMs": 47600,
+          "endMs": 47740,
+          "text": "Last"
+        },
+        {
+          "startMs": 47740,
+          "endMs": 48040,
+          "text": "time"
+        },
+        {
+          "startMs": 48040,
+          "endMs": 48140,
+          "text": "it"
+        },
+        {
+          "startMs": 48140,
+          "endMs": 48300,
+          "text": "took"
+        },
+        {
+          "startMs": 48300,
+          "endMs": 48460,
+          "text": "a"
+        },
+        {
+          "startMs": 48460,
+          "endMs": 48680,
+          "text": "week,"
+        },
+        {
+          "startMs": 48860,
+          "endMs": 49040,
+          "text": "so"
+        },
+        {
+          "startMs": 49040,
+          "endMs": 49160,
+          "text": "we"
+        },
+        {
+          "startMs": 49160,
+          "endMs": 49300,
+          "text": "should"
+        },
+        {
+          "startMs": 49300,
+          "endMs": 49560,
+          "text": "submit"
+        },
+        {
+          "startMs": 49560,
+          "endMs": 49720,
+          "text": "the"
+        },
+        {
+          "startMs": 49720,
+          "endMs": 49880,
+          "text": "bill"
+        },
+        {
+          "startMs": 49880,
+          "endMs": 50100,
+          "text": "by"
+        },
+        {
+          "startMs": 50100,
+          "endMs": 50200,
+          "text": "the"
+        },
+        {
+          "startMs": 50200,
+          "endMs": 50600,
+          "text": "7th"
+        },
+        {
+          "startMs": 50600,
+          "endMs": 50620,
+          "text": "of"
+        },
+        {
+          "startMs": 50620,
+          "endMs": 51000,
+          "text": "November."
+        }
+      ]
+    },
+    {
+      "startMs": 51800,
+      "endMs": 52060,
+      "text": "Right.",
+      "words": [
+        {
+          "startMs": 51800,
+          "endMs": 52060,
+          "text": "Right."
+        }
+      ]
+    },
+    {
+      "startMs": 53220,
+      "endMs": 58260,
+      "text": "Do we have a budget for the launch event? Yes, I will confirm the budget of 5,000 euros with finance.",
+      "words": [
+        {
+          "startMs": 53220,
+          "endMs": 53700,
+          "text": "Do"
+        },
+        {
+          "startMs": 53700,
+          "endMs": 53820,
+          "text": "we"
+        },
+        {
+          "startMs": 53820,
+          "endMs": 53940,
+          "text": "have"
+        },
+        {
+          "startMs": 53940,
+          "endMs": 54020,
+          "text": "a"
+        },
+        {
+          "startMs": 54020,
+          "endMs": 54240,
+          "text": "budget"
+        },
+        {
+          "startMs": 54240,
+          "endMs": 54440,
+          "text": "for"
+        },
+        {
+          "startMs": 54440,
+          "endMs": 54580,
+          "text": "the"
+        },
+        {
+          "startMs": 54580,
+          "endMs": 54800,
+          "text": "launch"
+        },
+        {
+          "startMs": 54800,
+          "endMs": 55100,
+          "text": "event?"
+        },
+        {
+          "startMs": 55260,
+          "endMs": 55260,
+          "text": "Yes,"
+        },
+        {
+          "startMs": 55300,
+          "endMs": 55360,
+          "text": "I"
+        },
+        {
+          "startMs": 55360,
+          "endMs": 55500,
+          "text": "will"
+        },
+        {
+          "startMs": 55500,
+          "endMs": 55820,
+          "text": "confirm"
+        },
+        {
+          "startMs": 55820,
+          "endMs": 56060,
+          "text": "the"
+        },
+        {
+          "startMs": 56060,
+          "endMs": 56320,
+          "text": "budget"
+        },
+        {
+          "startMs": 56320,
+          "endMs": 56500,
+          "text": "of"
+        },
+        {
+          "startMs": 56500,
+          "endMs": 56800,
+          "text": "5"
+        },
+        {
+          "startMs": 56800,
+          "endMs": 57180,
+          "text": ",000"
+        },
+        {
+          "startMs": 57180,
+          "endMs": 57540,
+          "text": "euros"
+        },
+        {
+          "startMs": 57540,
+          "endMs": 57900,
+          "text": "with"
+        },
+        {
+          "startMs": 57900,
+          "endMs": 58260,
+          "text": "finance."
+        }
+      ]
+    },
+    {
+      "startMs": 59680,
+      "endMs": 68180,
+      "text": "I can prepare the demo videos for the event if Dave shares the staging link. Sure. I will send the staging link to Carol this afternoon.",
+      "words": [
+        {
+          "startMs": 59680,
+          "endMs": 59960,
+          "text": "I"
+        },
+        {
+          "startMs": 59960,
+          "endMs": 60160,
+          "text": "can"
+        },
+        {
+          "startMs": 60160,
+          "endMs": 60540,
+          "text": "prepare"
+        },
+        {
+          "startMs": 60540,
+          "endMs": 60820,
+          "text": "the"
+        },
+        {
+          "startMs": 60820,
+          "endMs": 61100,
+          "text": "demo"
+        },
+        {
+          "startMs": 61100,
+          "endMs": 61620,
+          "text": "videos"
+        },
+        {
+          "startMs": 61620,
+          "endMs": 61920,
+          "text": "for"
+        },
+        {
+          "startMs": 61920,
+          "endMs": 62040,
+          "text": "the"
+        },
+        {
+          "startMs": 62040,
+          "endMs": 62480,
+          "text": "event"
+        },
+        {
+          "startMs": 62480,
+          "endMs": 62800,
+          "text": "if"
+        },
+        {
+          "startMs": 62800,
+          "endMs": 63000,
+          "text": "Dave"
+        },
+        {
+          "startMs": 63000,
+          "endMs": 63420,
+          "text": "shares"
+        },
+        {
+          "startMs": 63420,
+          "endMs": 63740,
+          "text": "the"
+        },
+        {
+          "startMs": 63740,
+          "endMs": 64100,
+          "text": "staging"
+        },
+        {
+          "startMs": 64100,
+          "endMs": 64480,
+          "text": "link."
+        },
+        {
+          "startMs": 64580,
+          "endMs": 64800,
+          "text": "Sure."
+        },
+        {
+          "startMs": 65040,
+          "endMs": 65140,
+          "text": "I"
+        },
+        {
+          "startMs": 65140,
+          "endMs": 65320,
+          "text": "will"
+        },
+        {
+          "startMs": 65320,
+          "endMs": 65620,
+          "text": "send"
+        },
+        {
+          "startMs": 65620,
+          "endMs": 65860,
+          "text": "the"
+        },
+        {
+          "startMs": 65860,
+          "endMs": 66260,
+          "text": "staging"
+        },
+        {
+          "startMs": 66260,
+          "endMs": 66640,
+          "text": "link"
+        },
+        {
+          "startMs": 66640,
+          "endMs": 66880,
+          "text": "to"
+        },
+        {
+          "startMs": 66880,
+          "endMs": 67200,
+          "text": "Carol"
+        },
+        {
+          "startMs": 67200,
+          "endMs": 67560,
+          "text": "this"
+        },
+        {
+          "startMs": 67560,
+          "endMs": 68180,
+          "text": "afternoon."
+        }
+      ]
+    },
+    {
+      "startMs": 69680,
+      "endMs": 74500,
+      "text": "Understood. I will submit the bill on the 7th and report back on Friday. Okay.",
+      "words": [
+        {
+          "startMs": 69680,
+          "endMs": 70240,
+          "text": "Understood."
+        },
+        {
+          "startMs": 70500,
+          "endMs": 70560,
+          "text": "I"
+        },
+        {
+          "startMs": 70560,
+          "endMs": 70680,
+          "text": "will"
+        },
+        {
+          "startMs": 70680,
+          "endMs": 70940,
+          "text": "submit"
+        },
+        {
+          "startMs": 70940,
+          "endMs": 71120,
+          "text": "the"
+        },
+        {
+          "startMs": 71120,
+          "endMs": 71360,
+          "text": "bill"
+        },
+        {
+          "startMs": 71360,
+          "endMs": 71540,
+          "text": "on"
+        },
+        {
+          "startMs": 71540,
+          "endMs": 71660,
+          "text": "the"
+        },
+        {
+          "startMs": 71660,
+          "endMs": 72080,
+          "text": "7th"
+        },
+        {
+          "startMs": 72080,
+          "endMs": 72240,
+          "text": "and"
+        },
+        {
+          "startMs": 72240,
+          "endMs": 72520,
+          "text": "report"
+        },
+        {
+          "startMs": 72520,
+          "endMs": 72840,
+          "text": "back"
+        },
+        {
+          "startMs": 72840,
+          "endMs": 73100,
+          "text": "on"
+        },
+        {
+          "startMs": 73100,
+          "endMs": 73340,
+          "text": "Friday."
+        },
+        {
+          "startMs": 74040,
+          "endMs": 74500,
+          "text": "Okay."
+        }
+      ]
+    },
+    {
+      "startMs": 76080,
+      "endMs": 79640,
+      "text": "Perfect. Eve, please send the notes to the whole team after the call.",
+      "words": [
+        {
+          "startMs": 76080,
+          "endMs": 76640,
+          "text": "Perfect."
+        },
+        {
+          "startMs": 77060,
+          "endMs": 77220,
+          "text": "Eve,"
+        },
+        {
+          "startMs": 77400,
+          "endMs": 77600,
+          "text": "please"
+        },
+        {
+          "startMs": 77600,
+          "endMs": 77900,
+          "text": "send"
+        },
+        {
+          "startMs": 77900,
+          "endMs": 78060,
+          "text": "the"
+        },
+        {
+          "startMs": 78060,
+          "endMs": 78280,
+          "text": "notes"
+        },
+        {
+          "startMs": 78280,
+          "endMs": 78500,
+          "text": "to"
+        },
+        {
+          "startMs": 78500,
+          "endMs": 78580,
+          "text": "the"
+        },
+        {
+          "startMs": 78580,
+          "endMs": 78760,
+          "text": "whole"
+        },
+        {
+          "startMs": 78760,
+          "endMs": 79060,
+          "text": "team"
+        },
+        {
+          "startMs": 79060,
+          "endMs": 79320,
+          "text": "after"
+        },
+        {
+          "startMs": 79320,
+          "endMs": 79500,
+          "text": "the"
+        },
+        {
+          "startMs": 79500,
+          "endMs": 79640,
+          "text": "call."
+        }
+      ]
+    },
+    {
+      "startMs": 80160,
+      "endMs": 83980,
+      "text": "I will share the notes tomorrow morning. Agreed.",
+      "words": [
+        {
+          "startMs": 80160,
+          "endMs": 80220,
+          "text": "I"
+        },
+        {
+          "startMs": 80220,
+          "endMs": 80400,
+          "text": "will"
+        },
+        {
+          "startMs": 80400,
+          "endMs": 80720,
+          "text": "share"
+        },
+        {
+          "startMs": 80720,
+          "endMs": 80920,
+          "text": "the"
+        },
+        {
+          "startMs": 80920,
+          "endMs": 81260,
+          "text": "notes"
+        },
+        {
+          "startMs": 81260,
+          "endMs": 81620,
+          "text": "tomorrow"
+        },
+        {
+          "startMs": 81620,
+          "endMs": 82140,
+          "text": "morning."
+        },
+        {
+          "startMs": 83420,
+          "endMs": 83980,
+          "text": "Agreed."
+        }
+      ]
+    },
+    {
+      "startMs": 85140,
+      "endMs": 88160,
+      "text": "Thanks, everybody. Let us talk again next Tuesday.",
+      "words": [
+        {
+          "startMs": 85140,
+          "endMs": 85700,
+          "text": "Thanks,"
+        },
+        {
+          "startMs": 85900,
+          "endMs": 86200,
+          "text": "everybody."
+        },
+        {
+          "startMs": 86740,
+          "endMs": 86840,
+          "text": "Let"
+        },
+        {
+          "startMs": 86840,
+          "endMs": 87020,
+          "text": "us"
+        },
+        {
+          "startMs": 87020,
+          "endMs": 87240,
+          "text": "talk"
+        },
+        {
+          "startMs": 87240,
+          "endMs": 87540,
+          "text": "again"
+        },
+        {
+          "startMs": 87540,
+          "endMs": 87860,
+          "text": "next"
+        },
+        {
+          "startMs": 87860,
+          "endMs": 88160,
+          "text": "Tuesday."
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "participantId": "Alice Johnson",
+      "startMs": 4179,
+      "endMs": 11177
+    },
+    {
+      "participantId": "Bob Smith",
+      "startMs": 12180,
+      "endMs": 19176
+    },
+    {
+      "participantId": "Carol Meyer",
+      "startMs": 19177,
+      "endMs": 25177
+    },
+    {
+      "participantId": "Dave Okafor",
+      "startMs": 24180,
+      "endMs": 32179
+    },
+    {
+      "participantId": "Eve Lindqvist",
+      "startMs": 32182,
+      "endMs": 37180
+    },
+    {
+      "participantId": "Alice Johnson",
+      "startMs": 37180,
+      "endMs": 44179
+    },
+    {
+      "participantId": "Carol Meyer",
+      "startMs": 44180,
+      "endMs": 46180
+    },
+    {
+      "participantId": "Bob Smith",
+      "startMs": 46180,
+      "endMs": 53186
+    },
+    {
+      "participantId": "Dave Okafor",
+      "startMs": 52184,
+      "endMs": 70197
+    },
+    {
+      "participantId": "Eve Lindqvist",
+      "startMs": 54185,
+      "endMs": 57187
+    },
+    {
+      "participantId": "Alice Johnson",
+      "startMs": 55184,
+      "endMs": 60188
+    },
+    {
+      "participantId": "Carol Meyer",
+      "startMs": 60187,
+      "endMs": 66189
+    },
+    {
+      "participantId": "Bob Smith",
+      "startMs": 70195,
+      "endMs": 75200
+    },
+    {
+      "participantId": "Eve Lindqvist",
+      "startMs": 75200,
+      "endMs": 77202
+    },
+    {
+      "participantId": "Alice Johnson",
+      "startMs": 77204,
+      "endMs": 82206
+    },
+    {
+      "participantId": "Eve Lindqvist",
+      "startMs": 80205,
+      "endMs": 84205
+    },
+    {
+      "participantId": "Dave Okafor",
+      "startMs": 84204,
+      "endMs": 86204
+    },
+    {
+      "participantId": "Alice Johnson",
+      "startMs": 86203,
+      "endMs": 90206
+    }
+  ],
+  "truth": [
+    {
+      "speaker": "Alice Johnson",
+      "startMs": 3000,
+      "endMs": 9154,
+      "text": "Good morning everyone. Today we are planning the launch of the new mobile app. The release date is the fourteenth of November."
+    },
+    {
+      "speaker": "Bob Smith",
+      "startMs": 10654,
+      "endMs": 16653,
+      "text": "Thanks Alice. The backend is almost ready. I still need to finish the payment integration, which should take three days."
+    },
+    {
+      "speaker": "Carol Meyer",
+      "startMs": 18153,
+      "endMs": 23559,
+      "text": "I have finished the new onboarding screens, and the design review is scheduled for Wednesday."
+    },
+    {
+      "speaker": "Dave Okafor",
+      "startMs": 23059,
+      "endMs": 29611,
+      "text": "On the infrastructure side, the staging servers are ready and I will run the load test on Thursday."
+    },
+    {
+      "speaker": "Eve Lindqvist",
+      "startMs": 31111,
+      "endMs": 34950,
+      "text": "I will write the release notes and update the help center before the launch."
+    },
+    {
+      "speaker": "Alice Johnson",
+      "startMs": 36450,
+      "endMs": 42414,
+      "text": "Great. Then I will prepare the marketing campaign and send the press release to the newsletter list by next Monday."
+    },
+    {
+      "speaker": "Carol Meyer",
+      "startMs": 43314,
+      "endMs": 43902,
+      "text": "Yes."
+    },
+    {
+      "speaker": "Bob Smith",
+      "startMs": 45402,
+      "endMs": 50913,
+      "text": "One risk is the app store review. Last time it took a week, so we should submit the build by the seventh of November."
+    },
+    {
+      "speaker": "Dave Okafor",
+      "startMs": 51613,
+      "endMs": 52016,
+      "text": "Right."
+    },
+    {
+      "speaker": "Eve Lindqvist",
+      "startMs": 53516,
+      "endMs": 55243,
+      "text": "Do we have a budget for the launch event?"
+    },
+    {
+      "speaker": "Alice Johnson",
+      "startMs": 54543,
+      "endMs": 58286,
+      "text": "Yes, I will confirm the budget of five thousand euros with finance."
+    },
+    {
+      "speaker": "Carol Meyer",
+      "startMs": 59786,
+      "endMs": 64627,
+      "text": "I can prepare the demo videos for the event if Dave shares the staging link."
+    },
+    {
+      "speaker": "Dave Okafor",
+      "startMs": 64327,
+      "endMs": 68122,
+      "text": "Sure, I will send the staging link to Carol this afternoon."
+    },
+    {
+      "speaker": "Bob Smith",
+      "startMs": 69622,
+      "endMs": 73284,
+      "text": "Understood. I will submit the build on the seventh and report back on Friday."
+    },
+    {
+      "speaker": "Eve Lindqvist",
+      "startMs": 74084,
+      "endMs": 74682,
+      "text": "Okay."
+    },
+    {
+      "speaker": "Alice Johnson",
+      "startMs": 76182,
+      "endMs": 79659,
+      "text": "Perfect. Eve, please send the notes to the whole team after the call."
+    },
+    {
+      "speaker": "Eve Lindqvist",
+      "startMs": 79159,
+      "endMs": 82239,
+      "text": "Will do. I will share the notes tomorrow morning."
+    },
+    {
+      "speaker": "Dave Okafor",
+      "startMs": 83139,
+      "endMs": 83795,
+      "text": "Agreed."
+    },
+    {
+      "speaker": "Alice Johnson",
+      "startMs": 85295,
+      "endMs": 88266,
+      "text": "Thanks everybody. Let us talk again next Tuesday."
+    }
+  ]
+}

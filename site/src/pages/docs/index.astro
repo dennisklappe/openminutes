@@ -1,0 +1,13 @@
+---
+import { render } from 'astro:content';
+import Docs from '../../layouts/Docs.astro';
+import { docTree } from '../../lib/docs';
+
+const page = (await docTree()).groups.flatMap((g) => g.pages).find((p) => p.slug === 'README');
+if (!page) throw new Error('docs/_nav.json must list README as the overview');
+const { Content, headings } = await render(page.entry);
+---
+
+<Docs {page} {headings}>
+  <Content />
+</Docs>

@@ -1,0 +1,42 @@
+---
+import '../demo/app.css';
+import '../demo/ai-edit.css';
+import '../demo/demo.css';
+
+const alt =
+  'The OpenMinutes meeting page: transcript with a speaker timeline and audio player, talk time per speaker, and the minutes card to share';
+---
+
+<div class="omd-frame" data-demo>
+  <picture>
+    <source media="(max-width: 639px) and (prefers-color-scheme: dark)" srcset="/images/demo-m-dark.webp" />
+    <source media="(max-width: 639px)" srcset="/images/demo-m-light.webp" />
+    <source media="(prefers-color-scheme: dark)" srcset="/images/demo-dark.webp" />
+    <img src="/images/demo-light.webp" {alt} width="2144" height="1522" fetchpriority="high" decoding="sync" />
+  </picture>
+</div>
+<p class="omd-caption">Interactive demo with synthetic voices and fictional data.</p>
+<p class="omd-note" role="status" data-demo-note></p>
+
+<script>
+  const frame = document.querySelector<HTMLElement>('[data-demo]');
+  const note = document.querySelector<HTMLElement>('[data-demo-note]');
+  if (frame && note) {
+    const start = async () => {
+      const { mount } = await import('../demo/app');
+      const root = document.createElement('div');
+      root.className = 'omd';
+      frame.replaceChildren(root);
+      mount(root, note);
+    };
+    new IntersectionObserver(
+      (entries, observer) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          void start();
+        }
+      },
+      { rootMargin: '200px' },
+    ).observe(frame);
+  }
+</script>

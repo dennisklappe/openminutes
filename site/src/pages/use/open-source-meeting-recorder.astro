@@ -1,0 +1,70 @@
+---
+import SeoPage from '../../layouts/SeoPage.astro';
+import { omLimits } from '../../facts/seo-facts.mjs';
+import { repo } from '../../lib/site';
+
+const faq = [
+  {
+    q: 'What licence is OpenMinutes under?',
+    a: 'AGPL-3.0. You can use, study and change it. If you modify it and let other people use it over a network, the licence requires you to offer them the modified source. Read the licence text for the exact terms.',
+  },
+  {
+    q: 'Does it record video or the screen?',
+    a: 'No. It records the meeting audio, the participant list, who is speaking and the meeting chat. It is not a screen recorder.',
+  },
+  {
+    q: 'Does it phone home?',
+    a: 'No telemetry and no account. The only outbound traffic is to the calendar, mail and AI providers you configure.',
+  },
+  {
+    q: 'Can I record in-person conversations?',
+    a: 'Yes, with the phone recorder, an installable web app that records in the browser, also offline, and uploads when it can. There is no native mobile app.',
+  },
+];
+---
+
+<SeoPage
+  title="Open source meeting recorder and transcriber | OpenMinutes"
+  description="An AGPL-3.0 meeting recorder: a bot joins Google Meet and Microsoft Teams, records audio and writes a transcript with speakers. Self-hosted, no telemetry."
+  h1="An open source meeting recorder"
+  lede="OpenMinutes records the audio of your Google Meet and Microsoft Teams meetings and turns it into a transcript with names. The code is licensed AGPL-3.0 and you run it yourself."
+  crumbs={[{ name: 'Use cases', path: '/compare' }, { name: 'Open source recorder', path: '/use/open-source-meeting-recorder' }]}
+  {faq}
+  related={[
+    { href: '/use/self-hosted-ai-meeting-notetaker', label: 'Self-hosted AI meeting notetaker' },
+    { href: '/compare', label: 'Compare with hosted notetakers' },
+    { href: '/docs', label: 'Documentation' },
+  ]}
+>
+  <h2>What it records</h2>
+  <ul>
+    <li>Audio of the meeting, in segments, as a bot that joins under its own visible name.</li>
+    <li>Who is in the call and who is speaking, read from the meeting page about four times a second, matched to the transcript words (<a href="/docs/speakers">how</a>).</li>
+    <li>The meeting chat, kept next to the transcript (<a href="/docs/chat">chat</a>).</li>
+    <li>In-person talks and phone calls through the <a href="/docs/phone-recorder">phone recorder</a>.</li>
+  </ul>
+  <p>It does not record video or screen shares.</p>
+
+  <h2>What you get out of it</h2>
+  <p>
+    A transcript with speaker names, an optional summary, and minutes you can share as a link or export to HTML, Markdown, Word,
+    Google Docs or OneDrive, or send by email only when you click send. Details in <a href="/docs/minutes">minutes</a>.
+  </p>
+
+  <h2>Open source, what that means here</h2>
+  <ul>
+    <li>Licence: AGPL-3.0, no licence key, no feature held back for the hosted version.</li>
+    <li>Source and issues: <a href={repo}>{repo.replace('https://', '')}</a>.</li>
+    <li>No telemetry, no account. Secrets you enter are encrypted at rest in your own database.</li>
+    <li>Hosting it ourselves is an option, not a requirement: <a href="/hosting">hosting</a>.</li>
+  </ul>
+
+  <h2>Limits you should know</h2>
+  <ul>
+    {omLimits.map((l: { text: string; href: string; label: string }) => <li>{l.text} <a href={l.href}>{l.label}</a></li>)}
+  </ul>
+  <p>
+    If you need a screen recorder, a Zoom recorder or a polished app, this is not it. If you want a hosted product instead, see
+    <a href="/compare">the comparisons</a>.
+  </p>
+</SeoPage>

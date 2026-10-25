@@ -1,0 +1,79 @@
+---
+// Switches between light and dark (a first click leaves the system default). State lives in <html data-pref> and the choice in localStorage,
+// both handled by the inline script in Base.astro (window.omTheme) so there is no flash.
+---
+
+<button type="button" class="theme" data-theme-toggle aria-label="Switch colour theme">
+  <svg class="i i-light" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4"></circle>
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+  </svg>
+  <svg class="i i-dark" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+  </svg>
+</button>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+  const api = (window as unknown as { omTheme?: { get(): string; set(p: string): void } }).omTheme;
+  const dark = matchMedia('(prefers-color-scheme: dark)');
+  if (button && api) {
+    const current = () => {
+      const pref = api.get();
+      return pref === 'system' ? (dark.matches ? 'dark' : 'light') : pref;
+    };
+    const label = () => {
+      button.setAttribute('aria-label', `Switch to ${current() === 'dark' ? 'light' : 'dark'} mode`);
+    };
+    label();
+    dark.addEventListener('change', label);
+    button.addEventListener('click', () => {
+      api.set(current() === 'dark' ? 'light' : 'dark');
+      label();
+    });
+  }
+</script>
+
+<style>
+  .theme {
+    display: inline-grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-left: 0.25rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-m);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .theme:hover {
+    color: var(--ink);
+    background: var(--hover);
+  }
+  @media (pointer: coarse), (max-width: 640px) {
+    .theme {
+      width: 2.75rem;
+      height: 2.75rem;
+      margin-left: 0;
+    }
+  }
+  .i-dark {
+    display: none;
+  }
+  :global(:root[data-pref='dark']) .i-light {
+    display: none;
+  }
+  :global(:root[data-pref='dark']) .i-dark {
+    display: block;
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(:root[data-pref='system']) .i-light {
+      display: none;
+    }
+    :global(:root[data-pref='system']) .i-dark {
+      display: block;
+    }
+  }
+</style>

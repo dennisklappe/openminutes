@@ -1,0 +1,114 @@
+---
+import SeoPage from '../../layouts/SeoPage.astro';
+import { competitorList } from '../../facts/seo-facts.mjs';
+
+const faq = [
+  {
+    q: 'Does self-hosting make meeting notes GDPR compliant?',
+    a: 'No. Self-hosting changes where the data sits and who else touches it, but you remain the controller. You still need a lawful basis, must inform participants, and must honour retention, access and deletion. This page is general information, not legal advice.',
+  },
+  {
+    q: 'Is a meeting transcript personal data?',
+    a: 'Usually yes. The GDPR defines personal data as any information relating to an identified or identifiable person, and a transcript with names attached fits that. Whether yours does is for you or your adviser to decide.',
+  },
+  {
+    q: 'Can I keep everything inside the EU?',
+    a: 'If you run OpenMinutes on a server in the EU and use local transcription and a self-hosted summary model, the audio and text stay there. The meeting platform itself is run by Google or Microsoft, and any cloud AI provider you add gets the audio or text. Check where each one processes data.',
+  },
+  {
+    q: 'What does OpenMinutes delete automatically?',
+    a: 'You can turn on deleting audio after a number of days. Transcripts and summaries stay until you delete the meeting, so you need your own retention routine for those.',
+  },
+];
+---
+
+<SeoPage
+  title="Meeting notes and GDPR on your own server | OpenMinutes"
+  description="What the GDPR means for recording and transcribing meetings, what self-hosting changes, and where popular notetakers say they store data. With sources."
+  h1="Meeting notes and GDPR: keeping the data on your server"
+  lede="Recordings and transcripts of meetings are personal data. Self-hosting gives you control over where they live and who touches them. It does not remove your duties."
+  crumbs={[{ name: 'Use cases', path: '/compare' }, { name: 'GDPR meeting notes', path: '/use/gdpr-meeting-notes' }]}
+  {faq}
+  verified
+  related={[
+    { href: '/docs/consent-and-legal', label: 'Consent and legal notes' },
+    { href: '/use/self-hosted-ai-meeting-notetaker', label: 'Self-hosted AI meeting notetaker' },
+    { href: '/compare', label: 'Compare with hosted notetakers' },
+    { href: '/privacy', label: 'Our privacy policy' },
+  ]}
+>
+  <div class="callout">
+    <p>
+      <strong>Not legal advice</strong>
+      This is general information with sources, written by a software maker. Ask your data protection officer or a lawyer about your
+      own situation.
+    </p>
+  </div>
+
+  <h2>What the GDPR says that matters here</h2>
+  <ul>
+    <li>
+      Personal data is any information relating to an identified or identifiable person, and processing includes recording and storing it
+      (<a href="https://gdpr-info.eu/art-4-gdpr/" rel="nofollow noopener">Article 4</a>). A meeting recording or transcript with identifiable speakers fits those
+      definitions. That is our reading.
+    </li>
+    <li>You need a lawful basis, for example consent or legitimate interests (<a href="https://gdpr-info.eu/art-6-gdpr/" rel="nofollow noopener">Article 6</a>).</li>
+    <li>You must give people certain information, including planned transfers to third countries (<a href="https://gdpr-info.eu/art-13-gdpr/" rel="nofollow noopener">Article 13</a>).</li>
+    <li>Transfers outside the EU are allowed only if the conditions of Chapter V are met (<a href="https://gdpr-info.eu/art-44-gdpr/" rel="nofollow noopener">Article 44</a>).</li>
+  </ul>
+
+  <h2>What self-hosting changes</h2>
+  <ul>
+    <li><strong>Location.</strong> The database and storage are where you put them, including your own S3-compatible bucket in the EU.</li>
+    <li><strong>Fewer parties.</strong> With local transcription and a local summary model, no AI vendor receives the audio or text. Each cloud provider you add does, so check its terms and location.</li>
+    <li><strong>Visible bot.</strong> The bot joins under its own name and can post a notice in the chat, so people can see they are being recorded.</li>
+    <li><strong>No telemetry.</strong> OpenMinutes sends nothing to us. If we host an instance for you, it runs on infrastructure we operate in the Netherlands (<a href="/privacy">privacy policy</a>).</li>
+  </ul>
+
+  <h2>What it does not change</h2>
+  <ul>
+    <li>You are still responsible for the lawful basis, telling participants and the consent rules that apply to your meetings.</li>
+    <li>Google or Microsoft still host the call itself.</li>
+    <li>Retention is yours to set. Deleting audio after N days is built in. Transcripts and summaries stay until you delete the meeting (<a href="/docs/storage">storage</a>).</li>
+    <li>OpenMinutes has no SOC 2 or similar certification. Your own security and access controls are what count.</li>
+  </ul>
+
+  <h2>The EU-US transfer question</h2>
+  <p>
+    Tools that store data in the United States rely on a transfer mechanism. The EU General Court dismissed a challenge to the EU-US Data
+    Privacy Framework on 3 September 2025, and an appeal to the Court of Justice was reported as pending when we checked on 23 October 2026
+    (<a href="https://www.wilmerhale.com/en/insights/blogs/wilmerhale-privacy-and-cybersecurity-law/20251201-european-court-of-justice-to-review-challenge-to-eu-us-data-privacy-framework" rel="nofollow noopener">WilmerHale summary</a>).
+    Check the current status yourself before relying on it.
+  </p>
+
+  <h2>Where other notetakers say they store data</h2>
+  <p>From their own public pages, read on 23 October 2026. Details and sources are in each comparison.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Product</th><th scope="col">What it says about storage</th></tr></thead>
+      <tbody>
+        {
+          competitorList.map((c: any) => (
+            <tr>
+              <th scope="row"><a href={`/compare/${c.slug}`}>{c.name}</a></th>
+              <td>
+                {c.rows.region.value}{' '}
+                {c.rows.region.src.map((u: string, i: number) => (
+                  <a class="src" href={u} rel="nofollow noopener" target="_blank">[{i + 1}]</a>
+                ))}
+              </td>
+            </tr>
+          ))
+        }
+        <tr><th scope="row">OpenMinutes</th><td>Wherever you run it. Hosted by us: infrastructure we operate in the Netherlands.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>When not to choose OpenMinutes for this</h2>
+  <ul>
+    <li>You need EU hosting but do not want to run anything. Some hosted vendors say they host in the EEA (see the table). Ours is early-stage software.</li>
+    <li>You need vendor audit reports such as SOC 2. We have none.</li>
+    <li>Your meetings are on Zoom. It is not supported.</li>
+  </ul>
+</SeoPage>

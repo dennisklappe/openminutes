@@ -1,0 +1,17 @@
+---
+import { render } from 'astro:content';
+import Docs from '../../layouts/Docs.astro';
+import { docTree, flatten } from '../../lib/docs';
+
+export async function getStaticPaths() {
+  const pages = flatten(await docTree()).filter((p) => p.slug !== 'README');
+  return pages.map((page) => ({ params: { slug: page.slug }, props: { page } }));
+}
+
+const { page } = Astro.props;
+const { Content, headings } = await render(page.entry);
+---
+
+<Docs {page} {headings}>
+  <Content />
+</Docs>

@@ -1,0 +1,135 @@
+---
+import { repo, stars } from '../lib/site';
+import ThemeToggle from './ThemeToggle.astro';
+
+const path = Astro.url.pathname;
+const links = [
+  { href: '/docs', label: 'Docs', active: path.startsWith('/docs'), desk: false },
+  { href: '/hosting', label: 'Hosting', active: path.startsWith('/hosting'), desk: false },
+];
+---
+
+<header class="bar">
+  <div class="wide bar-in">
+    <a class="brand" href="/" aria-label="OpenMinutes home">
+      <img src="/brand/mark.svg" alt="" width="28" height="28" />
+      <span>OpenMinutes</span>
+    </a>
+    <nav aria-label="Main">
+      {
+        links.map((l) => (
+          <a class:list={{ desk: l.desk }} href={l.href} aria-current={l.active ? 'page' : undefined}>
+            {l.label}
+          </a>
+        ))
+      }
+      <a class="gh desk" href={repo} rel="noopener">
+        GitHub
+        {stars > 0 && <span class="stars">{stars.toLocaleString('en-US')}</span>}
+      </a>
+      <ThemeToggle />
+      <a class="btn btn-primary install" href="/#install">Install</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar-in {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 3.75rem;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-weight: 600;
+    font-size: 1.0625rem;
+    color: var(--ink);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  nav a {
+    white-space: nowrap;
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius-m);
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+  nav a:hover {
+    color: var(--ink);
+    background: var(--hover);
+  }
+  nav a[aria-current='page'] {
+    color: var(--ink);
+    background: var(--sunken);
+  }
+  .gh {
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    margin-left: 0.5rem;
+  }
+  nav a.desk {
+    display: none;
+  }
+  @media (min-width: 900px) {
+    nav a.desk {
+      display: block;
+    }
+  }
+  nav a.install {
+    min-height: 2.25rem;
+    margin-left: 0.5rem;
+    padding: 0 1rem;
+    color: var(--paper);
+  }
+  nav a.install:hover {
+    background: var(--ink-2);
+    color: var(--paper);
+  }
+  @media (max-width: 480px) {
+    .brand {
+      gap: 0.5rem;
+      font-size: 1rem;
+    }
+    nav {
+      gap: 0;
+    }
+    nav a {
+      padding-inline: 0.5rem;
+    }
+  }
+  @media (max-width: 430px) {
+    .brand span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+  }
+  .stars {
+    margin-left: 0.4rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--line-strong);
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

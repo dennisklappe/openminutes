@@ -1,0 +1,61 @@
+---
+import { repo } from '../lib/site';
+
+const commands = `curl -O ${repo.replace('github.com', 'raw.githubusercontent.com')}/main/compose.yaml
+echo "OPENMINUTES_SECRET=$(openssl rand -hex 32)" > .env
+docker compose pull
+docker compose up -d`;
+---
+
+<div class="install">
+  <pre id="install-commands"><code>{commands}</code></pre>
+  <button class="btn copy" type="button" data-copy="install-commands">Copy</button>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const source = document.getElementById(button.dataset.copy ?? '');
+      if (!source?.textContent) return;
+      try {
+        await navigator.clipboard.writeText(source.textContent);
+        button.textContent = 'Copied';
+      } catch {
+        button.textContent = 'Press Ctrl+C';
+      }
+      setTimeout(() => (button.textContent = 'Copy'), 2000);
+    });
+  });
+</script>
+
+<style>
+  .install {
+    position: relative;
+  }
+  pre {
+    margin: 0;
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-l);
+    background: var(--surface);
+    font-size: 0.875rem;
+    line-height: 1.75;
+    color: var(--ink);
+  }
+  .copy {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    min-height: 2rem;
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
+  }
+  @media (max-width: 639px) {
+    .copy {
+      position: static;
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+  }
+</style>

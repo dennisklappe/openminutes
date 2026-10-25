@@ -1,0 +1,46 @@
+name: Docker build check
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - pnpm-lock.yaml
+      - apps/bot/docker-entrypoint.sh
+      - services/whisper/**
+      - .github/workflows/docker-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    timeout-minutes: 60
+    if: github.event_name == 'workflow_dispatch' || vars.DOCKER_CHECK_ON_PR == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { context: ., target: web }
+          - { context: ., target: worker }
+          - { context: ., target: bot }
+          - { context: services/whisper }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context }}
+          target: ${{ matrix.target }}
+          push: false
+          cache-from: type=gha,scope=check-${{ matrix.target || 'whisper' }}
+          cache-to: type=gha,scope=check-${{ matrix.target || 'whisper' }},mode=max

@@ -1,0 +1,158 @@
+---
+import Base from './Base.astro';
+import FaqList from '../components/FaqList.astro';
+import { faqJsonLd, type Faq } from '../lib/faq';
+import { breadcrumbJsonLd, softwareJsonLd, type Crumb } from '../lib/seo';
+import { verifiedLabel } from '../facts/seo-facts.mjs';
+
+interface Props {
+  title: string;
+  description: string;
+  h1: string;
+  lede: string;
+  crumbs: Crumb[];
+  faq?: Faq[];
+  verified?: boolean;
+  related?: { href: string; label: string }[];
+  jsonLd?: object[];
+}
+
+const { title, description, h1, lede, crumbs, faq = [], verified = false, related = [], jsonLd = [] } = Astro.props;
+const graph = [
+  breadcrumbJsonLd(crumbs),
+  softwareJsonLd,
+  { '@type': 'WebPage', name: h1, description, isPartOf: { '@id': 'https://openminut.es/#site' } },
+  ...(faq.length > 0 ? [faqJsonLd(faq)] : []),
+  ...jsonLd,
+];
+---
+
+<Base {title} {description} jsonLd={graph}>
+  <div class="wide">
+    <header class="page-head">
+      <nav class="crumb" aria-label="Breadcrumb">
+        <a href="/">OpenMinutes</a>
+        {
+          crumbs.map((c, i) => (
+            <>
+              {' / '}
+              {i < crumbs.length - 1 ? <a href={c.path}>{c.name}</a> : <span aria-current="page">{c.name}</span>}
+            </>
+          ))
+        }
+      </nav>
+      <h1>{h1}</h1>
+      <p class="lede">{lede}</p>
+      {
+        verified && (
+          <p class="stamp">
+            Last verified <strong>{verifiedLabel}</strong>. Products change: <a href="#corrections">tell us what is out of date</a>.
+          </p>
+        )
+      }
+    </header>
+    <div class="prose readable seo">
+      <slot />
+    </div>
+    {
+      faq.length > 0 && (
+        <section class="readable faq-block" aria-labelledby="faq-title">
+          <h2 id="faq-title">Questions</h2>
+          <FaqList items={faq} />
+        </section>
+      )
+    }
+    {
+      related.length > 0 && (
+        <section class="readable related" aria-labelledby="related-title">
+          <h2 id="related-title">Related</h2>
+          <ul>
+            {related.map((r) => (
+              <li>
+                <a href={r.href}>{r.label}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+    <aside class="readable legal-note" id="corrections">
+      <p>
+        <strong>Found something wrong or out of date?</strong> Competitor products change often. Please
+        <a href="https://github.com/dennisklappe/openminutes/issues">open an issue</a> or write to
+        <a href="mailto:support@openminut.es">support@openminut.es</a> and we will check it and fix the page.
+        Product names are used only to identify the products. OpenMinutes is not affiliated with, endorsed by or sponsored by
+        any of the companies mentioned.
+      </p>
+    </aside>
+  </div>
+</Base>
+
+<style is:global>
+  .stamp {
+    margin-top: 1.25rem;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+  .stamp strong {
+    color: var(--ink);
+  }
+  .seo .table-wrap {
+    margin-block: 1.5rem;
+  }
+  .seo table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+  .seo th,
+  .seo td {
+    padding: 0.625rem 0.875rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line);
+  }
+  .seo th {
+    color: var(--ink);
+    font-weight: 600;
+    background: var(--sunken);
+  }
+  .seo tbody th {
+    font-weight: 550;
+    background: transparent;
+    min-width: 8rem;
+  }
+  .seo tr:last-child > * {
+    border-bottom: 0;
+  }
+  .seo .src {
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+  .seo .wide-table {
+    min-width: 40rem;
+  }
+  .faq-block,
+  .related {
+    margin-top: 3.5rem;
+  }
+  .faq-block h2,
+  .related h2 {
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+  }
+  .related ul {
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .legal-note {
+    margin-top: 3.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-l);
+    background: var(--surface);
+    font-size: 0.9375rem;
+    color: var(--ink-2);
+  }
+</style>

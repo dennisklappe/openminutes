@@ -1,0 +1,51 @@
+services:
+  fixture:
+    build: { context: ., target: bot }
+    entrypoint: ['node', '/app/node_modules/@openminutes/platforms/dist/fixture-server.js']
+    environment:
+      PORT: '8443'
+      TLS_CERT: /certs/fixture.crt
+      TLS_KEY: /certs/fixture.key
+    volumes:
+      - ./e2e/certs:/certs:ro
+
+  calendar-fake:
+    build: { context: ., target: web }
+    entrypoint: ['node', '/app/node_modules/@openminutes/calendar/dist/fake/main.js']
+    environment:
+      PORT: '9000'
+    ports:
+      - '${FAKE_PORT:-9000}:9000'
+
+  web:
+    environment:
+      OPENMINUTES_FAKE_CALENDAR_URL: ${FAKE_URL:?set FAKE_URL}
+
+  worker:
+    environment:
+      OPENMINUTES_FAKE_CALENDAR_URL: ${FAKE_URL:?set FAKE_URL}
+
+  bot:
+    environment:
+      OPENMINUTES_CHROMIUM_ARGS: '["--host-resolver-rules=MAP meet.google.com fixture:8443, MAP teams.microsoft.com fixture:8443, MAP teams.live.com fixture:8443", "--ignore-certificate-errors"]'
+    depends_on:
+      - fixture
+
+  stt:
+    image: node:22-bookworm-slim
+    command: ['node', '/fake-whisper.mjs']
+    volumes:
+      - ./e2e/fake-whisper.mjs:/fake-whisper.mjs:ro
+
+  llm:
+    image: node:22-bookworm-slim
+    command: ['node', '/fake-llm.mjs']
+    volumes:
+      - ./e2e/fake-llm.mjs:/fake-llm.mjs:ro
+
+  minio:
+    image: bitnamilegacy/minio:latest
+    environment:
+      MINIO_ROOT_USER: e2eaccesskey
+      MINIO_ROOT_PASSWORD: e2e-secret-key-0123
+      MINIO_DEFAULT_BUCKETS: openminutes

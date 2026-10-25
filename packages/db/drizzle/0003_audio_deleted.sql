@@ -1,0 +1,1 @@
+ALTER TABLE "meetings" ADD COLUMN "audio_deleted_at" timestamp with time zone;

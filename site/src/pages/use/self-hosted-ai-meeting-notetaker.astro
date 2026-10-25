@@ -1,0 +1,83 @@
+---
+import SeoPage from '../../layouts/SeoPage.astro';
+import { omLimits } from '../../facts/seo-facts.mjs';
+
+const faq = [
+  {
+    q: 'Can I run an AI meeting notetaker fully on my own hardware?',
+    a: 'Mostly. Local faster-whisper transcribes on your CPU with no key, and summaries can go to a model you host yourself through an OpenAI-compatible endpoint such as Ollama, or be switched off. The call itself still runs on Google Meet or Microsoft Teams, and the bot joins it from your server.',
+  },
+  {
+    q: 'What does it need to run?',
+    a: 'Docker with the Compose plugin. Plan for about 1 vCPU and 1.5 GB of RAM per meeting recorded at the same time, plus about 1 GB for the web, worker and database containers. These are planning figures from the docs, not measurements.',
+  },
+  {
+    q: 'Is it ready for production?',
+    a: 'It is pre-release. There is no tagged version or published image yet, so you build from source for now, and breaking changes are expected until v0.1.',
+  },
+  {
+    q: 'I do not want to run a server. What then?',
+    a: 'We can run the same software for you from EUR 9 a month, priced by concurrent meetings. You still bring your own AI keys and your own Google and Microsoft apps.',
+  },
+];
+---
+
+<SeoPage
+  title="Self-hosted AI meeting notetaker for Meet and Teams | OpenMinutes"
+  description="A self-hosted AI meeting notetaker: a bot joins Google Meet and Microsoft Teams, and you keep the audio and transcripts. Open source, Docker, bring your own AI."
+  h1="A self-hosted AI meeting notetaker"
+  lede="OpenMinutes is a meeting notetaker you run on your own machine. A bot joins your Google Meet and Microsoft Teams meetings, and the audio, transcripts and summaries end up in your database."
+  crumbs={[{ name: 'Use cases', path: '/compare' }, { name: 'Self-hosted notetaker', path: '/use/self-hosted-ai-meeting-notetaker' }]}
+  {faq}
+  related={[
+    { href: '/compare', label: 'Compare with hosted notetakers' },
+    { href: '/use/gdpr-meeting-notes', label: 'Meeting notes and GDPR' },
+    { href: '/use/open-source-meeting-recorder', label: 'Open source meeting recorder' },
+    { href: '/docs/getting-started', label: 'Getting started' },
+    { href: '/hosting', label: 'Hosted OpenMinutes' },
+  ]}
+>
+  <div class="callout callout-warning">
+    <p>
+      <strong>Status</strong>
+      OpenMinutes is pre-release. There is no tagged version or published image yet, so for now you build from source with
+      <code>docker compose up -d --build</code>. Read <a href="/docs/roadmap">the roadmap</a> for what works today.
+    </p>
+  </div>
+
+  <h2>What runs where</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Part</th><th scope="col">Where it runs</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Web app, worker, bot and database</th><td>Containers on your machine, one Postgres and one volume. <a href="/docs/getting-started">Getting started</a></td></tr>
+        <tr><th scope="row">Audio and transcripts</th><td>Your volume, or your own S3-compatible bucket. You set how long audio is kept. <a href="/docs/storage">Storage</a></td></tr>
+        <tr><th scope="row">Transcription</th><td>Local faster-whisper on your CPU with no key, or OpenAI, Groq, Deepgram or AssemblyAI with your own key. <a href="/docs/providers">Providers</a></td></tr>
+        <tr><th scope="row">Summaries</th><td>Off by default. Any OpenAI-compatible endpoint (including Ollama) or Anthropic, with your key.</td></tr>
+        <tr><th scope="row">Calendar</th><td>Google Calendar and Outlook through your own OAuth client and Azure app, or just paste a link.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>A fully local setup</h2>
+  <p>
+    Use the bundled <code>local</code> transcriber and leave summaries off (or use Ollama on the same host). Then the only outbound
+    traffic is the bot joining the meeting and any calendar or mail provider you connect. No telemetry, no account.
+    Google or Microsoft still host the call, and participants still see the bot. See <a href="/docs/faq">the FAQ</a>.
+  </p>
+
+  <h2>What it costs</h2>
+  <p>
+    The software is free. You pay for the machine and your AI provider: hosted transcription is $0.04 to $0.36 per hour of audio
+    (October 2026, <a href="/docs/providers">table</a>), local Whisper is free. Or <a href="/hosting">we host it from EUR 9 a month</a>.
+  </p>
+
+  <h2>When not to choose it</h2>
+  <ul>
+    {omLimits.map((l: { text: string; href: string; label: string }) => <li>{l.text} <a href={l.href}>{l.label}</a></li>)}
+  </ul>
+  <p>
+    If those are dealbreakers, a hosted notetaker may fit better. See the <a href="/compare">comparisons</a>. Among the hosted
+    products we checked, we found no self-hosted edition on their public pages.
+  </p>
+</SeoPage>

@@ -1,0 +1,247 @@
+---
+import Base from './Base.astro';
+import DocsNav from '../components/DocsNav.astro';
+import { docPath, docTree, flatten, sidebar, type DocPage } from '../lib/docs';
+import { repo, siteUrl } from '../lib/site';
+
+interface Props {
+  page: DocPage;
+  headings: { depth: number; slug: string; text: string }[];
+}
+
+const { page, headings } = Astro.props;
+const tree = await docTree();
+const all = flatten(tree);
+const at = all.findIndex((p) => p.slug === page.slug);
+const prev = at > 0 ? all[at - 1] : undefined;
+const next = all[at + 1];
+const group = tree.groups.find((g) => g.pages.some((p) => p.slug === page.slug));
+const sections = headings.filter((h) => h.depth === 2);
+const isOverview = page.slug === 'README';
+const url = `${siteUrl}${docPath(page.slug)}`;
+
+const jsonLd = [
+  {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'OpenMinutes', item: siteUrl },
+      { '@type': 'ListItem', position: 2, name: 'Docs', item: `${siteUrl}/docs` },
+      ...(isOverview ? [] : [{ '@type': 'ListItem', position: 3, name: page.title, item: url }]),
+    ],
+  },
+  { '@type': 'TechArticle', headline: page.title, description: page.lead, url },
+];
+
+---
+
+<Base title={`${page.title} | OpenMinutes docs`} description={page.lead} {jsonLd}>
+  <div class="wide layout">
+    <nav class="side" aria-label="Documentation">
+      <details class="menu">
+        <summary>Docs menu</summary>
+        <DocsNav groups={sidebar(tree)} current={page.slug} />
+      </details>
+      <div class="rail">
+        <DocsNav groups={sidebar(tree)} current={page.slug} />
+      </div>
+    </nav>
+
+    <article class="doc">
+      <header>
+        {
+          !isOverview && (
+            <p class="crumb">
+              <a href="/docs">Docs</a> / {group?.name ?? 'More'}
+            </p>
+          )
+        }
+        <h1>{page.title}</h1>
+        <p class="lead">{page.lead}</p>
+      </header>
+      {
+        sections.length >= 2 && (
+          <nav class="toc" aria-label="On this page">
+            <p class="toc-head">On this page</p>
+            <ul>
+              {sections.map((h) => (
+                <li>
+                  <a href={`#${h.slug}`}>{h.text}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      }
+      <div class="prose">
+        <slot />
+      </div>
+      <div class="pager">
+        {
+          prev ? (
+            <a href={docPath(prev.slug)}>
+              <span>Previous</span>
+              {prev.title}
+            </a>
+          ) : (
+            <span />
+          )
+        }
+        {
+          next && (
+            <a class="next" href={docPath(next.slug)}>
+              <span>Next</span>
+              {next.title}
+            </a>
+          )
+        }
+      </div>
+      <p class="edit">
+        <a href={`${repo}/edit/main/docs/${page.slug}.md`}>Edit this page on GitHub</a>
+      </p>
+    </article>
+  </div>
+</Base>
+
+<style>
+  .layout {
+    display: grid;
+    gap: 1.5rem;
+    padding-top: 1.5rem;
+    align-items: start;
+  }
+  @media (min-width: 900px) {
+    .layout {
+      grid-template-columns: 14.5rem minmax(0, 50rem);
+      gap: 3.5rem;
+      padding-top: 3rem;
+    }
+    .side {
+      position: sticky;
+      top: 5.25rem;
+      max-height: calc(100vh - 6.5rem);
+      overflow-y: auto;
+    }
+  }
+  .side {
+    font-size: 0.9375rem;
+  }
+  .menu > summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-m);
+    background: var(--surface);
+    font-weight: 550;
+    cursor: pointer;
+    list-style: none;
+  }
+  .menu > summary::after {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 1.5px solid var(--muted);
+    border-bottom: 1.5px solid var(--muted);
+    transform: rotate(45deg);
+  }
+  .menu[open] > summary {
+    margin-bottom: 0.75rem;
+  }
+  .rail {
+    display: none;
+  }
+  @media (min-width: 900px) {
+    .menu {
+      display: none;
+    }
+    .rail {
+      display: block;
+    }
+  }
+  .doc {
+    min-width: 0;
+    padding-bottom: 2rem;
+  }
+  .crumb {
+    margin-bottom: 0.75rem;
+  }
+  .doc h1 {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+  }
+  .lead {
+    margin-top: 0.875rem;
+    font-size: 1.1875rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .toc {
+    margin-top: 1.75rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-l);
+    background: var(--surface);
+    font-size: 0.9375rem;
+  }
+  .toc-head {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+  .toc ul {
+    display: grid;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .toc a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .toc a:hover {
+    color: var(--accent);
+  }
+  .prose {
+    margin-top: 2rem;
+  }
+  .prose :global(> :first-child) {
+    margin-top: 0;
+  }
+  .prose :global(h2) {
+    margin-top: 2.25em;
+  }
+
+  .pager {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 3.5rem;
+  }
+  .pager a {
+    display: block;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-m);
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 550;
+    text-decoration: none;
+  }
+  .pager a:hover {
+    background: var(--hover);
+  }
+  .pager span {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .next {
+    grid-column: 2;
+    text-align: right;
+  }
+  .edit {
+    margin-top: 1.5rem;
+    font-size: 0.9375rem;
+  }
+</style>

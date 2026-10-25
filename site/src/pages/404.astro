@@ -1,0 +1,30 @@
+---
+import Base from '../layouts/Base.astro';
+
+export const prerender = true;
+---
+
+<Base title="Page not found | OpenMinutes" description="This page does not exist." noindex>
+  <div class="wide missing">
+    <h1>Page not found</h1>
+    <p class="lede">That address does not exist. It may have moved or been mistyped.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="/">Go to the home page</a>
+      <a class="btn" href="/docs">Read the docs</a>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .missing {
+    padding-block: 6rem 2rem;
+  }
+  .lede {
+    margin-top: 1rem;
+  }
+  .actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+</style>

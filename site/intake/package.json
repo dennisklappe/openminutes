@@ -1,0 +1,23 @@
+{
+  "name": "@openminutes/site-intake",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dennisklappe/openminutes.git",
+    "directory": "site/intake"
+  },
+  "homepage": "https://openminut.es",
+  "bugs": {
+    "url": "https://github.com/dennisklappe/openminutes/issues"
+  },
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251001.0"
+  }
+}

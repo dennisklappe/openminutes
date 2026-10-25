@@ -1,0 +1,61 @@
+---
+interface Props {
+  light: string;
+  dark?: string;
+  alt: string;
+  width: number;
+  height: number;
+  priority?: boolean;
+  crop?: { x: number; w: number; h: number };
+  phone?: { light: string; dark: string };
+}
+
+const { light, dark, alt, width, height, priority = false, crop, phone } = Astro.props;
+const frame = crop
+  ? `aspect-ratio: ${(crop.w * width) / (crop.h * height)}; --zoom: ${100 / crop.w}%; --shift: -${(crop.x / crop.w) * 100}%;`
+  : undefined;
+---
+
+<picture class:list={['shot', { cropped: crop }]} style={frame}>
+  {
+    phone && (
+      <>
+        <source media="(max-width: 639px) and (prefers-color-scheme: dark)" srcset={`/images/${phone.dark}`} />
+        <source media="(max-width: 639px)" srcset={`/images/${phone.light}`} />
+      </>
+    )
+  }
+  {dark && <source media="(prefers-color-scheme: dark)" srcset={`/images/${dark}`} />}
+  <img
+    src={`/images/${light}`}
+    {alt}
+    {width}
+    {height}
+    loading={priority ? 'eager' : 'lazy'}
+    decoding={priority ? 'sync' : 'async'}
+    fetchpriority={priority ? 'high' : 'auto'}
+  />
+</picture>
+
+<style>
+  .shot {
+    display: block;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-l);
+    background: var(--surface);
+    overflow: hidden;
+    box-shadow:
+      0 1px 2px rgb(16 24 40 / 0.04),
+      0 12px 32px -12px rgb(16 24 40 / 0.14);
+  }
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .cropped img {
+    width: var(--zoom);
+    max-width: none;
+    margin-left: var(--shift);
+  }
+</style>

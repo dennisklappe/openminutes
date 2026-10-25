@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.env
+*.pem
+.astro
+.wrangler
+data/
+.DS_Store
+e2e/certs
+__pycache__

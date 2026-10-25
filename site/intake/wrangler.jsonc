@@ -1,0 +1,11 @@
+{
+  "name": "openminutes-intake",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "workers_dev": false,
+  "routes": [{ "pattern": "api.openminut.es", "custom_domain": true }],
+  "ratelimits": [
+    { "name": "LIMITER", "namespace_id": "4201", "simple": { "limit": 5, "period": 60 } },
+  ],
+  "observability": { "enabled": true },
+}

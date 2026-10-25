@@ -1,0 +1,176 @@
+---
+import Legal from '../layouts/Legal.astro';
+import { company, supportEmail } from '../lib/site';
+---
+
+<Legal
+  title="Privacy"
+  description="What this website collects, and how the hosted OpenMinutes service handles audio, transcripts and account data."
+  updated="24 October 2026"
+>
+  <h2>Who we are</h2>
+  <p>
+    OpenMinutes is published by <a href={company.url} rel="noopener">{company.name}</a>, {company.address}. KvK {company.kvk}, VAT {company.btw}.
+    We are based in the Netherlands and the EU General Data Protection Regulation (GDPR) applies. Write to
+    <a href={`mailto:${supportEmail}`}>{supportEmail}</a> for anything about privacy. We have not appointed a
+    data protection officer, since the law does not require one for an operation of our size.
+  </p>
+
+  <h2>In short</h2>
+  <ul>
+    <li>This website sets no cookies and runs no analytics, tracking or advertising.</li>
+    <li>If you run OpenMinutes yourself, we receive nothing. The software has no telemetry.</li>
+    <li>
+      If you buy the hosted service, you decide what is recorded. We store it for you and do not use
+      it for anything else.
+    </li>
+  </ul>
+
+  <h2>This website</h2>
+  <ul>
+    <li>
+      No cookies, no analytics, no tracking, no advertising and no third-party fonts or scripts. We
+      do not use Cloudflare Web Analytics.
+    </li>
+    <li>
+      The site is served by Cloudflare. To deliver pages and protect them from abuse, Cloudflare
+      processes your IP address and request details and keeps standard server logs. We do not
+      read those logs to profile visitors. Our basis is legitimate interest (GDPR art. 6(1)(f)): a
+      secure, working website.
+    </li>
+    <li>
+      The request form on the hosting page loads Cloudflare Turnstile, a bot check, when you start
+      typing. Turnstile receives technical information from your browser to tell people from bots.
+      It is the only third-party request the site makes, and it is not loaded until you use the form.
+    </li>
+  </ul>
+
+  <h2>The hosting request form</h2>
+  <p>
+    When you ask for a hosted instance we receive your name (optional), email address, the plan you
+    picked and your message. We use them only to answer you and to set up and bill your instance
+    (basis: taking steps at your request before a contract, art. 6(1)(b), and legitimate interest in
+    answering enquiries). The form sends the request to our own endpoint on Cloudflare Workers, which
+    checks the Turnstile result, applies a rate limit by IP address and creates a ticket in our
+    support system, Balie, which <a href={company.url} rel="noopener">Klappe Development</a> operates. Replies are sent through Emailit. We
+    keep a request and its replies for as long as we need to deal with it and for up to two years after
+    the last contact, unless you become a customer (see below) or ask us to delete it sooner. We do
+    not sell your details or use them for marketing.
+  </p>
+
+  <h2>Email</h2>
+  <p>
+    If you write to us, we keep the correspondence to answer you and to have a record of what was
+    agreed. Outgoing mail is delivered through Emailit.
+  </p>
+
+  <h2>The self-hosted software</h2>
+  <p>
+    If you run OpenMinutes yourself, we do not receive anything. The software has no telemetry, no
+    crash reports, no account with us and no update ping. Your recordings, transcripts and keys stay
+    on your server. You are then responsible for your own data protection duties; our
+    <a href="/docs/consent-and-legal">consent notes</a> list what to check.
+  </p>
+
+  <h2>The hosted service</h2>
+  <p>
+    For the hosted service, you (or your organisation) are the controller of the recordings,
+    transcripts and summaries and <a href={company.url} rel="noopener">{company.name}</a> acts as your processor. We process that data only
+    on your instructions, which are the settings you choose and these pages. We will offer a data
+    processing agreement before you start, and you can ask for one at any time at
+    <a href={`mailto:${supportEmail}`}>{supportEmail}</a>. For your own account details (name, email, billing)
+    we are the controller.
+  </p>
+  <h3>What we process for you</h3>
+  <ul>
+    <li>Meeting audio recorded by the bot, and the participant names and chat the bot captures.</li>
+    <li>Transcripts, speaker labels, summaries and minutes made from that audio, and any share links you create.</li>
+    <li>Your calendar events, to find meetings to join.</li>
+    <li>
+      Your settings, and the provider keys, OAuth tokens and bot sign-in cookies you enter, which
+      are stored encrypted.
+    </li>
+    <li>
+      Voiceprints (numbers describing how a voice sounds), only if you switch on voice recognition.
+      It is off by default, stores no audio and is used only to suggest a name that you confirm.
+      A voiceprint can be biometric data: you are responsible for having a valid basis before you
+      switch it on.
+    </li>
+    <li>Your name and email address, to run the account.</li>
+  </ul>
+  <p>
+    We look at your content only when you ask us to help, or when it is needed to keep the service
+    running or to investigate abuse. We do not use it to train models and we do not share it for
+    advertising.
+  </p>
+  <h3>Retention</h3>
+  <ul>
+    <li>
+      You choose how long audio is kept in the instance settings, and you can delete any meeting
+      yourself. Deleting a meeting removes its audio, transcript and summary.
+    </li>
+    <li>
+      When your subscription ends we delete the instance and its data within 30 days after the end
+      of the paid month, after you have had the chance to export it. Backups of it are
+      removed within a further 30 days.
+    </li>
+    <li>
+      Invoices and payment records are kept for 7 years, as Dutch tax law requires.
+    </li>
+  </ul>
+  <h3>Where it runs</h3>
+  <p>
+    Hosted instances run on infrastructure operated by <a href={company.url} rel="noopener">Klappe Development</a> in the Netherlands.
+    Your data stays there, apart from what you send to providers you choose yourself (below).
+  </p>
+  <h3>Security</h3>
+  <p>
+    Instances are served over HTTPS. Provider keys, tokens and bot sign-in cookies are encrypted
+    at rest. Access to the servers is limited to us. If a breach affects your
+    data we will tell you without undue delay, so that you can meet your own duty to report it.
+  </p>
+
+  <h2>Who else touches your data</h2>
+  <ul>
+    <li>
+      <strong>Cloudflare</strong>: website hosting, DNS, the form endpoint and the Turnstile bot
+      check. Cloudflare is a US company and may process data outside the EU under the EU-US Data
+      Privacy Framework and standard contractual clauses.
+    </li>
+    <li><strong>Emailit</strong>: delivery of our email, including replies to your request.</li>
+    <li>
+      <strong>Your own AI providers</strong>: if you enter a key for OpenAI, DeepSeek, Groq,
+      Deepgram, AssemblyAI, Anthropic or another provider, the audio or text you send goes to that
+      provider under your agreement with them. We do not choose or resell one. Local Whisper sends
+      nothing out. Check where your provider processes data.
+    </li>
+    <li>
+      <strong>Google and Microsoft</strong>: your calendar data is read through the apps you create,
+      and the bot joins Google Meet and Microsoft Teams meetings through their services.
+    </li>
+  </ul>
+  <p>We do not sell personal data.</p>
+
+  <h2>Recording other people</h2>
+  <p>
+    The bot joins under a visible name and can post a notice in the meeting chat. You must tell
+    participants and follow the consent rules that apply to your meetings. Our
+    <a href="/docs/consent-and-legal">consent notes</a> list what to check.
+  </p>
+
+  <h2>Your rights</h2>
+  <p>
+    You can ask for access, correction, export or deletion of your data, restrict or object to how
+    we use it, and receive it in a portable format. Write to
+    <a href={`mailto:${supportEmail}`}>{supportEmail}</a>; we answer within one month. You can also complain
+    to the Dutch Data Protection Authority (Autoriteit Persoonsgegevens, autoriteitpersoonsgegevens.nl).
+    Participants who were recorded should contact the person who ran the meeting first, since they
+    control that data. If they contact us, we pass the request on to that person.
+  </p>
+
+  <h2>Changes</h2>
+  <p>
+    If we change this page in a way that matters, we update the date above, and tell hosted customers
+    by email.
+  </p>
+</Legal>

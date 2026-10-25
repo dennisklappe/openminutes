@@ -1,0 +1,32 @@
+{
+  "name": "@openminutes/worker",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dennisklappe/openminutes.git",
+    "directory": "apps/worker"
+  },
+  "homepage": "https://openminut.es",
+  "bugs": {
+    "url": "https://github.com/dennisklappe/openminutes/issues"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@openminutes/calendar": "workspace:^",
+    "@openminutes/core": "workspace:^",
+    "@openminutes/db": "workspace:^",
+    "@openminutes/providers": "workspace:^",
+    "undici": "^8.12.3"
+  },
+  "files": [
+    "dist"
+  ]
+}

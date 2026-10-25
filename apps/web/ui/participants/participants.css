@@ -1,0 +1,103 @@
+.participant-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.participant-list li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.people-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.people-heading {
+  margin: 18px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+.absent-list .people-name > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.people-original,
+.people-meta {
+  font-size: 13px;
+}
+
+.icon-button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--faint);
+}
+
+.icon-button:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.people-remember {
+  margin-top: 14px;
+}
+
+.alias-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alias-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.alias-list .alias-from {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.alias-list input {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.absent-list .menu > button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-color: transparent;
+  box-shadow: none;
+  background: none;
+  color: var(--faint);
+}
+
+@media (max-width: 600px) {
+  .absent-list .menu > button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

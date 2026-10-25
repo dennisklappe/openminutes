@@ -1,0 +1,46 @@
+---
+import Legal from '../layouts/Legal.astro';
+import { repo, supportEmail } from '../lib/site';
+---
+
+<Legal
+  title="Security"
+  description="How OpenMinutes protects what you store, and how to report a vulnerability."
+>
+  <h2>Report a vulnerability</h2>
+  <p>
+    Email <a href={`mailto:${supportEmail}`}>{supportEmail}</a> with what you found and how to
+    reproduce it. Please do not open a public issue for a security problem. We will reply, fix it
+    and credit you if you want.
+  </p>
+
+  <h2>How the software is built</h2>
+  <ul>
+    <li>
+      <strong>Secrets encrypted at rest.</strong> Provider keys, OAuth tokens and the bot's Google
+      session are stored encrypted with <code>OPENMINUTES_SECRET</code> and never shown again after
+      saving.
+    </li>
+    <li><strong>No telemetry.</strong> Nothing leaves your server unless you configure a provider.</li>
+    <li>
+      <strong>Open source.</strong> Every line is on <a href={repo}>GitHub</a> under the AGPL-3.0
+      for you to read and audit.
+    </li>
+    <li>
+      <strong>A visible bot.</strong> It joins under its own name and never hides from participants.
+    </li>
+  </ul>
+
+  <h2>This website</h2>
+  <p>
+    The site is static, served over HTTPS by Cloudflare, with no cookies and no third-party scripts
+    except the bot check on the hosting form. The form endpoint is a small Cloudflare Worker that
+    forwards your message to our support system and keeps no copy.
+  </p>
+
+  <h2>Hosted instances</h2>
+  <p>
+    Each hosted instance is a separate deployment, served over HTTPS, with backups. Details such as
+    access controls and the backup schedule will be listed here before launch.
+  </p>
+</Legal>

@@ -1,0 +1,58 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: chore
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: chore
+  - package-ecosystem: docker
+    directory: /services/whisper
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: chore
+  - package-ecosystem: pip
+    directory: /services/whisper
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: chore
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: chore

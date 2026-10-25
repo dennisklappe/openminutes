@@ -1,0 +1,118 @@
+/*
+ * OpenMinutes design tokens. Light is the default look, dark follows the
+ * system setting or the manual toggle (data-theme on <html>).
+ * One accent (a refined mid blue, lighter in dark mode) used sparingly: focus rings, the
+ * active nav marker and links. Primary buttons are ink, not accent.
+ */
+:root {
+  --paper: #f8f8f9;
+  --surface: #ffffff;
+  --sunken: #f1f2f4;
+  --hover: #f4f5f6;
+  --ink: #16181d;
+  --ink-2: #3b4049;
+  --muted: #646b76;
+  --faint: #8d939c;
+  --line: #e7e9ec;
+  --line-strong: #d5d8dd;
+  --accent: #2760ab;
+  --accent-ink: #ffffff;
+  --accent-soft: #e8f0fa;
+  --rec: #d92d20;
+  --danger: #b42318;
+  --danger-soft: #fdeceb;
+  --ok: #17784a;
+  --ok-soft: #e7f5ed;
+  --warn: #93590a;
+  --warn-soft: #fbf1dd;
+  --info: #2760ab;
+  --info-soft: #e8f0fa;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.05);
+  --spk-1: #c2410c;
+  --spk-2: #12805c;
+  --spk-3: #8a6a0a;
+  --spk-4: #8447cc;
+  --spk-5: #0f766e;
+  --spk-6: #b0357a;
+  --spk-7: #5f7a1a;
+  --spk-8: #64748b;
+  --radius-s: 6px;
+  --radius-m: 8px;
+  --radius-l: 12px;
+  --sans: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --display: var(--sans);
+  --mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --paper: #0d0e10;
+  --surface: #151619;
+  --sunken: #1b1c20;
+  --hover: #1a1b1f;
+  --ink: #ededef;
+  --ink-2: #c6c9cf;
+  --muted: #9a9fa8;
+  --faint: #6f747d;
+  --line: #24262b;
+  --line-strong: #34373d;
+  --accent: #74a8ef;
+  --accent-ink: #08121f;
+  --accent-soft: #14233a;
+  --rec: #ff5a4d;
+  --danger: #ff8a80;
+  --danger-soft: #34171a;
+  --ok: #4cc58d;
+  --ok-soft: #12291f;
+  --warn: #e6aa55;
+  --warn-soft: #2d2212;
+  --info: #74a8ef;
+  --info-soft: #14233a;
+  --shadow: none;
+  --spk-1: #ff8a5c;
+  --spk-2: #3ec99a;
+  --spk-3: #e3be4a;
+  --spk-4: #b98cff;
+  --spk-5: #45c7b9;
+  --spk-6: #e879b5;
+  --spk-7: #b5c95a;
+  --spk-8: #94a3b8;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #0d0e10;
+    --surface: #151619;
+    --sunken: #1b1c20;
+    --hover: #1a1b1f;
+    --ink: #ededef;
+    --ink-2: #c6c9cf;
+    --muted: #9a9fa8;
+    --faint: #6f747d;
+    --line: #24262b;
+    --line-strong: #34373d;
+    --accent: #74a8ef;
+    --accent-ink: #08121f;
+    --accent-soft: #14233a;
+    --rec: #ff5a4d;
+    --danger: #ff8a80;
+    --danger-soft: #34171a;
+    --ok: #4cc58d;
+    --ok-soft: #12291f;
+    --warn: #e6aa55;
+    --warn-soft: #2d2212;
+    --info: #74a8ef;
+    --info-soft: #14233a;
+    --shadow: none;
+    --spk-1: #ff8a5c;
+    --spk-2: #3ec99a;
+    --spk-3: #e3be4a;
+    --spk-4: #b98cff;
+    --spk-5: #45c7b9;
+    --spk-6: #e879b5;
+    --spk-7: #b5c95a;
+    --spk-8: #94a3b8;
+    color-scheme: dark;
+  }
+}

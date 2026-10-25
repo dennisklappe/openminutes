@@ -1,0 +1,46 @@
+{
+  "name": "@openminutes/mail",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dennisklappe/openminutes.git",
+    "directory": "packages/mail"
+  },
+  "homepage": "https://openminut.es",
+  "bugs": {
+    "url": "https://github.com/dennisklappe/openminutes/issues"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openminutes/providers": "workspace:^",
+    "nodemailer": "^10.0.10",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.9.0",
+    "@types/node": "^22.20.5",
+    "@types/nodemailer": "^8.0.0",
+    "@types/smtp-server": "^3.5.10",
+    "mailparser": "^3.12.2",
+    "smtp-server": "^3.14.0",
+    "vitest": "^5.0.5"
+  }
+}

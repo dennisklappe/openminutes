@@ -1,0 +1,158 @@
+---
+import { intakeEndpoint, supportEmail } from '../lib/site';
+import { tiers } from '../lib/offer';
+
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY ?? '';
+---
+
+<form class="order" id="order-form" data-endpoint={intakeEndpoint} data-fallback={supportEmail} data-sitekey={turnstileSiteKey} novalidate>
+  <div class="field">
+    <label for="of-name">Your name</label>
+    <input id="of-name" name="name" type="text" autocomplete="name" />
+  </div>
+  <div class="field">
+    <label for="of-email">Email</label>
+    <input id="of-email" name="email" type="email" autocomplete="email" required />
+  </div>
+  <div class="field">
+    <label for="of-tier">Concurrent meetings</label>
+    <select id="of-tier" name="tier">
+      {tiers.map((t) => <option value={t.id} selected={t.common}>{t.concurrent} at a time, EUR {t.monthly} a month</option>)}
+      <option value="custom">More than 10, or a dedicated server (we quote)</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="of-notes">Anything we should know</label>
+    <textarea id="of-notes" name="notes" rows="4" placeholder="Meet or Teams, how many people, a preferred subdomain."></textarea>
+  </div>
+  <div class="trap" aria-hidden="true">
+    <label for="of-website">Leave this empty</label>
+    <input id="of-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+  </div>
+  <div class="challenge" id="order-challenge"></div>
+  <button class="btn btn-primary" type="submit">Request an instance</button>
+  <p class="status" id="order-status" role="status" aria-live="polite"></p>
+</form>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#order-form');
+  const status = document.querySelector<HTMLElement>('#order-status');
+  const tier = document.querySelector<HTMLSelectElement>('#of-tier');
+
+  document.querySelectorAll<HTMLElement>('[data-tier]').forEach((link) => {
+    link.addEventListener('click', () => {
+      if (tier && link.dataset.tier) tier.value = link.dataset.tier;
+    });
+  });
+
+  if (form && status) {
+    const { endpoint = '', fallback = '', sitekey = '' } = form.dataset;
+    let challenge: Promise<string> | undefined;
+
+    const loadChallenge = (): Promise<string> =>
+      new Promise((resolve) => {
+        if (!sitekey) return resolve('');
+        const script = document.createElement('script');
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.onload = () => {
+          const turnstile = (window as unknown as { turnstile: Turnstile }).turnstile;
+          const done = (token?: string) => resolve(token ?? '');
+          turnstile.render('#order-challenge', {
+            sitekey,
+            appearance: 'interaction-only',
+            callback: done,
+            'error-callback': () => done(),
+            'timeout-callback': () => done(),
+          });
+          setTimeout(done, 8000);
+        };
+        script.onerror = () => resolve('');
+        document.head.append(script);
+      });
+
+    interface Turnstile {
+      render: (target: string, options: Record<string, unknown>) => void;
+    }
+
+    form.addEventListener('focusin', () => (challenge ??= loadChallenge()), { once: true });
+
+    const failed = () => {
+      status.textContent = `That did not go through. Please try again, or write to ${fallback}.`;
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const email = String(data.get('email')).trim();
+      if (!email.includes('@')) {
+        status.textContent = 'Enter an email address we can reply to.';
+        return;
+      }
+      const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (button) button.disabled = true;
+      status.textContent = 'Sending.';
+      try {
+        challenge ??= loadChallenge();
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...Object.fromEntries(data), turnstile: await challenge }),
+        });
+        const result = (await response.json()) as { ok?: boolean };
+        if (!response.ok || !result.ok) throw new Error('rejected');
+        form.reset();
+        status.textContent = `Sent. We will reply to ${email} within 1 business day. Hosting saves you the server, not the setup: you still bring your own keys and accounts.`;
+      } catch {
+        failed();
+      } finally {
+        if (button) button.disabled = false;
+      }
+    });
+  }
+</script>
+
+<style>
+  .order {
+    display: grid;
+    gap: 1.25rem;
+    max-width: 34rem;
+  }
+  .field {
+    display: grid;
+    gap: 0.375rem;
+  }
+  label {
+    font-size: 0.9375rem;
+    font-weight: 550;
+  }
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-m);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-size: 1rem;
+  }
+  textarea {
+    resize: vertical;
+  }
+  .trap {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .btn {
+    justify-self: start;
+  }
+  .status {
+    min-height: 1.5em;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+</style>

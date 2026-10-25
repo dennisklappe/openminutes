@@ -1,0 +1,1 @@
+ALTER TABLE "meetings" ADD COLUMN "speakers_refined" boolean DEFAULT false NOT NULL;

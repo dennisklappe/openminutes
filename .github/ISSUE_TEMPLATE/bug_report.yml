@@ -1,0 +1,45 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste API keys, tokens, `OPENMINUTES_SECRET`, meeting links with passcodes or transcript and meeting content. Replace them with `REDACTED` before you submit. Check [Troubleshooting](https://github.com/dennisklappe/openminutes/blob/main/docs/troubleshooting.md) first.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Image tag or the version on the Settings page.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Meeting platform
+      options: [Google Meet, Microsoft Teams, Phone recorder, Not related to a meeting]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened and what did you expect
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: 'Output of `docker compose logs --tail=200 web worker bot`, with secrets and meeting content removed.'
+      render: text
+  - type: input
+    id: setup
+    attributes:
+      label: Setup
+      description: Host OS and architecture, transcription provider, summary provider.

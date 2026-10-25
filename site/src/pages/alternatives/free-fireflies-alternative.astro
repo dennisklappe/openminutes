@@ -1,0 +1,79 @@
+---
+import SeoPage from '../../layouts/SeoPage.astro';
+import { competitors, verifiedLabel } from '../../facts/seo-facts.mjs';
+
+const ff = competitors.fireflies;
+const others = ['otter', 'fathom', 'read-ai', 'tldv', 'granola'].map((s) => competitors[s]);
+const faq = [
+  {
+    q: 'Is there a free alternative to Fireflies?',
+    a: 'Several. Fireflies has a free plan itself, and Otter, Fathom, Read AI, tl;dv and Granola each list a free plan with their own limits. OpenMinutes is free software you run yourself, but you pay for the server and for your AI provider.',
+  },
+  {
+    q: 'Is OpenMinutes really free?',
+    a: 'The software is free under AGPL-3.0 with no licence key. Running it costs a machine and whatever your AI provider charges, unless you transcribe locally. If you do not want to run it, hosting starts at EUR 9 a month.',
+  },
+  {
+    q: 'What do I give up compared with Fireflies?',
+    a: 'Zoom support, ready-made integrations such as CRM and Slack, bot-free capture, a managed service and vendor compliance reports. OpenMinutes is also early-stage.',
+  },
+];
+---
+
+<SeoPage
+  title="Free Fireflies alternative: self-hosted vs free plan | OpenMinutes"
+  description="Free Fireflies alternative? The free plans of Fireflies, Otter, Fathom, Read AI, tl;dv and Granola next to OpenMinutes, which you self-host. Limits, with sources."
+  h1="A free alternative to Fireflies"
+  lede="Fireflies has a free plan, and so do others. If your goal is to avoid per-seat fees or to keep the data yourself, the free options differ in ways that matter."
+  crumbs={[{ name: 'Alternatives', path: '/compare' }, { name: 'Free Fireflies alternative', path: '/alternatives/free-fireflies-alternative' }]}
+  {faq}
+  verified
+  related={[
+    { href: '/compare/fireflies', label: 'OpenMinutes vs Fireflies.ai' },
+    { href: '/compare', label: 'All comparisons' },
+    { href: '/hosting', label: 'Hosted OpenMinutes' },
+    { href: '/docs/getting-started', label: 'Install OpenMinutes' },
+  ]}
+>
+  <h2>The free options, as of {verifiedLabel}</h2>
+  <div class="table-wrap">
+    <table class="wide-table">
+      <thead><tr><th scope="col">Option</th><th scope="col">What the free tier is</th></tr></thead>
+      <tbody>
+        <tr>
+          <th scope="row"><a href="/compare/fireflies">{ff.name}</a></th>
+          <td>{ff.rows.free.value} {ff.rows.free.src.map((u: string, i: number) => <a class="src" href={u} rel="nofollow noopener" target="_blank">[{i + 1}]</a>)}</td>
+        </tr>
+        {
+          others.map((c: any) => (
+            <tr>
+              <th scope="row"><a href={`/compare/${c.slug}`}>{c.name}</a></th>
+              <td>{c.rows.free.value} {c.rows.free.src.map((u: string, i: number) => <a class="src" href={u} rel="nofollow noopener" target="_blank">[{i + 1}]</a>)}</td>
+            </tr>
+          ))
+        }
+        <tr>
+          <th scope="row"><a href="/use/self-hosted-ai-meeting-notetaker">OpenMinutes</a></th>
+          <td>Free software, no limits set by us. You pay for the machine and your own AI provider, or transcribe locally. Pre-release.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>What "free" costs with OpenMinutes</h2>
+  <ul>
+    <li>A machine that runs Docker: about 1 vCPU and 1.5 GB of RAM for each meeting recorded at once, plus a small base (<a href="/docs/sizing">sizing</a>).</li>
+    <li>Transcription: free with local Whisper on your CPU, or at your provider's rate. The docs list $0.04 to $0.36 per audio hour in October 2026 (<a href="/docs/providers">providers</a>).</li>
+    <li>Your time: setup, updates and backups.</li>
+  </ul>
+  <p>If you want the same software run for you, <a href="/hosting">hosting is EUR 9, 20 or 59 a month</a> for 1, 3 or 10 concurrent meetings.</p>
+
+  <h2>When not to choose OpenMinutes</h2>
+  <ul>
+    <li>You use Zoom, or need CRM, Slack and other integrations out of the box.</li>
+    <li>You do not want to run or pay for a server and an AI provider.</li>
+    <li>You need a bot-free option, or vendor audit reports.</li>
+    <li>You need something stable today: OpenMinutes is pre-release, with no published image yet.</li>
+  </ul>
+  <p>Full details: <a href="/compare/fireflies">OpenMinutes vs Fireflies.ai</a>.</p>
+</SeoPage>

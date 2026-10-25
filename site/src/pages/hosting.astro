@@ -1,0 +1,278 @@
+---
+import Base from '../layouts/Base.astro';
+import FaqList from '../components/FaqList.astro';
+import OrderForm from '../components/OrderForm.astro';
+import { faqJsonLd, type Faq } from '../lib/faq';
+import { lowestPrice, productName, tiers } from '../lib/offer';
+import { siteUrl } from '../lib/site';
+
+const title = 'Hosted OpenMinutes | OpenMinutes';
+const description = `We run OpenMinutes for you, from EUR ${lowestPrice} a month. The same open source software, your own keys. Self-hosting stays free forever.`;
+
+const faq: Faq[] = [
+  {
+    q: 'What is a concurrent meeting?',
+    a: 'How many meetings the bot can sit in at the same moment. Users, meetings and meeting hours are unlimited on every plan, so the plan only sets how many run at once.',
+  },
+  {
+    q: 'Is the hosted version different from the free one?',
+    a: 'No. It is the same open source code under the AGPL, with no feature held back. You pay for us to run the server, not for software.',
+  },
+  {
+    q: 'Does the price include transcription and summaries?',
+    a: 'No. You bring your own keys and pay your own provider, typically a few cents per meeting hour. Nothing AI is included or resold. Whisper can also run locally on your instance, which needs no key.',
+  },
+  {
+    q: 'Are updates included?',
+    a: 'Yes. Every new version and fix is applied for you at no extra cost, along with security patches and backups.',
+  },
+  {
+    q: 'Do you set up Google, Microsoft and the bot for me?',
+    a: 'No. Hosting saves you the server, not the setup. You create your own Google and Azure apps, enter your own keys and connect your own calendars, exactly as on a self-hosted install. We provide the running instance and the setup wizard.',
+  },
+  {
+    q: 'How long until my instance is ready?',
+    a: 'Hosted instances are set up by hand. At launch that takes up to 1 business day after you send the request.',
+  },
+  {
+    q: 'Can I change plan or leave?',
+    a: 'Yes, any time. Export your data and move to self-hosting. It is the same software, so nothing needs converting.',
+  },
+];
+
+const jsonLd = [
+  {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'OpenMinutes', item: siteUrl },
+      { '@type': 'ListItem', position: 2, name: 'Hosting', item: `${siteUrl}/hosting` },
+    ],
+  },
+  {
+    '@type': 'Product',
+    name: productName,
+    description,
+    brand: { '@id': `${siteUrl}/#org` },
+    offers: tiers.map((t) => ({
+      '@type': 'Offer',
+      name: `${productName}, ${t.concurrent} concurrent`,
+      price: String(t.monthly),
+      priceCurrency: 'EUR',
+      url: `${siteUrl}/hosting`,
+    })),
+  },
+  faqJsonLd(faq),
+];
+---
+
+<Base {title} {description} {jsonLd}>
+  <div class="wide">
+    <header class="page-head">
+      <p class="crumb"><a href="/">OpenMinutes</a> / Hosting</p>
+      <h1>We run it for you</h1>
+      <p class="lede">The same OpenMinutes you could install yourself, on a server we run.</p>
+    </header>
+
+    <div class="note">
+      <strong>Self-hosting is free and identical.</strong> Same code, no licence key, no feature locked
+      behind hosting. You are paying for someone else to run the server.
+      <a href="/docs/getting-started">Do it yourself</a>.
+    </div>
+
+    <section class="tiers" aria-labelledby="tiers-title">
+      <h2 id="tiers-title">Pick how many meetings at once</h2>
+      <p class="how">
+        A concurrent meeting is a meeting the bot sits in at the same moment. Users, meetings and
+        hours are unlimited on every plan.
+      </p>
+      <div class="strip">
+        {
+          tiers.map((t) => (
+            <article class:list={['tier', { common: t.common }]}>
+              {t.common && <p class="tag">Most common</p>}
+              <h3>{t.who}</h3>
+              <p class="price">
+                <strong>EUR {t.monthly}</strong> a month
+              </p>
+              <p class="conc">
+                {t.concurrent} concurrent {t.concurrent === 1 ? 'meeting' : 'meetings'}
+              </p>
+              <a class:list={['btn', { 'btn-primary': t.common }]} href="#order" data-tier={t.id}>
+                Request this plan
+              </a>
+            </article>
+          ))
+        }
+      </div>
+      <p class="fine">
+        Prices exclude VAT, billed monthly. Using it for a whole company? 10 concurrent meetings
+        covers most teams. Need more, or your own dedicated server?
+        <a href="#order" data-tier="custom">Contact us</a>.
+      </p>
+    </section>
+
+    <div class="body">
+      <h2>On every plan</h2>
+      <ul>
+        <li>Your own instance of OpenMinutes, with HTTPS</li>
+        <li>Free updates included: every new version and fix, applied for you</li>
+        <li>Backups, security patches and support by email</li>
+        <li>Unlimited users, meetings and meeting hours</li>
+        <li>Export your data and move to self-hosting any time</li>
+      </ul>
+
+      <h2>Hosting saves you the server, not the setup</h2>
+      <p>
+        We provide the running instance and the setup wizard. The accounts and keys stay yours,
+        exactly as on a self-hosted install. Before you start, you need:
+      </p>
+      <ul>
+        <li>
+          A Google OAuth client and a Microsoft app registration for calendar auto-join:
+          <a href="/docs/google-oauth">Google</a>, <a href="/docs/azure-app">Azure</a>
+        </li>
+        <li>
+          Your own transcription and summary keys (OpenAI, Groq, Deepgram, DeepSeek and others), or
+          local Whisper: <a href="/docs/providers">providers</a>
+        </li>
+        <li>
+          A Google account for the Meet bot, if you use Meet:
+          <a href="/docs/meet-sign-in">signing the bot in</a>
+        </li>
+        <li>
+          A bot name and join message, and a way to send email:
+          <a href="/docs/bot-identity">bot identity</a>, <a href="/docs/email">email</a>
+        </li>
+      </ul>
+
+      <h2>Not included</h2>
+      <ul>
+        <li>AI usage. You pay your own provider directly, typically a few cents per meeting hour</li>
+        <li>Google, Microsoft or provider accounts, and doing the setup for you</li>
+        <li>A response-time guarantee. This is a small operation, not a support desk</li>
+      </ul>
+
+      <section class="order" id="order">
+        <h2>Request an instance</h2>
+        <p>
+          No signup, no card. You get a reply from a person, and we set your instance up by hand, up
+          to 1 business day at launch.
+        </p>
+        <OrderForm />
+      </section>
+
+      <section>
+        <h2>Questions</h2>
+        <FaqList items={faq} />
+      </section>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .note {
+    max-width: 46rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-l);
+    background: var(--accent-soft);
+    color: var(--ink-2);
+  }
+  .note strong {
+    color: var(--ink);
+  }
+
+  .tiers {
+    margin-top: 3.5rem;
+  }
+  .tiers h2 {
+    font-size: 1.5rem;
+  }
+  .how {
+    max-width: 40rem;
+    margin-top: 0.5rem;
+    color: var(--ink-2);
+  }
+  .strip {
+    display: grid;
+    margin-top: 1.5rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-l);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  @media (min-width: 820px) {
+    .strip {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .tier + .tier {
+      border-left: 1px solid var(--line);
+      border-top: 0;
+    }
+  }
+  .tier {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1.5rem;
+  }
+  .tier + .tier {
+    border-top: 1px solid var(--line);
+  }
+  .tier.common {
+    background: var(--accent-soft);
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+  .tag {
+    margin-bottom: 0.25rem;
+    color: var(--accent);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .tier h3 {
+    font-size: 1.25rem;
+  }
+  .price {
+    margin-top: 0.75rem;
+    color: var(--muted);
+  }
+  .price strong {
+    font-size: 2.25rem;
+    letter-spacing: -0.035em;
+    color: var(--ink);
+  }
+  .conc {
+    margin-bottom: 1.25rem;
+    color: var(--ink-2);
+    font-weight: 550;
+  }
+  .tier .btn {
+    margin-top: auto;
+  }
+  .fine {
+    max-width: 46rem;
+    margin-top: 1rem;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+
+  .body {
+    max-width: 44rem;
+    color: var(--ink-2);
+  }
+  .body h2 {
+    margin-top: 3.5rem;
+    margin-bottom: 0.875rem;
+    font-size: 1.5rem;
+    color: var(--ink);
+  }
+  .body ul {
+    display: grid;
+    gap: 0.5rem;
+    padding-left: 1.25rem;
+  }
+  .order p {
+    margin-bottom: 1.5rem;
+  }
+</style>

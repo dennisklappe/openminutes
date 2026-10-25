@@ -1,0 +1,38 @@
+{
+  "name": "@openminutes/platforms",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dennisklappe/openminutes.git",
+    "directory": "packages/platforms"
+  },
+  "homepage": "https://openminut.es",
+  "bugs": {
+    "url": "https://github.com/dennisklappe/openminutes/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "fixtures"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openminutes/db": "workspace:^",
+    "playwright-core": "^1.64.1"
+  },
+  "devDependencies": {
+    "linkedom": "^0.18.13"
+  }
+}

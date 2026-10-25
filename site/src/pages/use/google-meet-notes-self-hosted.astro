@@ -1,0 +1,76 @@
+---
+import SeoPage from '../../layouts/SeoPage.astro';
+import { omLimits } from '../../facts/seo-facts.mjs';
+
+const faq = [
+  {
+    q: 'Do I need a paid Google Workspace seat for the bot?',
+    a: 'Our guide has you create a dedicated Google account for the bot at accounts.google.com. It does not require a paid Workspace licence from us. Google\'s terms apply to that account, and automating it carries a risk we describe in the guide.',
+  },
+  {
+    q: 'Why does the bot need a Google account at all?',
+    a: 'Google Meet can refuse guests from automated browsers on servers. Our guide says a bot signed in to a Google account is judged differently, so OpenMinutes joins Meet with a dedicated account. Without one it still tries as a guest.',
+  },
+  {
+    q: 'Does the host have to admit the bot?',
+    a: 'Usually yes, as with any guest who asks to join. If the bot account belongs to the host\'s organisation or is invited, it can join straight away.',
+  },
+  {
+    q: 'What if Google bans the account?',
+    a: 'The guide says plainly that this is the worst case, and that automating a Google account can break the Google Terms of Service. Use an account that exists only for the bot.',
+  },
+];
+---
+
+<SeoPage
+  title="Self-hosted Google Meet notes with a bot account | OpenMinutes"
+  description="OpenMinutes joins Google Meet with its own Google account and writes the transcript on your server. How the bot signs in, what Google may block, and the risks."
+  h1="Google Meet notes on your own server"
+  lede="OpenMinutes joins Google Meet meetings with a bot, records the audio and writes a transcript with speaker names, all on infrastructure you run."
+  crumbs={[{ name: 'Use cases', path: '/compare' }, { name: 'Google Meet notes', path: '/use/google-meet-notes-self-hosted' }]}
+  {faq}
+  related={[
+    { href: '/docs/meet-sign-in', label: 'Signing the Meet bot in' },
+    { href: '/use/microsoft-teams-transcription-self-hosted', label: 'Teams transcription, self-hosted' },
+    { href: '/use/self-hosted-ai-meeting-notetaker', label: 'Self-hosted AI meeting notetaker' },
+    { href: '/compare', label: 'Compare with hosted notetakers' },
+  ]}
+>
+  <div class="callout callout-warning">
+    <p>
+      <strong>Read this first</strong>
+      Google Meet refuses guests from automated browsers on servers, so the bot signs in to a dedicated Google account. Google may
+      lock or challenge an account that acts like a bot, and automating an account can break Google's Terms of Service. That risk is
+      yours. See <a href="/docs/meet-sign-in">the guide</a>.
+    </p>
+  </div>
+
+  <h2>How it works</h2>
+  <ol>
+    <li>You create a Google account just for the bot and name it as the bot should appear. Others see that name.</li>
+    <li>You import a session file made on a computer with a display, or save the email and password so the bot can sign in by itself.</li>
+    <li>The bot opens the Meet link with that session, mutes itself, waits in the lobby or joins straight away, then records.</li>
+    <li>A daily keep-alive refreshes the session and an email alert tells you when it fails.</li>
+  </ol>
+  <p>The sign-in was run against real Google Meet on 2026-10-22 from a data center address. Meet changes without notice.</p>
+
+  <h2>Does it cost a Workspace seat?</h2>
+  <p>
+    OpenMinutes does not charge per seat and our guide uses a regular Google account created for the bot. For comparison, Google's own
+    meeting transcripts are available only on certain Workspace editions
+    (<a href="https://support.google.com/meet/answer/12849897" rel="nofollow noopener">Google Meet Help</a>), and its official Meet Media
+    API for real-time media is a developer preview that Google says is no longer accepting new sign-ups
+    (<a href="https://developers.google.com/workspace/meet/media-api/guides/overview" rel="nofollow noopener">Google developers</a>, checked 23 October 2026).
+  </p>
+
+  <h2>When not to choose it</h2>
+  <ul>
+    <li>You are not willing to run a bot on a dedicated Google account, or cannot accept the risk to that account.</li>
+    <li>Your Workspace edition already includes Google's own transcripts and that is enough for you.</li>
+    <li>You need bot-free capture. OpenMinutes always joins visibly.</li>
+  </ul>
+  <p>General limits:</p>
+  <ul>
+    {omLimits.map((l: { text: string; href: string; label: string }) => <li>{l.text} <a href={l.href}>{l.label}</a></li>)}
+  </ul>
+</SeoPage>

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://openminut.es/sitemap-index.xml

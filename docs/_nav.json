@@ -1,0 +1,185 @@
+{
+  "groups": [
+    {
+      "name": "Start",
+      "pages": [
+        {
+          "file": "README",
+          "title": "Overview",
+          "lead": "What OpenMinutes is, what you get and where to go next."
+        },
+        {
+          "file": "getting-started",
+          "title": "Install",
+          "lead": "Run OpenMinutes with Docker Compose, finish the setup wizard and record your first meeting."
+        },
+        {
+          "file": "upgrading",
+          "title": "Updating",
+          "lead": "Update with two commands, pin a version, roll back, and back up first."
+        }
+      ]
+    },
+    {
+      "name": "Set up",
+      "pages": [
+        {
+          "file": "google-oauth",
+          "title": "Google calendar",
+          "lead": "Create a Google Cloud OAuth client so OpenMinutes can read your Google Calendar."
+        },
+        {
+          "file": "azure-app",
+          "title": "Microsoft calendar",
+          "lead": "Create a Microsoft Entra app registration so OpenMinutes can read your Outlook calendar."
+        },
+        {
+          "file": "meet-sign-in",
+          "title": "Meet bot account",
+          "lead": "Let the bot join Google Meet with a dedicated Google account."
+        },
+        {
+          "file": "teams",
+          "title": "Microsoft Teams",
+          "lead": "Which Teams links work, what the bot does on the way in, and why a tenant can stop it."
+        },
+        {
+          "file": "providers",
+          "title": "Transcription and summaries",
+          "lead": "Which providers OpenMinutes supports, what each needs and what it costs."
+        },
+        {
+          "file": "email",
+          "title": "Email and sharing",
+          "lead": "Email providers, the Share with attendees dialog and how to add another provider."
+        },
+        {
+          "file": "reverse-proxy",
+          "title": "Reverse proxy and HTTPS",
+          "lead": "Put OpenMinutes behind Caddy, a Cloudflare Tunnel or Cloudflare Access."
+        },
+        {
+          "file": "bot-identity",
+          "title": "Bot identity",
+          "lead": "The name, join chat message and camera image the bot joins with."
+        },
+        {
+          "file": "duplicate-meetings",
+          "title": "Meetings in several calendars",
+          "lead": "One bot per meeting when the same invite arrives through several calendars."
+        }
+      ]
+    },
+    {
+      "name": "Use",
+      "pages": [
+        {
+          "file": "minutes-library",
+          "title": "Minutes library",
+          "lead": "Browse minutes by date, company or person, and keep them in folders."
+        },
+        {
+          "file": "minutes",
+          "title": "Minutes and sharing",
+          "lead": "Choose a template, add your logo, share minutes with a link and export them to the formats you need."
+        },
+        {
+          "file": "summaries",
+          "title": "Summary versions and AI edit",
+          "lead": "Every summary is a version: edit by hand, rewrite with AI, restore, regenerate."
+        },
+        {
+          "file": "speakers",
+          "title": "Speakers and accuracy",
+          "lead": "Where speaker names come from, how they are matched to the transcript, and the known limits."
+        },
+        {
+          "file": "participants",
+          "title": "Participant names",
+          "lead": "Rename people, how the summary follows, remembered names and absent invitees."
+        },
+        {
+          "file": "voices",
+          "title": "Voices and speaker names",
+          "lead": "Name voices in phone recordings and the optional voiceprint memory."
+        },
+        {
+          "file": "chat",
+          "title": "Meeting chat",
+          "lead": "How the bot captures the Meet and Teams chat and where it ends up."
+        },
+        {
+          "file": "phone-recorder",
+          "title": "Phone recorder",
+          "lead": "Record in person on your phone, also offline, with a speaker count and crash recovery."
+        },
+        {
+          "file": "archive-and-bin",
+          "title": "Archive and bin",
+          "lead": "Archive minutes, delete with 30 days to restore, the daily purge."
+        }
+      ]
+    },
+    {
+      "name": "Operate",
+      "pages": [
+        {
+          "file": "configuration",
+          "title": "Configuration",
+          "lead": "The one variable you must set, and the settings you change in the app."
+        },
+        {
+          "file": "storage",
+          "title": "Storage and retention",
+          "lead": "Keep recordings on a local volume or an S3-compatible bucket, and delete audio after a number of days."
+        },
+        {
+          "file": "sizing",
+          "title": "Sizing",
+          "lead": "How much CPU, memory and disk to plan for, and how many meetings a single server can record at once."
+        },
+        {
+          "file": "meeting-lifecycle",
+          "title": "Skipped and stuck meetings",
+          "lead": "Skip a meeting or series, lobby timeout, the watchdog and making room for a new link."
+        },
+        {
+          "file": "troubleshooting",
+          "title": "Troubleshooting",
+          "lead": "Common problems with joining, speakers, calendars and providers, and what to do."
+        }
+      ]
+    },
+    {
+      "name": "Reference",
+      "pages": [
+        {
+          "file": "consent-and-legal",
+          "title": "Consent and privacy",
+          "lead": "What to think about before a bot records your meetings. General information, not legal advice."
+        },
+        {
+          "file": "phone-recorder-api",
+          "title": "Phone recorder API",
+          "lead": "The upload endpoints behind the phone recorder: what the phone sends and what the server answers."
+        },
+        {
+          "file": "design",
+          "title": "Architecture",
+          "lead": "How the pieces of OpenMinutes fit together, what version 1 covers and leaves out, and why it was built this way."
+        },
+        {
+          "file": "roadmap",
+          "title": "Roadmap and status",
+          "lead": "Where OpenMinutes stands today and what comes next."
+        },
+        {
+          "file": "faq",
+          "title": "FAQ",
+          "lead": "Short answers to the questions people ask first about OpenMinutes: supported platforms, privacy, consent, cost and hosting."
+        }
+      ]
+    }
+  ],
+  "hidden": ["maintainers"]
+}

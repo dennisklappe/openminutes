@@ -1,0 +1,129 @@
+---
+import Legal from '../layouts/Legal.astro';
+import { tiers } from '../lib/offer';
+import { company, supportEmail } from '../lib/site';
+---
+
+<Legal
+  title="Terms"
+  description="The terms for the hosted OpenMinutes service. The software itself is licensed under the AGPL-3.0."
+  updated="24 October 2026"
+>
+  <h2>The software and the service</h2>
+  <p>
+    OpenMinutes is open source under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL-3.0</a>
+    and free to run yourself. The licence file in the repository governs the software; nothing here
+    restricts the rights it gives you. These terms cover only the hosted service and this website,
+    where <a href={company.url} rel="noopener">{company.name}</a>, {company.address} (KvK {company.kvk}, VAT {company.btw}), runs an instance for you.
+    By ordering the hosted service you accept these terms. If you order for a company, you confirm
+    you may bind it.
+  </p>
+
+  <h2>What the service is</h2>
+  <ul>
+    <li>A running instance of OpenMinutes, with HTTPS, updates, security patches and backups.</li>
+    <li>
+      The setup is yours. You create the Google and Microsoft apps, enter your own provider keys,
+      connect your own calendars and set up email, as on a self-hosted install.
+    </li>
+    <li>
+      No AI usage is included. You pay your own providers directly. Whisper can run locally on the
+      instance.
+    </li>
+    <li>
+      A plan sets how many meetings the bot can sit in at the same moment: {
+        tiers.map((t) => `${t.concurrent} for EUR ${t.monthly}`).join(', ')
+      } a month. More on request.
+    </li>
+    <li>Support is by email at <a href={`mailto:${supportEmail}`}>{supportEmail}</a>.</li>
+  </ul>
+
+  <h2>Ordering and start</h2>
+  <p>
+    You ask for an instance with the form on the <a href="/hosting">hosting page</a>. A request is
+    not a contract. The contract starts when we confirm by email that your instance is ready. We may
+    decline a request.
+  </p>
+
+  <h2>Price and payment</h2>
+  <p>
+    Monthly, excluding VAT, with unlimited users, meetings and meeting hours on every plan. We
+    invoice by email and you pay within 14 days of the invoice date. If you do not pay on time we
+    may suspend the instance after a reminder, and your data is kept as described in the
+    <a href="/privacy">privacy page</a> while it is suspended. We may change prices with at
+    least 30 days' notice by email; you can cancel before the change takes effect.
+  </p>
+
+  <h2>Cancelling</h2>
+  <p>
+    You can cancel at any time by email, with no minimum term, and the service runs until the end
+    of the paid month. We do not refund a month that has started. Export your data before the end:
+    afterwards it is deleted as described in the privacy page. We may end the service with 30 days'
+    notice, or at once if you break these terms.
+  </p>
+
+  <h2>Your responsibilities</h2>
+  <ul>
+    <li>
+      Record only where you are allowed to, tell participants, and follow the laws and policies
+      that apply to you. See the <a href="/docs/consent-and-legal">consent notes</a>. You are
+      responsible for the content you record and process.
+    </li>
+    <li>Keep your keys and logins safe, and do not use the service for anything unlawful.</li>
+    <li>
+      Do not attack, overload or try to get around the limits of the service, and do not resell it
+      without our agreement.
+    </li>
+    <li>
+      Automating a Google account can go against Google's terms. The risk of using a Meet bot
+      account is yours. The same goes for the terms of your AI and calendar providers.
+    </li>
+  </ul>
+
+  <h2>Your data</h2>
+  <p>
+    You own your recordings, transcripts and minutes, and we claim no rights in them beyond running
+    the service for you. You can export them and move to self-hosting at any time. See the
+    <a href="/privacy">privacy page</a> for how we process them, including our role as your
+    processor.
+  </p>
+
+  <h2>Availability and support</h2>
+  <p>
+    This is a small operation. We aim to keep the service running and to answer by email, but we do
+    not guarantee a response time or uptime. Instances are set up by hand, up to 1 business day at
+    launch. We may do maintenance that interrupts the service, and we try to announce long
+    interruptions in advance. Backups are made to help us restore the service; you should also export
+    minutes you cannot lose.
+  </p>
+
+  <h2>Liability</h2>
+  <p>
+    The service is provided as it is. To the extent the law allows, we are not liable for indirect
+    loss such as lost profit, lost meetings or missed recordings, or for what your providers or
+    Google and Microsoft do, and our total liability is limited to the fees you paid in the three
+    months before the claim. Nothing here limits liability for intent or deliberate recklessness, or
+    liability that cannot be limited by law.
+  </p>
+
+  <h2>Consumers</h2>
+  <p>
+    The hosted service is meant for businesses and professionals. If you are a consumer, the
+    mandatory consumer protection rules of your country still apply and prevail over these terms.
+  </p>
+
+  <h2>This website</h2>
+  <p>
+    The website and docs are provided as they are. The OpenMinutes name and logo are not covered by
+    the AGPL; please do not use them in a way that suggests we endorse a modified version or a
+    service we do not run.
+  </p>
+
+  <h2>Changes and law</h2>
+  <p>
+    We will tell you by email before these terms change in a way that matters, and the change applies
+    from your next paid month. Dutch law applies. Disputes go to the competent court in the
+    Netherlands, unless mandatory law gives you another court. Questions:
+    <a href={`mailto:${supportEmail}`}>{supportEmail}</a>.
+  </p>
+</Legal>

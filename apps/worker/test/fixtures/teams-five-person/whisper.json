@@ -1,0 +1,1527 @@
+{
+  "text": "Iawn. Iawn. Iawn. Iawn. Iawn. Iawn. Iawn. Iawn. Iawn. Iawn. Iawn. Good morning, everyone. Today we are planning the launch of the new mobile app. The release date is the 14th of November. Thanks, Alice. The backend is almost ready. I still need to finish the payment integration, which should take three days. I have finished the new onboarding screens and the design review is scheduled for Wednesday. On the infrastructure side, the staging servers are ready and I will run the load test on Thursday. I will write the release notes and update the help center before the launch. Great. Then I will prepare the marketing campaign and send the press release to the newsletter list by next Monday. Yes. One risk is the app store review. Last time it took a week, so we should submit the bill by the 7th of November. Right. Do we have a budget for the launch event? I will confirm the budget of 5,000 euros with finance. I can prepare the demo videos for the event if Dave shares the staging link. Sure. I will send the staging link to Carol this afternoon. Understood. I will submit the build on the 7th and report back on Friday. Okay. Perfect. Eve, please send the notes to the whole team after the call. Will do. I will share the notes tomorrow morning. Agreed. Thanks everybody. Let us talk again next Tuesday. Thank you. Thank you. Thank you. Thank you. Thank you.",
+  "segments": [
+    {
+      "start": 41.74,
+      "end": 42.38,
+      "text": " Iawn.",
+      "avg_logprob": -0.834,
+      "no_speech_prob": 0.96,
+      "compression_ratio": 2.059
+    },
+    {
+      "start": 43.46,
+      "end": 44.1,
+      "text": " Iawn.",
+      "avg_logprob": -0.834,
+      "no_speech_prob": 0.96,
+      "compression_ratio": 2.059
+    },
+    {
+      "start": 44.12,
+      "end": 44.16,
+      "text": " Iawn.",
+      "avg_logprob": -0.834,
+      "no_speech_prob": 0.96,
+      "compression_ratio": 2.059
+    },
+    {
+      "start": 47,
+      "end": 47.64,
+      "text": " Iawn.",
+      "avg_logprob": -0.834,
+      "no_speech_prob": 0.96,
+      "compression_ratio": 2.059
+    },
+    {
+      "start": 55.24,
+      "end": 55.88,
+      "text": " Iawn.",
+      "avg_logprob": -0.834,
+      "no_speech_prob": 0.96,
+      "compression_ratio": 2.059
+    },
+    {
+      "start": 55.88,
+      "end": 56.2,
+      "text": " Iawn.",
+      "avg_logprob": -0.834,
+      "no_speech_prob": 0.96,
+      "compression_ratio": 2.059
+    },
+    {
+      "start": 71.52,
+      "end": 71.6,
+      "text": " Iawn.",
+      "avg_logprob": -0.271,
+      "no_speech_prob": 0.707,
+      "compression_ratio": 1.706
+    },
+    {
+      "start": 74.02,
+      "end": 74.1,
+      "text": " Iawn.",
+      "avg_logprob": -0.271,
+      "no_speech_prob": 0.707,
+      "compression_ratio": 1.706
+    },
+    {
+      "start": 74.12,
+      "end": 74.16,
+      "text": " Iawn.",
+      "avg_logprob": -0.271,
+      "no_speech_prob": 0.707,
+      "compression_ratio": 1.706
+    },
+    {
+      "start": 74.34,
+      "end": 74.42,
+      "text": " Iawn.",
+      "avg_logprob": -0.271,
+      "no_speech_prob": 0.707,
+      "compression_ratio": 1.706
+    },
+    {
+      "start": 77.56,
+      "end": 77.64,
+      "text": " Iawn.",
+      "avg_logprob": -0.271,
+      "no_speech_prob": 0.707,
+      "compression_ratio": 1.706
+    },
+    {
+      "start": 90.88,
+      "end": 97.56,
+      "text": " Good morning, everyone. Today we are planning the launch of the new mobile app. The release date is the 14th of November.",
+      "avg_logprob": -0.217,
+      "no_speech_prob": 0.375,
+      "compression_ratio": 1.621
+    },
+    {
+      "start": 99.04,
+      "end": 104.78,
+      "text": " Thanks, Alice. The backend is almost ready. I still need to finish the payment integration, which should take three days.",
+      "avg_logprob": -0.217,
+      "no_speech_prob": 0.375,
+      "compression_ratio": 1.621
+    },
+    {
+      "start": 105.84,
+      "end": 111.24,
+      "text": " I have finished the new onboarding screens and the design review is scheduled for Wednesday.",
+      "avg_logprob": -0.217,
+      "no_speech_prob": 0.375,
+      "compression_ratio": 1.621
+    },
+    {
+      "start": 111.28,
+      "end": 117.68,
+      "text": " On the infrastructure side, the staging servers are ready and I will run the load test on Thursday.",
+      "avg_logprob": -0.217,
+      "no_speech_prob": 0.375,
+      "compression_ratio": 1.621
+    },
+    {
+      "start": 118.68,
+      "end": 122.86,
+      "text": " I will write the release notes and update the help center before the launch.",
+      "avg_logprob": -0.202,
+      "no_speech_prob": 0.037,
+      "compression_ratio": 1.521
+    },
+    {
+      "start": 124.84,
+      "end": 130.42,
+      "text": " Great. Then I will prepare the marketing campaign and send the press release to the newsletter list by next Monday.",
+      "avg_logprob": -0.202,
+      "no_speech_prob": 0.037,
+      "compression_ratio": 1.521
+    },
+    {
+      "start": 131.26,
+      "end": 131.74,
+      "text": " Yes.",
+      "avg_logprob": -0.202,
+      "no_speech_prob": 0.037,
+      "compression_ratio": 1.521
+    },
+    {
+      "start": 133.7,
+      "end": 139.04,
+      "text": " One risk is the app store review. Last time it took a week, so we should submit the bill by the 7th of November.",
+      "avg_logprob": -0.202,
+      "no_speech_prob": 0.037,
+      "compression_ratio": 1.521
+    },
+    {
+      "start": 139.74,
+      "end": 140.22,
+      "text": " Right.",
+      "avg_logprob": -0.202,
+      "no_speech_prob": 0.037,
+      "compression_ratio": 1.521
+    },
+    {
+      "start": 141.52,
+      "end": 143.1,
+      "text": " Do we have a budget for the launch event?",
+      "avg_logprob": -0.202,
+      "no_speech_prob": 0.037,
+      "compression_ratio": 1.521
+    },
+    {
+      "start": 143.1,
+      "end": 146.38,
+      "text": " I will confirm the budget of 5,000 euros with finance.",
+      "avg_logprob": -0.189,
+      "no_speech_prob": 0.084,
+      "compression_ratio": 1.629
+    },
+    {
+      "start": 147.82,
+      "end": 152.42,
+      "text": " I can prepare the demo videos for the event if Dave shares the staging link.",
+      "avg_logprob": -0.189,
+      "no_speech_prob": 0.084,
+      "compression_ratio": 1.629
+    },
+    {
+      "start": 152.68,
+      "end": 156.22,
+      "text": " Sure. I will send the staging link to Carol this afternoon.",
+      "avg_logprob": -0.189,
+      "no_speech_prob": 0.084,
+      "compression_ratio": 1.629
+    },
+    {
+      "start": 157.88,
+      "end": 161.44,
+      "text": " Understood. I will submit the build on the 7th and report back on Friday.",
+      "avg_logprob": -0.189,
+      "no_speech_prob": 0.084,
+      "compression_ratio": 1.629
+    },
+    {
+      "start": 162.1,
+      "end": 162.66,
+      "text": " Okay.",
+      "avg_logprob": -0.189,
+      "no_speech_prob": 0.084,
+      "compression_ratio": 1.629
+    },
+    {
+      "start": 164.3,
+      "end": 167.6,
+      "text": " Perfect. Eve, please send the notes to the whole team after the call.",
+      "avg_logprob": -0.189,
+      "no_speech_prob": 0.084,
+      "compression_ratio": 1.629
+    },
+    {
+      "start": 167.76,
+      "end": 170.2,
+      "text": " Will do. I will share the notes tomorrow morning.",
+      "avg_logprob": -0.189,
+      "no_speech_prob": 0.084,
+      "compression_ratio": 1.629
+    },
+    {
+      "start": 171.18,
+      "end": 171.88,
+      "text": " Agreed.",
+      "avg_logprob": -0.197,
+      "no_speech_prob": 0.216,
+      "compression_ratio": 0.877
+    },
+    {
+      "start": 173.6,
+      "end": 176.26,
+      "text": " Thanks everybody. Let us talk again next Tuesday.",
+      "avg_logprob": -0.197,
+      "no_speech_prob": 0.216,
+      "compression_ratio": 0.877
+    },
+    {
+      "start": 230.1,
+      "end": 230.16,
+      "text": " Thank you.",
+      "avg_logprob": -0.657,
+      "no_speech_prob": 0.999,
+      "compression_ratio": 0.556
+    },
+    {
+      "start": 260.1,
+      "end": 260.16,
+      "text": " Thank you.",
+      "avg_logprob": -0.552,
+      "no_speech_prob": 1,
+      "compression_ratio": 0.556
+    },
+    {
+      "start": 290.1,
+      "end": 290.16,
+      "text": " Thank you.",
+      "avg_logprob": -0.473,
+      "no_speech_prob": 1,
+      "compression_ratio": 0.556
+    },
+    {
+      "start": 320.1,
+      "end": 320.16,
+      "text": " Thank you.",
+      "avg_logprob": -0.387,
+      "no_speech_prob": 1,
+      "compression_ratio": 0.556
+    },
+    {
+      "start": 329.04,
+      "end": 330.44,
+      "text": " Thank you.",
+      "avg_logprob": -0.356,
+      "no_speech_prob": 0.999,
+      "compression_ratio": 0.556
+    }
+  ],
+  "words": [
+    {
+      "word": "Iawn",
+      "start": 41.74,
+      "end": 42.38
+    },
+    {
+      "word": "Iawn",
+      "start": 43.46,
+      "end": 44.1
+    },
+    {
+      "word": "Iawn",
+      "start": 44.12,
+      "end": 44.16
+    },
+    {
+      "word": "Iawn",
+      "start": 47,
+      "end": 47.64
+    },
+    {
+      "word": "Iawn",
+      "start": 55.24,
+      "end": 55.88
+    },
+    {
+      "word": "Iawn",
+      "start": 55.88,
+      "end": 56.2
+    },
+    {
+      "word": "Iawn",
+      "start": 71.52,
+      "end": 71.6
+    },
+    {
+      "word": "Iawn",
+      "start": 74.02,
+      "end": 74.1
+    },
+    {
+      "word": "Iawn",
+      "start": 74.12,
+      "end": 74.16
+    },
+    {
+      "word": "Iawn",
+      "start": 74.34,
+      "end": 74.42
+    },
+    {
+      "word": "Iawn",
+      "start": 77.56,
+      "end": 77.64
+    },
+    {
+      "word": "Good",
+      "start": 90.88,
+      "end": 91.44
+    },
+    {
+      "word": "morning",
+      "start": 91.44,
+      "end": 91.78
+    },
+    {
+      "word": "everyone",
+      "start": 92.02,
+      "end": 92.24
+    },
+    {
+      "word": "Today",
+      "start": 92.64,
+      "end": 92.64
+    },
+    {
+      "word": "we",
+      "start": 92.64,
+      "end": 92.9
+    },
+    {
+      "word": "are",
+      "start": 92.9,
+      "end": 93.2
+    },
+    {
+      "word": "planning",
+      "start": 93.2,
+      "end": 93.48
+    },
+    {
+      "word": "the",
+      "start": 93.48,
+      "end": 93.72
+    },
+    {
+      "word": "launch",
+      "start": 93.72,
+      "end": 93.94
+    },
+    {
+      "word": "of",
+      "start": 93.94,
+      "end": 94.12
+    },
+    {
+      "word": "the",
+      "start": 94.12,
+      "end": 94.2
+    },
+    {
+      "word": "new",
+      "start": 94.2,
+      "end": 94.48
+    },
+    {
+      "word": "mobile",
+      "start": 94.48,
+      "end": 94.68
+    },
+    {
+      "word": "app",
+      "start": 94.68,
+      "end": 94.98
+    },
+    {
+      "word": "The",
+      "start": 95.18,
+      "end": 95.26
+    },
+    {
+      "word": "release",
+      "start": 95.26,
+      "end": 95.5
+    },
+    {
+      "word": "date",
+      "start": 95.5,
+      "end": 95.82
+    },
+    {
+      "word": "is",
+      "start": 95.82,
+      "end": 96.02
+    },
+    {
+      "word": "the",
+      "start": 96.02,
+      "end": 96.12
+    },
+    {
+      "word": "14th",
+      "start": 96.12,
+      "end": 96.7
+    },
+    {
+      "word": "of",
+      "start": 96.7,
+      "end": 97.38
+    },
+    {
+      "word": "November",
+      "start": 97.38,
+      "end": 97.56
+    },
+    {
+      "word": "Thanks",
+      "start": 99.04,
+      "end": 99.16
+    },
+    {
+      "word": "Alice",
+      "start": 99.6,
+      "end": 99.62
+    },
+    {
+      "word": "The",
+      "start": 99.7,
+      "end": 99.9
+    },
+    {
+      "word": "backend",
+      "start": 99.9,
+      "end": 100.28
+    },
+    {
+      "word": "is",
+      "start": 100.28,
+      "end": 100.52
+    },
+    {
+      "word": "almost",
+      "start": 100.52,
+      "end": 101.02
+    },
+    {
+      "word": "ready",
+      "start": 101.02,
+      "end": 101.22
+    },
+    {
+      "word": "I",
+      "start": 101.34,
+      "end": 101.48
+    },
+    {
+      "word": "still",
+      "start": 101.48,
+      "end": 101.74
+    },
+    {
+      "word": "need",
+      "start": 101.74,
+      "end": 101.9
+    },
+    {
+      "word": "to",
+      "start": 101.9,
+      "end": 102.28
+    },
+    {
+      "word": "finish",
+      "start": 102.28,
+      "end": 102.28
+    },
+    {
+      "word": "the",
+      "start": 102.28,
+      "end": 102.5
+    },
+    {
+      "word": "payment",
+      "start": 102.5,
+      "end": 102.84
+    },
+    {
+      "word": "integration",
+      "start": 102.84,
+      "end": 103.36
+    },
+    {
+      "word": "which",
+      "start": 103.6,
+      "end": 103.82
+    },
+    {
+      "word": "should",
+      "start": 103.82,
+      "end": 104.02
+    },
+    {
+      "word": "take",
+      "start": 104.02,
+      "end": 104.22
+    },
+    {
+      "word": "three",
+      "start": 104.22,
+      "end": 104.48
+    },
+    {
+      "word": "days",
+      "start": 104.48,
+      "end": 104.78
+    },
+    {
+      "word": "I",
+      "start": 105.84,
+      "end": 106.24
+    },
+    {
+      "word": "have",
+      "start": 106.24,
+      "end": 106.52
+    },
+    {
+      "word": "finished",
+      "start": 106.52,
+      "end": 106.86
+    },
+    {
+      "word": "the",
+      "start": 106.86,
+      "end": 107.14
+    },
+    {
+      "word": "new",
+      "start": 107.14,
+      "end": 107.56
+    },
+    {
+      "word": "onboarding",
+      "start": 107.56,
+      "end": 108.1
+    },
+    {
+      "word": "screens",
+      "start": 108.1,
+      "end": 108.52
+    },
+    {
+      "word": "and",
+      "start": 108.52,
+      "end": 108.8
+    },
+    {
+      "word": "the",
+      "start": 108.8,
+      "end": 109.04
+    },
+    {
+      "word": "design",
+      "start": 109.04,
+      "end": 109.44
+    },
+    {
+      "word": "review",
+      "start": 109.44,
+      "end": 109.88
+    },
+    {
+      "word": "is",
+      "start": 109.88,
+      "end": 110.3
+    },
+    {
+      "word": "scheduled",
+      "start": 110.3,
+      "end": 110.58
+    },
+    {
+      "word": "for",
+      "start": 110.58,
+      "end": 110.96
+    },
+    {
+      "word": "Wednesday",
+      "start": 110.96,
+      "end": 111.24
+    },
+    {
+      "word": "On",
+      "start": 111.28,
+      "end": 111.44
+    },
+    {
+      "word": "the",
+      "start": 111.44,
+      "end": 111.76
+    },
+    {
+      "word": "infrastructure",
+      "start": 111.76,
+      "end": 112.48
+    },
+    {
+      "word": "side",
+      "start": 112.48,
+      "end": 113.12
+    },
+    {
+      "word": "the",
+      "start": 113.34,
+      "end": 113.6
+    },
+    {
+      "word": "staging",
+      "start": 113.6,
+      "end": 113.96
+    },
+    {
+      "word": "servers",
+      "start": 113.96,
+      "end": 114.5
+    },
+    {
+      "word": "are",
+      "start": 114.5,
+      "end": 114.86
+    },
+    {
+      "word": "ready",
+      "start": 114.86,
+      "end": 115.04
+    },
+    {
+      "word": "and",
+      "start": 115.04,
+      "end": 115.32
+    },
+    {
+      "word": "I",
+      "start": 115.32,
+      "end": 115.52
+    },
+    {
+      "word": "will",
+      "start": 115.52,
+      "end": 115.74
+    },
+    {
+      "word": "run",
+      "start": 115.74,
+      "end": 115.98
+    },
+    {
+      "word": "the",
+      "start": 115.98,
+      "end": 116.2
+    },
+    {
+      "word": "load",
+      "start": 116.2,
+      "end": 116.56
+    },
+    {
+      "word": "test",
+      "start": 116.56,
+      "end": 116.84
+    },
+    {
+      "word": "on",
+      "start": 116.84,
+      "end": 117.24
+    },
+    {
+      "word": "Thursday",
+      "start": 117.24,
+      "end": 117.68
+    },
+    {
+      "word": "I",
+      "start": 118.68,
+      "end": 119.16
+    },
+    {
+      "word": "will",
+      "start": 119.16,
+      "end": 119.36
+    },
+    {
+      "word": "write",
+      "start": 119.36,
+      "end": 119.6
+    },
+    {
+      "word": "the",
+      "start": 119.6,
+      "end": 119.78
+    },
+    {
+      "word": "release",
+      "start": 119.78,
+      "end": 120.18
+    },
+    {
+      "word": "notes",
+      "start": 120.18,
+      "end": 120.46
+    },
+    {
+      "word": "and",
+      "start": 120.46,
+      "end": 120.8
+    },
+    {
+      "word": "update",
+      "start": 120.8,
+      "end": 121.04
+    },
+    {
+      "word": "the",
+      "start": 121.04,
+      "end": 121.38
+    },
+    {
+      "word": "help",
+      "start": 121.38,
+      "end": 121.58
+    },
+    {
+      "word": "center",
+      "start": 121.58,
+      "end": 121.94
+    },
+    {
+      "word": "before",
+      "start": 121.94,
+      "end": 122.26
+    },
+    {
+      "word": "the",
+      "start": 122.26,
+      "end": 122.5
+    },
+    {
+      "word": "launch",
+      "start": 122.5,
+      "end": 122.86
+    },
+    {
+      "word": "Great",
+      "start": 124.84,
+      "end": 124.94
+    },
+    {
+      "word": "Then",
+      "start": 125.2,
+      "end": 125.36
+    },
+    {
+      "word": "I",
+      "start": 125.36,
+      "end": 125.48
+    },
+    {
+      "word": "will",
+      "start": 125.48,
+      "end": 125.66
+    },
+    {
+      "word": "prepare",
+      "start": 125.66,
+      "end": 125.96
+    },
+    {
+      "word": "the",
+      "start": 125.96,
+      "end": 126.16
+    },
+    {
+      "word": "marketing",
+      "start": 126.16,
+      "end": 126.5
+    },
+    {
+      "word": "campaign",
+      "start": 126.5,
+      "end": 126.96
+    },
+    {
+      "word": "and",
+      "start": 126.96,
+      "end": 127.24
+    },
+    {
+      "word": "send",
+      "start": 127.24,
+      "end": 127.4
+    },
+    {
+      "word": "the",
+      "start": 127.4,
+      "end": 127.54
+    },
+    {
+      "word": "press",
+      "start": 127.54,
+      "end": 127.78
+    },
+    {
+      "word": "release",
+      "start": 127.78,
+      "end": 128.12
+    },
+    {
+      "word": "to",
+      "start": 128.12,
+      "end": 128.28
+    },
+    {
+      "word": "the",
+      "start": 128.28,
+      "end": 128.44
+    },
+    {
+      "word": "newsletter",
+      "start": 128.44,
+      "end": 128.8
+    },
+    {
+      "word": "list",
+      "start": 128.8,
+      "end": 129.28
+    },
+    {
+      "word": "by",
+      "start": 129.28,
+      "end": 129.82
+    },
+    {
+      "word": "next",
+      "start": 129.82,
+      "end": 130.18
+    },
+    {
+      "word": "Monday",
+      "start": 130.18,
+      "end": 130.42
+    },
+    {
+      "word": "Yes",
+      "start": 131.26,
+      "end": 131.74
+    },
+    {
+      "word": "One",
+      "start": 133.7,
+      "end": 133.88
+    },
+    {
+      "word": "risk",
+      "start": 133.88,
+      "end": 134.14
+    },
+    {
+      "word": "is",
+      "start": 134.14,
+      "end": 134.34
+    },
+    {
+      "word": "the",
+      "start": 134.34,
+      "end": 134.54
+    },
+    {
+      "word": "app",
+      "start": 134.54,
+      "end": 134.82
+    },
+    {
+      "word": "store",
+      "start": 134.82,
+      "end": 135
+    },
+    {
+      "word": "review",
+      "start": 135,
+      "end": 135.4
+    },
+    {
+      "word": "Last",
+      "start": 135.76,
+      "end": 135.76
+    },
+    {
+      "word": "time",
+      "start": 135.76,
+      "end": 135.96
+    },
+    {
+      "word": "it",
+      "start": 135.96,
+      "end": 136.12
+    },
+    {
+      "word": "took",
+      "start": 136.12,
+      "end": 136.24
+    },
+    {
+      "word": "a",
+      "start": 136.24,
+      "end": 136.66
+    },
+    {
+      "word": "week",
+      "start": 136.66,
+      "end": 136.66
+    },
+    {
+      "word": "so",
+      "start": 136.74,
+      "end": 136.96
+    },
+    {
+      "word": "we",
+      "start": 136.96,
+      "end": 137.12
+    },
+    {
+      "word": "should",
+      "start": 137.12,
+      "end": 137.3
+    },
+    {
+      "word": "submit",
+      "start": 137.3,
+      "end": 137.5
+    },
+    {
+      "word": "the",
+      "start": 137.5,
+      "end": 137.74
+    },
+    {
+      "word": "bill",
+      "start": 137.74,
+      "end": 137.84
+    },
+    {
+      "word": "by",
+      "start": 137.84,
+      "end": 138.04
+    },
+    {
+      "word": "the",
+      "start": 138.04,
+      "end": 138.22
+    },
+    {
+      "word": "7th",
+      "start": 138.22,
+      "end": 138.52
+    },
+    {
+      "word": "of",
+      "start": 138.52,
+      "end": 139.04
+    },
+    {
+      "word": "November",
+      "start": 139.04,
+      "end": 139.04
+    },
+    {
+      "word": "Right",
+      "start": 139.74,
+      "end": 140.22
+    },
+    {
+      "word": "Do",
+      "start": 141.52,
+      "end": 141.64
+    },
+    {
+      "word": "we",
+      "start": 141.64,
+      "end": 141.76
+    },
+    {
+      "word": "have",
+      "start": 141.76,
+      "end": 141.86
+    },
+    {
+      "word": "a",
+      "start": 141.86,
+      "end": 142.16
+    },
+    {
+      "word": "budget",
+      "start": 142.16,
+      "end": 142.16
+    },
+    {
+      "word": "for",
+      "start": 142.16,
+      "end": 142.42
+    },
+    {
+      "word": "the",
+      "start": 142.42,
+      "end": 142.6
+    },
+    {
+      "word": "launch",
+      "start": 142.6,
+      "end": 142.8
+    },
+    {
+      "word": "event",
+      "start": 142.8,
+      "end": 143.1
+    },
+    {
+      "word": "I",
+      "start": 143.1,
+      "end": 143.28
+    },
+    {
+      "word": "will",
+      "start": 143.28,
+      "end": 143.5
+    },
+    {
+      "word": "confirm",
+      "start": 143.5,
+      "end": 143.84
+    },
+    {
+      "word": "the",
+      "start": 143.84,
+      "end": 144.04
+    },
+    {
+      "word": "budget",
+      "start": 144.04,
+      "end": 144.28
+    },
+    {
+      "word": "of",
+      "start": 144.28,
+      "end": 144.48
+    },
+    {
+      "word": "5",
+      "start": 144.48,
+      "end": 144.82
+    },
+    {
+      "word": "000",
+      "start": 144.82,
+      "end": 145.2
+    },
+    {
+      "word": "euros",
+      "start": 145.2,
+      "end": 145.58
+    },
+    {
+      "word": "with",
+      "start": 145.58,
+      "end": 145.86
+    },
+    {
+      "word": "finance",
+      "start": 145.86,
+      "end": 146.38
+    },
+    {
+      "word": "I",
+      "start": 147.82,
+      "end": 147.82
+    },
+    {
+      "word": "can",
+      "start": 147.82,
+      "end": 148.14
+    },
+    {
+      "word": "prepare",
+      "start": 148.14,
+      "end": 148.54
+    },
+    {
+      "word": "the",
+      "start": 148.54,
+      "end": 148.84
+    },
+    {
+      "word": "demo",
+      "start": 148.84,
+      "end": 149.12
+    },
+    {
+      "word": "videos",
+      "start": 149.12,
+      "end": 149.58
+    },
+    {
+      "word": "for",
+      "start": 149.58,
+      "end": 149.86
+    },
+    {
+      "word": "the",
+      "start": 149.86,
+      "end": 150.02
+    },
+    {
+      "word": "event",
+      "start": 150.02,
+      "end": 150.42
+    },
+    {
+      "word": "if",
+      "start": 150.42,
+      "end": 150.78
+    },
+    {
+      "word": "Dave",
+      "start": 150.78,
+      "end": 151.02
+    },
+    {
+      "word": "shares",
+      "start": 151.02,
+      "end": 151.44
+    },
+    {
+      "word": "the",
+      "start": 151.44,
+      "end": 152.1
+    },
+    {
+      "word": "staging",
+      "start": 152.1,
+      "end": 152.1
+    },
+    {
+      "word": "link",
+      "start": 152.1,
+      "end": 152.42
+    },
+    {
+      "word": "Sure",
+      "start": 152.68,
+      "end": 152.82
+    },
+    {
+      "word": "I",
+      "start": 152.92,
+      "end": 153.08
+    },
+    {
+      "word": "will",
+      "start": 153.08,
+      "end": 153.36
+    },
+    {
+      "word": "send",
+      "start": 153.36,
+      "end": 153.62
+    },
+    {
+      "word": "the",
+      "start": 153.62,
+      "end": 153.9
+    },
+    {
+      "word": "staging",
+      "start": 153.9,
+      "end": 154.22
+    },
+    {
+      "word": "link",
+      "start": 154.22,
+      "end": 154.58
+    },
+    {
+      "word": "to",
+      "start": 154.58,
+      "end": 155
+    },
+    {
+      "word": "Carol",
+      "start": 155,
+      "end": 155.18
+    },
+    {
+      "word": "this",
+      "start": 155.18,
+      "end": 155.62
+    },
+    {
+      "word": "afternoon",
+      "start": 155.62,
+      "end": 156.22
+    },
+    {
+      "word": "Understood",
+      "start": 157.88,
+      "end": 158.18
+    },
+    {
+      "word": "I",
+      "start": 158.38,
+      "end": 158.5
+    },
+    {
+      "word": "will",
+      "start": 158.5,
+      "end": 158.74
+    },
+    {
+      "word": "submit",
+      "start": 158.74,
+      "end": 158.9
+    },
+    {
+      "word": "the",
+      "start": 158.9,
+      "end": 159.18
+    },
+    {
+      "word": "build",
+      "start": 159.18,
+      "end": 159.34
+    },
+    {
+      "word": "on",
+      "start": 159.34,
+      "end": 159.48
+    },
+    {
+      "word": "the",
+      "start": 159.48,
+      "end": 159.68
+    },
+    {
+      "word": "7th",
+      "start": 159.68,
+      "end": 160
+    },
+    {
+      "word": "and",
+      "start": 160,
+      "end": 160.2
+    },
+    {
+      "word": "report",
+      "start": 160.2,
+      "end": 160.54
+    },
+    {
+      "word": "back",
+      "start": 160.54,
+      "end": 160.86
+    },
+    {
+      "word": "on",
+      "start": 160.86,
+      "end": 161.44
+    },
+    {
+      "word": "Friday",
+      "start": 161.44,
+      "end": 161.44
+    },
+    {
+      "word": "Okay",
+      "start": 162.1,
+      "end": 162.66
+    },
+    {
+      "word": "Perfect",
+      "start": 164.3,
+      "end": 164.76
+    },
+    {
+      "word": "Eve",
+      "start": 164.98,
+      "end": 165.22
+    },
+    {
+      "word": "please",
+      "start": 165.32,
+      "end": 165.66
+    },
+    {
+      "word": "send",
+      "start": 165.66,
+      "end": 165.86
+    },
+    {
+      "word": "the",
+      "start": 165.86,
+      "end": 166.22
+    },
+    {
+      "word": "notes",
+      "start": 166.22,
+      "end": 166.22
+    },
+    {
+      "word": "to",
+      "start": 166.22,
+      "end": 166.42
+    },
+    {
+      "word": "the",
+      "start": 166.42,
+      "end": 166.5
+    },
+    {
+      "word": "whole",
+      "start": 166.5,
+      "end": 166.86
+    },
+    {
+      "word": "team",
+      "start": 166.86,
+      "end": 167.02
+    },
+    {
+      "word": "after",
+      "start": 167.02,
+      "end": 167.3
+    },
+    {
+      "word": "the",
+      "start": 167.3,
+      "end": 167.58
+    },
+    {
+      "word": "call",
+      "start": 167.58,
+      "end": 167.6
+    },
+    {
+      "word": "Will",
+      "start": 167.76,
+      "end": 167.84
+    },
+    {
+      "word": "do",
+      "start": 167.84,
+      "end": 167.84
+    },
+    {
+      "word": "I",
+      "start": 167.98,
+      "end": 168.24
+    },
+    {
+      "word": "will",
+      "start": 168.24,
+      "end": 168.48
+    },
+    {
+      "word": "share",
+      "start": 168.48,
+      "end": 168.7
+    },
+    {
+      "word": "the",
+      "start": 168.7,
+      "end": 169.22
+    },
+    {
+      "word": "notes",
+      "start": 169.22,
+      "end": 169.22
+    },
+    {
+      "word": "tomorrow",
+      "start": 169.22,
+      "end": 169.76
+    },
+    {
+      "word": "morning",
+      "start": 169.76,
+      "end": 170.2
+    },
+    {
+      "word": "Agreed",
+      "start": 171.18,
+      "end": 171.88
+    },
+    {
+      "word": "Thanks",
+      "start": 173.6,
+      "end": 173.7
+    },
+    {
+      "word": "everybody",
+      "start": 173.7,
+      "end": 174.3
+    },
+    {
+      "word": "Let",
+      "start": 174.68,
+      "end": 174.82
+    },
+    {
+      "word": "us",
+      "start": 174.82,
+      "end": 174.98
+    },
+    {
+      "word": "talk",
+      "start": 174.98,
+      "end": 175.24
+    },
+    {
+      "word": "again",
+      "start": 175.24,
+      "end": 175.56
+    },
+    {
+      "word": "next",
+      "start": 175.56,
+      "end": 175.9
+    },
+    {
+      "word": "Tuesday",
+      "start": 175.9,
+      "end": 176.26
+    },
+    {
+      "word": "Thank",
+      "start": 230.1,
+      "end": 230.14
+    },
+    {
+      "word": "you",
+      "start": 230.14,
+      "end": 230.16
+    },
+    {
+      "word": "Thank",
+      "start": 260.1,
+      "end": 260.14
+    },
+    {
+      "word": "you",
+      "start": 260.14,
+      "end": 260.16
+    },
+    {
+      "word": "Thank",
+      "start": 290.1,
+      "end": 290.14
+    },
+    {
+      "word": "you",
+      "start": 290.14,
+      "end": 290.16
+    },
+    {
+      "word": "Thank",
+      "start": 320.1,
+      "end": 320.14
+    },
+    {
+      "word": "you",
+      "start": 320.14,
+      "end": 320.16
+    },
+    {
+      "word": "Thank",
+      "start": 329.04,
+      "end": 330.44
+    },
+    {
+      "word": "you",
+      "start": 330.44,
+      "end": 330.44
+    }
+  ]
+}

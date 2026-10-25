@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 240" width="960" height="240" role="img" aria-label="How OpenMinutes works"><rect width="960" height="240" rx="14" fill="#f8f8f9"/>
+<rect x="20.0" y="50" width="160" height="140" rx="10" fill="#ffffff" stroke="#d5d8dd"/>
+<rect x="36.0" y="68" width="40" height="7" rx="3.5" fill="#c2410c"/>
+<text x="36.0" y="112" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="21" font-weight="600" fill="#16181d">Invite</text>
+<text x="36.0" y="140" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">Meet or Teams</text>
+<text x="36.0" y="160" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">or a pasted link</text>
+<path d="M185.0 120 H203.0 m-6 -5 l6 5 l-6 5" fill="none" stroke="#2760ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="210.0" y="50" width="160" height="140" rx="10" fill="#ffffff" stroke="#d5d8dd"/>
+<rect x="226.0" y="68" width="40" height="7" rx="3.5" fill="#12805c"/>
+<text x="226.0" y="112" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="21" font-weight="600" fill="#16181d">Join</text>
+<text x="226.0" y="140" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">As a guest, waits</text>
+<text x="226.0" y="160" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">in the lobby</text>
+<path d="M375.0 120 H393.0 m-6 -5 l6 5 l-6 5" fill="none" stroke="#2760ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="400.0" y="50" width="160" height="140" rx="10" fill="#ffffff" stroke="#d5d8dd"/>
+<rect x="416.0" y="68" width="40" height="7" rx="3.5" fill="#8a6a0a"/>
+<text x="416.0" y="112" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="21" font-weight="600" fill="#16181d">Record</text>
+<text x="416.0" y="140" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">Audio, speakers,</text>
+<text x="416.0" y="160" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">participants</text>
+<path d="M565.0 120 H583.0 m-6 -5 l6 5 l-6 5" fill="none" stroke="#2760ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="590.0" y="50" width="160" height="140" rx="10" fill="#ffffff" stroke="#d5d8dd"/>
+<rect x="606.0" y="68" width="40" height="7" rx="3.5" fill="#8447cc"/>
+<text x="606.0" y="112" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="21" font-weight="600" fill="#16181d">Transcribe</text>
+<text x="606.0" y="140" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">Local whisper or</text>
+<text x="606.0" y="160" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">your own key</text>
+<path d="M755.0 120 H773.0 m-6 -5 l6 5 l-6 5" fill="none" stroke="#2760ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="780.0" y="50" width="160" height="140" rx="10" fill="#ffffff" stroke="#d5d8dd"/>
+<rect x="796.0" y="68" width="40" height="7" rx="3.5" fill="#b0357a"/>
+<text x="796.0" y="112" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="21" font-weight="600" fill="#16181d">Share</text>
+<text x="796.0" y="140" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">Optional summary,</text>
+<text x="796.0" y="160" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14.5" fill="#646b76">email or link</text>
+</svg>

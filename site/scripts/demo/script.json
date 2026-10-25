@@ -1,0 +1,41 @@
+{
+  "voices": {
+    "Priya Nair": "en_US-amy-medium",
+    "Tom Becker": "en_US-ryan-medium",
+    "Jonas Weber": "en_GB-alan-medium",
+    "Mei Lin": "en_GB-jenny_dioco-medium"
+  },
+  "gapMs": 380,
+  "lines": [
+    [
+      "Priya Nair",
+      "Thanks for joining. Today we decide the launch date for the Hartmann pilot, and who owns what."
+    ],
+    ["Tom Becker", "The build is stable. I ran the soak test for two days and saw no crashes."],
+    ["Priya Nair", "Great. So can we launch on the third of November, or is anything blocking us?"],
+    [
+      "Jonas Weber",
+      "One thing. The Azure app registration is still pending, so Outlook calendars will not sync yet."
+    ],
+    ["Priya Nair", "Can we launch with Google calendars only, and add Outlook in a patch?"],
+    [
+      "Jonas Weber",
+      "Yes, that works. The tenant admin gave me a slot on Thursday, so Outlook can follow next week."
+    ],
+    ["Mei Lin", "From support, Hartmann asked for their pallet label format in the export."],
+    ["Tom Becker", "That is a small change. I can ship it before the launch."],
+    [
+      "Priya Nair",
+      "Then we decide: launch on the third of November with Google only, and Outlook follows in a patch."
+    ],
+    ["Mei Lin", "Should we tell Hartmann about the Outlook delay before the launch?"],
+    ["Priya Nair", "Yes. Mei, please send them a short note tomorrow."],
+    ["Tom Becker", "I will also write the rollback steps in the runbook, just in case."],
+    ["Jonas Weber", "And I will meet the tenant admin on Thursday and report back in the channel."],
+    ["Priya Nair", "One open question: who answers the support inbox during launch week?"],
+    ["Mei Lin", "I can cover the mornings, but I need someone for the afternoons."],
+    ["Priya Nair", "Let's park that. I will ask Sven and we come back to it on Friday."],
+    ["Tom Becker", "Sounds good to me."],
+    ["Priya Nair", "Thanks everyone, that is all for today."]
+  ]
+}

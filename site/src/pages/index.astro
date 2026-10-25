@@ -1,0 +1,570 @@
+---
+import Base from '../layouts/Base.astro';
+import Demo from '../components/Demo.astro';
+import Shot from '../components/Shot.astro';
+import FaqList from '../components/FaqList.astro';
+import InstallBlock from '../components/InstallBlock.astro';
+import { faqJsonLd, type Faq } from '../lib/faq';
+import { lowestPrice } from '../lib/offer';
+import { repo, siteUrl } from '../lib/site';
+
+const title = 'OpenMinutes: open source meeting notes that stay on your server';
+const description =
+  'A bot joins your Google Meet and Microsoft Teams meetings, records the audio and writes the transcript with who said what. Self-hosted with Docker, bring your own keys, no telemetry.';
+
+const facts = [
+  ['AGPL-3.0', 'Open source, read every line'],
+  ['Your server', 'One Docker Compose file'],
+  ['Your keys', 'Or transcribe locally with none'],
+  ['No telemetry', 'No account, nothing phones home'],
+];
+
+const steps = [
+  ['Find', 'Calendar sync picks up events with a Meet or Teams link. Or you paste one.'],
+  ['Join', 'One minute before the start the bot opens the link as a guest, mic off, and waits in the lobby.'],
+  ['Record', 'Audio is saved in segments while the participant list and the active speaker are logged.'],
+  ['Leave', 'It leaves when the meeting ends, when it is alone, or when the host removes it.'],
+  ['Write', 'The audio is transcribed, words are matched to speakers, and a summary runs if you set one up.'],
+];
+
+const compare = [
+  ['Where audio and text live', 'Your storage, plus the providers you pick', 'Their servers'],
+  ['AI provider', 'Yours, or local with no key', 'Theirs'],
+  ['Source code', 'Open, AGPL-3.0', 'Closed'],
+  ['Price', `Free to self-host, or hosted from EUR ${lowestPrice} a month`, 'Free tier, then a price per seat per month'],
+  ['Platforms', 'Google Meet, Microsoft Teams', 'Usually Zoom as well'],
+  ['Setup and upkeep', 'You run and update it, or we do', 'None'],
+  ['Polish and integrations', 'Young project, fewer integrations', 'Mature apps, CRM and chat integrations'],
+];
+
+const faq: Faq[] = [
+  {
+    q: 'Does it work with Zoom?',
+    a: 'No. Version 1 covers Google Meet and Microsoft Teams. Zoom and Webex are not planned for v1.',
+  },
+  {
+    q: 'Is it ready to use?',
+    a: 'It is pre-release. There is no tagged version yet and expect breaking changes until v0.1. The roadmap lists what works today and what is next.',
+  },
+  {
+    q: 'Does it send data anywhere?',
+    a: 'Only where you point it. Audio and text go to the transcription or summary provider you configure, or nowhere if you use local transcription and no summary. OpenMinutes itself has no telemetry and no account.',
+  },
+  {
+    q: 'Will the other participants know?',
+    a: 'Yes. The bot joins under its own visible name and can post a message in the meeting chat. You are responsible for the consent rules that apply to your meetings, and the docs say what to look at.',
+  },
+  {
+    q: 'What does it cost to run?',
+    a: 'Plan for about 1 vCPU and 1.5 GB of RAM for each meeting recorded at the same time, plus a small base for the web, worker and database containers. A setting caps concurrency.',
+  },
+  {
+    q: 'Do I need my own Google and Microsoft apps?',
+    a: 'Only for calendar auto-join. You create an OAuth client and an Azure app registration, and the docs walk through both. Pasting a meeting link needs neither.',
+  },
+  {
+    q: 'Is there a paid version?',
+    a: `Self-hosting is free, complete and has no licence key. If you would rather not run a server, we host the same software from EUR ${lowestPrice} a month, free updates included. Hosting saves you the server, not the setup: you still bring your own keys and accounts.`,
+  },
+];
+
+const jsonLd = [
+  {
+    '@type': 'SoftwareApplication',
+    name: 'OpenMinutes',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Linux, Docker',
+    url: siteUrl,
+    description,
+    license: 'https://www.gnu.org/licenses/agpl-3.0.html',
+    isAccessibleForFree: true,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+    codeRepository: repo,
+  },
+  faqJsonLd(faq),
+];
+---
+
+<Base {title} {description} {jsonLd}>
+  <section class="hero wide">
+    <h1>Meeting notes that stay on your own server</h1>
+    <p class="lede">
+      OpenMinutes is an open source notetaker. A bot joins your Google Meet and Microsoft Teams
+      meetings, records the audio and writes the transcript with who said what. Summaries are
+      optional.
+    </p>
+    <div class="actions">
+      <a class="btn btn-primary" href="#install">Install with Docker</a>
+      <a class="btn" href="/docs/getting-started">Read the docs</a>
+    </div>
+    <p class="aside">
+      Free when you run it yourself. Rather not? <a href="/hosting">We host it from EUR {lowestPrice} a month</a>, free updates included.
+    </p>
+    <div class="hero-shot">
+      <Demo />
+    </div>
+  </section>
+
+  <section class="wide" aria-label="At a glance">
+    <div class="facts">
+      {
+        facts.map(([head, text]) => (
+          <div>
+            <p class="fact-head">{head}</p>
+            <p class="fact-text">{text}</p>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="wide block" id="features">
+    <h2>What it does</h2>
+    <div class="row">
+      <div class="copy">
+        <h3>Knows who said what</h3>
+        <p>
+          The bot reads the active speaker from the meeting page about four times a second and
+          matches it to the transcript. Segments carry names, and every voice gets its own colour.
+          Rename a speaker once and the whole meeting follows.
+        </p>
+        <p><a href="/docs/speakers">How speakers are detected</a></p>
+      </div>
+      <Shot
+        light="transcript-light.webp"
+        dark="transcript-dark.webp"
+        alt="A transcript where each paragraph is labelled with the speaker's name and colour"
+        width={2256}
+        height={1440}
+        crop={{ x: 0.2, w: 0.5, h: 0.85 }}
+      />
+    </div>
+    <div class="row flip">
+      <div class="copy">
+        <h3>Joins on its own</h3>
+        <p>
+          Connect Google Calendar or Outlook and the bot joins every meeting with a link. Skip one
+          meeting or a whole series with a click. Or paste a Meet or Teams link and send it in now.
+        </p>
+        <p><a href="/docs/meeting-lifecycle">Skipping and stuck meetings</a></p>
+      </div>
+      <Shot
+        light="list-light.webp"
+        dark="list-dark.webp"
+        alt="The meetings list with upcoming calendar meetings set to auto-join and recent meetings below"
+        width={2256}
+        height={1440}
+        crop={{ x: 0.2, w: 0.78, h: 0.7 }}
+      />
+    </div>
+    <div class="row">
+      <div class="copy">
+        <h3>Minutes you can send</h3>
+        <p>
+          Turn a transcript and summary into minutes with a template of your own, then share them
+          by email or a link. Nothing is sent unless you press the button.
+        </p>
+        <p><a href="/docs/minutes">Minutes, sharing and exporting</a></p>
+      </div>
+      <Shot
+        light="minutes-modern.webp"
+        dark="minutes-modern-dark.webp"
+        alt="Minutes laid out in the modern template, with decisions and action items"
+        width={980}
+        height={1000}
+        crop={{ x: 0, w: 1, h: 0.62 }}
+      />
+    </div>
+  </section>
+
+  <section class="wide block" id="how">
+    <h2>How a meeting goes</h2>
+    <ol class="steps">
+      {
+        steps.map(([name, text], i) => (
+          <li>
+            <span class={`lane lane-${i + 1}`} aria-hidden="true" />
+            <h3>{name}</h3>
+            <p>{text}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section class="wide block split" id="platforms">
+    <div>
+      <h2>Google Meet and Microsoft Teams</h2>
+      <p class="lede">
+        The bot joins in a browser as a guest, so it needs no Microsoft account and no app
+        installed on anyone's machine.
+      </p>
+    </div>
+    <ul class="plain">
+      <li>
+        <strong>Teams</strong> works with meeting links from work and personal accounts. It waits in the
+        lobby until someone lets it in. <a href="/docs/teams">Teams details</a>
+      </li>
+      <li>
+        <strong>Meet</strong> refuses signed-out bots on some accounts. Give the bot its own Google
+        account and it joins like any guest. <a href="/docs/meet-sign-in">Signing the Meet bot in</a>
+      </li>
+      <li>
+        <strong>Chat too.</strong> It captures the meeting chat next to the transcript and can post
+        a short notice when it joins. <a href="/docs/chat">Meeting chat</a>
+      </li>
+    </ul>
+  </section>
+
+  <section class="wide block" id="keys">
+    <div class="split">
+      <div>
+        <h2>Bring your own keys</h2>
+        <p class="lede">
+          Pick a provider for each job and paste your key. Keys are stored encrypted on your server
+          and the Test button checks them without spending tokens.
+        </p>
+        <dl class="providers">
+          <div>
+            <dt>Transcribes</dt>
+            <dd>faster-whisper (local, no key), OpenAI, Groq, Deepgram, AssemblyAI</dd>
+          </div>
+          <div>
+            <dt>Summarises</dt>
+            <dd>Anthropic, Ollama, OpenRouter, DeepSeek, any OpenAI-compatible endpoint</dd>
+          </div>
+          <div>
+            <dt>Emails minutes</dt>
+            <dd>Emailit, SMTP, Gmail</dd>
+          </div>
+        </dl>
+        <p><a href="/docs/providers">Providers and what each needs</a></p>
+      </div>
+      <Shot
+        light="settings-light.webp"
+        dark="settings-dark.webp"
+        alt="The settings page with transcription and summary provider choices"
+        width={2256}
+        height={1200}
+        crop={{ x: 0.2, w: 0.78, h: 0.8 }}
+      />
+    </div>
+  </section>
+
+  <section class="wide block split" id="privacy">
+    <div>
+      <h2>Private by default</h2>
+      <p class="lede">
+        There is no OpenMinutes cloud in the loop. One Postgres, one volume, your server.
+      </p>
+    </div>
+    <ul class="plain">
+      <li><strong>No telemetry.</strong> No analytics, no crash reports, no update ping.</li>
+      <li><strong>No account.</strong> There is one admin password, kept on your server.</li>
+      <li>
+        <strong>You choose what leaves.</strong> Audio goes to a hosted transcription provider only
+        if you pick one. Local transcription keeps it all home.
+      </li>
+      <li>
+        <strong>Retention is yours.</strong> Delete audio after a number of days, or keep it in an
+        S3-compatible bucket you control. <a href="/docs/storage">Storage and retention</a>
+      </li>
+      <li>
+        <strong>Visible to everyone.</strong> The bot never hides. Read
+        <a href="/docs/consent-and-legal">the consent notes</a> before you record.
+      </li>
+    </ul>
+  </section>
+
+  <section class="wide block" id="install">
+    <h2>Install in five minutes</h2>
+    <p class="lede">
+      You need a machine with Docker and the Compose plugin. Open the web UI on port 3000, set an
+      admin password and follow the setup wizard.
+    </p>
+    <InstallBlock />
+    <p class="note">
+      OpenMinutes is pre-release: until the first tag, build from source as described in
+      <a href={`${repo}/blob/main/CONTRIBUTING.md`}>CONTRIBUTING.md</a>. Back up
+      <code>.env</code>: <code>OPENMINUTES_SECRET</code> encrypts the stored keys.
+    </p>
+  </section>
+
+  <section class="wide block" id="compare">
+    <h2>Compared with hosted notetakers</h2>
+    <p class="lede">
+      Hosted notetakers are the right call if you want zero upkeep and every integration. Here is
+      where the two differ.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th></th><th>OpenMinutes</th><th>Hosted notetakers</th></tr>
+        </thead>
+        <tbody>
+          {
+            compare.map(([what, us, them]) => (
+              <tr>
+                <th scope="row">{what}</th>
+                <td>{us}</td>
+                <td>{them}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="more">
+      Sourced, product by product: <a href="/compare">compare OpenMinutes with Fireflies, Otter, Fathom, Read AI, tl;dv and Granola</a>.
+    </p>
+  </section>
+
+  <section class="wide block" id="faq">
+    <h2>Questions</h2>
+    <FaqList items={faq} />
+  </section>
+</Base>
+
+<style>
+  .more {
+    margin-top: 1rem;
+    color: var(--ink-2);
+  }
+  .hero {
+    padding-top: 4.5rem;
+  }
+  .hero h1 {
+    max-width: 21ch;
+  }
+  .hero .lede {
+    max-width: 38rem;
+    margin-top: 1.5rem;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+  .aside {
+    margin-top: 1rem;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+  .hero-shot {
+    margin-top: 3.5rem;
+  }
+  .hero-shot :global(.omd-frame) {
+    border-radius: 1rem;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem 1rem;
+    margin-top: 4rem;
+    padding-block: 1.75rem;
+    border-block: 1px solid var(--line);
+  }
+  @media (min-width: 760px) {
+    .facts {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+  .fact-head {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .fact-text {
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+
+  .block {
+    margin-top: clamp(4.5rem, 10vw, 7rem);
+  }
+  .block > h2 + *,
+  .split h2 + * {
+    margin-top: 1rem;
+  }
+  .block > h2 + .row {
+    margin-top: 2.5rem;
+  }
+  .block > .lede {
+    max-width: 40rem;
+  }
+  .block > .lede + *,
+  .block > h2 + :is(.steps, .faq) {
+    margin-top: 2rem;
+  }
+
+  .row {
+    display: grid;
+    gap: 1.75rem;
+    align-items: center;
+    margin-top: 3.5rem;
+  }
+  @media (min-width: 900px) {
+    .row {
+      grid-template-columns: 5fr 7fr;
+      gap: 4rem;
+    }
+    .row.flip {
+      grid-template-columns: 7fr 5fr;
+    }
+    .row.flip .copy {
+      order: 2;
+    }
+  }
+  .copy p {
+    margin-top: 0.75rem;
+    color: var(--ink-2);
+  }
+  .copy h3 {
+    font-size: 1.5rem;
+  }
+
+  .steps {
+    display: grid;
+    gap: 2rem 1.5rem;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 640px) {
+    .steps {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (min-width: 1000px) {
+    .steps {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .steps p {
+    margin-top: 0.5rem;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+  .lane {
+    display: block;
+    width: 3.25rem;
+    height: 0.4375rem;
+    margin-bottom: 1rem;
+    border-radius: 999px;
+    background: var(--spk-8);
+  }
+  .lane-1 {
+    background: var(--spk-1);
+  }
+  .lane-2 {
+    background: var(--spk-2);
+  }
+  .lane-3 {
+    background: var(--spk-3);
+  }
+  .lane-4 {
+    background: var(--spk-4);
+  }
+  .lane-5 {
+    background: var(--spk-6);
+  }
+
+  .split {
+    display: grid;
+    gap: 2rem;
+    align-items: start;
+  }
+  @media (min-width: 900px) {
+    .split {
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+    }
+  }
+  .plain {
+    display: grid;
+    gap: 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--ink-2);
+  }
+  .plain li {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+  }
+  .plain strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .providers {
+    margin: 1.75rem 0 1.25rem;
+    border-top: 1px solid var(--line);
+  }
+  .providers div {
+    display: grid;
+    gap: 0.25rem 1.5rem;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  @media (min-width: 520px) {
+    .providers div {
+      grid-template-columns: 8rem 1fr;
+    }
+  }
+  .providers dt {
+    font-weight: 600;
+  }
+  .providers dd {
+    margin: 0;
+    color: var(--ink-2);
+  }
+
+  .note {
+    margin-top: 1rem;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+  .note code {
+    font-size: 0.875em;
+    color: var(--ink-2);
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-l);
+    background: var(--surface);
+  }
+  table {
+    width: 100%;
+    min-width: 36rem;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+  th,
+  td {
+    padding: 0.875rem 1.125rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line);
+  }
+  thead th {
+    color: var(--ink);
+    background: var(--sunken);
+  }
+  tbody th {
+    width: 26%;
+    font-weight: 550;
+    color: var(--ink);
+  }
+  td:nth-child(2) {
+    color: var(--ink);
+  }
+  td:nth-child(3) {
+    color: var(--ink-2);
+  }
+  tr:last-child > * {
+    border-bottom: 0;
+  }
+</style>

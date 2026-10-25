@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Microsoft Teams</title>
+    <style>
+      body {
+        font-family: 'Segoe UI', sans-serif;
+        margin: 2rem;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      li {
+        list-style: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Choose your video and audio options</h1>
+    <input data-tid="prejoin-display-name-input" placeholder="Type your name" />
+    <label
+      >Camera <input type="checkbox" role="switch" data-tid="toggle-video" id="camera" checked
+    /></label>
+    <label
+      >Microphone <input type="checkbox" role="switch" data-tid="toggle-mute" id="mic" checked
+    /></label>
+    <button data-tid="prejoin-join-button" id="join">Join now</button>
+    <script>
+      for (const id of ['mic', 'camera']) {
+        document.getElementById(id).addEventListener('change', (event) => {
+          document.body.dataset[id] = event.currentTarget.checked ? 'on' : 'off';
+        });
+      }
+      document.getElementById('join').addEventListener('click', () => {
+        const params = new URLSearchParams(location.search);
+        params.set('name', document.querySelector('input').value);
+        for (const id of ['mic', 'camera']) {
+          params.set(id, String(document.getElementById(id).checked));
+        }
+        sessionStorage.setItem('name', params.get('name'));
+        location.href = '/fixture/lobby?' + params;
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,53 @@
+---
+import { competitors, om, rows } from '../facts/seo-facts.mjs';
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const c: any = competitors[slug];
+const omRows: Record<string, { value: string; src: string[] }> = om;
+---
+
+<div class="table-wrap">
+  <table class="wide-table">
+    <caption class="visually-hidden">OpenMinutes compared with {c.name}</caption>
+    <thead>
+      <tr>
+        <th scope="col">Topic</th>
+        <th scope="col">OpenMinutes</th>
+        <th scope="col">{c.name}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        rows.map((r) => (
+          <tr>
+            <th scope="row">{r.label}</th>
+            <td>
+              {omRows[r.key].value}{' '}
+              {omRows[r.key].src.map((u: string, i: number) => (
+                <a class="src" href={u}>
+                  [{i + 1}]
+                </a>
+              ))}
+            </td>
+            <td>
+              {c.rows[r.key].value}{' '}
+              {c.rows[r.key].src.map((u: string, i: number) => (
+                <a class="src" href={u} rel="nofollow noopener" target="_blank">
+                  [{i + 1}]
+                </a>
+              ))}
+            </td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>
+<p class="src-note">
+  Numbers in brackets link to the source of each statement. Everything about {c.name} was read from its own public pages
+  on {c.verified}.
+</p>

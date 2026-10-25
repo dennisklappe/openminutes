@@ -1,0 +1,43 @@
+{
+  "name": "@openminutes/site",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dennisklappe/openminutes.git",
+    "directory": "site"
+  },
+  "homepage": "https://openminut.es",
+  "bugs": {
+    "url": "https://github.com/dennisklappe/openminutes/issues"
+  },
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0",
+    "build": "astro build",
+    "preview": "astro preview --host 0.0.0.0",
+    "typecheck": "astro check",
+    "check-claims": "node scripts/check-claims.mjs",
+    "check-images": "node scripts/check-images.mjs",
+    "check-demo": "node scripts/demo/click-all.mjs"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "^7.3.4",
+    "@astrojs/sitemap": "^3.7.4",
+    "@fontsource-variable/geist": "^5.2.8",
+    "@fontsource-variable/geist-mono": "^5.2.7",
+    "astro": "^7.4.2",
+    "cookie": "^2.0.1",
+    "playwright": "~1.64.1",
+    "rehype-external-links": "^3.0.0",
+    "rehype-mermaid": "^3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=22.23.4"
+  }
+}

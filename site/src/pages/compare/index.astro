@@ -1,0 +1,85 @@
+---
+import SeoPage from '../../layouts/SeoPage.astro';
+import { competitorList, omLimits } from '../../facts/seo-facts.mjs';
+
+const faq = [
+  {
+    q: 'Which notetaker is best?',
+    a: 'It depends on what you need. Hosted tools win on polish, integrations and Zoom support. OpenMinutes is for people who want to run the software and keep the data themselves, and it is early-stage.',
+  },
+  {
+    q: 'How do you keep these comparisons accurate?',
+    a: 'Each statement about another product is read from its own public pages, linked next to it, with the date. They are re-checked at least every 90 days. If you spot an error, open an issue and we will fix it.',
+  },
+  {
+    q: 'Does OpenMinutes support Zoom?',
+    a: 'No. Version 1 covers Google Meet and Microsoft Teams, and Zoom is not planned for it.',
+  },
+];
+---
+
+<SeoPage
+  title="OpenMinutes vs Fireflies, Otter, Fathom, Read AI, tl;dv, Granola"
+  description="Sourced comparisons of OpenMinutes, an open source self-hosted notetaker, with Fireflies, Otter, Fathom, Read AI, tl;dv and Granola. Price, platforms, data location."
+  h1="OpenMinutes compared with other meeting notetakers"
+  lede="OpenMinutes is open source and self-hosted. The hosted notetakers below are more polished and more connected. Each comparison says where they are the better choice."
+  crumbs={[{ name: 'Compare', path: '/compare' }]}
+  {faq}
+  verified
+  related={[
+    { href: '/alternatives/free-fireflies-alternative', label: 'Free Fireflies alternative' },
+    { href: '/use/self-hosted-ai-meeting-notetaker', label: 'Self-hosted AI meeting notetaker' },
+    { href: '/use/gdpr-meeting-notes', label: 'Meeting notes and GDPR' },
+    { href: '/hosting', label: 'Hosted OpenMinutes' },
+  ]}
+>
+  <h2>The comparisons</h2>
+  <div class="table-wrap">
+    <table class="wide-table">
+      <thead>
+        <tr><th scope="col">Product</th><th scope="col">What it is</th><th scope="col">Capture</th><th scope="col">Where data is stored</th><th scope="col">Self-hosting</th></tr>
+      </thead>
+      <tbody>
+        {
+          competitorList.map((c: any) => (
+            <tr>
+              <th scope="row"><a href={`/compare/${c.slug}`}>OpenMinutes vs {c.name}</a></th>
+              <td>{c.oneLine.charAt(0).toUpperCase() + c.oneLine.slice(1)}.</td>
+              <td>{c.rows.capture.value}</td>
+              <td>{c.rows.region.value}</td>
+              <td>{c.rows.selfhost.value}</td>
+            </tr>
+          ))
+        }
+        <tr>
+          <th scope="row">OpenMinutes</th>
+          <td>An open source notetaker for Google Meet and Microsoft Teams that you run yourself.</td>
+          <td>A visible bot joins the meeting.</td>
+          <td>Wherever you run it.</td>
+          <td>Yes, that is the point.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Sources for every cell are on each comparison page.</p>
+
+  <h2>Choose OpenMinutes if</h2>
+  <ul>
+    <li>You want audio and transcripts in your own database and storage.</li>
+    <li>You want to pick the AI provider, or run transcription locally with no key.</li>
+    <li>You work in Google Meet and Microsoft Teams, and can run Docker or pay us to.</li>
+    <li>You want to read the code (AGPL-3.0).</li>
+  </ul>
+
+  <h2>Do not choose OpenMinutes if</h2>
+  <ul>
+    {omLimits.map((l: { text: string; href: string; label: string }) => <li>{l.text} <a href={l.href}>{l.label}</a></li>)}
+  </ul>
+
+  <h2>Pricing models differ</h2>
+  <p>
+    The hosted tools charge per user and include their own AI. OpenMinutes hosted is priced by concurrent meetings, from
+    <a href="/hosting">EUR 9 a month</a>, and you pay your own AI provider. Self-hosting has no licence fee. Neither model is cheaper
+    in every case, so each comparison has a worked example.
+  </p>
+</SeoPage>

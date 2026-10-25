@@ -1,0 +1,170 @@
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createProviders } from '@openminutes/calendar';
+import { LocalStorage, SettingsStore } from '@openminutes/core';
+import { eq, meetings, participantAliases, participants } from '@openminutes/db';
+import { createTestDatabase } from '@openminutes/db/testing';
+import type { Hono } from 'hono';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createApp } from '../app.js';
+import type { ParticipantsDto } from '../dto.js';
+import { assembleMinutes } from '../minutes/assemble.js';
+import { createShareLink } from '../minutes/share-routes.js';
+
+const secret = 'a-long-enough-test-secret';
+const json = { 'content-type': 'application/json' };
+const CARLA = 'carla.gonzalez@acme.example';
+const OTHER = 'carla.smith@elsewhere.com';
+
+describe('linking calendar invitees to participants', () => {
+  let test: Awaited<ReturnType<typeof createTestDatabase>>;
+  let app: Hono;
+  let settings: SettingsStore;
+  let cookie = '';
+
+  beforeAll(async () => {
+    test = await createTestDatabase();
+    settings = new SettingsStore(test.db, secret);
+    app = createApp({
+      db: test.db,
+      settings,
+      storage: new LocalStorage(await mkdtemp(join(tmpdir(), 'openminutes-invitees-'))),
+      secret,
+      calendarProviders: createProviders(),
+      version: '1.2.3',
+      queue: { send: () => Promise.resolve() },
+    });
+    const created = await app.request('/api/setup', {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ password: 'correct horse battery' }),
+    });
+    cookie = created.headers.get('set-cookie')?.split(';')[0] ?? '';
+  });
+  afterAll(() => test.close());
+
+  const call = (method: string, path: string, body?: unknown) =>
+    app.request(`/api${path}`, {
+      method,
+      headers: { ...json, cookie },
+      ...(body !== undefined && { body: JSON.stringify(body) }),
+    });
+  const read = async (response: Response) => (await response.json()) as ParticipantsDto;
+
+  async function meet(names: string[]) {
+    const [meeting] = await test.db
+      .insert(meetings)
+      .values({
+        title: 'Acme sync',
+        platform: 'meet',
+        joinUrl: 'https://meet.google.com/abc-defg-hij',
+        status: 'transcribed',
+        startedAt: new Date('2026-10-20T10:00:00Z'),
+        invitees: [
+          { email: CARLA, name: 'Carla Gonzalez', declined: false },
+          { email: OTHER, name: 'Carla Smith', declined: false },
+          { email: 'dana@example.com', name: 'Dana Keller', declined: false },
+        ],
+      })
+      .returning();
+    if (!meeting) throw new Error('insert failed');
+    const people = await test.db
+      .insert(participants)
+      .values(names.map((displayName) => ({ meetingId: meeting.id, displayName })))
+      .returning();
+    return { meeting, people };
+  }
+  const minutesOf = (id: string) => assembleMinutes({ db: test.db, settings }, id);
+
+  it('lists only the invitees nobody was matched to', async () => {
+    const { meeting } = await meet(['Dana Keller', 'Marketing Acme']);
+    const body = await read(await call('GET', `/meetings/${meeting.id}/participants`));
+    expect(body.invitees).toHaveLength(3);
+    expect(body.absent.map((invitee) => invitee.email)).toEqual([CARLA, OTHER]);
+  });
+
+  it('counts a shared account renamed to the invitee as present', async () => {
+    const { meeting } = await meet(['Dana Keller', 'Carla Gonzalez']);
+    const body = await read(await call('GET', `/meetings/${meeting.id}/participants`));
+    expect(body.absent.map((invitee) => invitee.email)).toEqual([OTHER]);
+  });
+
+  it('saves the invitee with the rename and remembers it for the shared account', async () => {
+    const { meeting, people } = await meet(['Marketing Acme']);
+    const [shared] = people;
+    const body = await read(
+      await call('PUT', `/meetings/${meeting.id}/participants/${shared?.id}`, {
+        name: 'Carla',
+        remember: true,
+        inviteeEmail: CARLA.toUpperCase(),
+      }),
+    );
+    expect(body.participants[0]?.inviteeEmail).toBe(CARLA);
+    expect(body.absent.map((invitee) => invitee.email)).toEqual([OTHER, 'dana@example.com']);
+    const [alias] = await test.db
+      .select()
+      .from(participantAliases)
+      .where(eq(participantAliases.originalName, 'Marketing Acme'));
+    expect(alias).toMatchObject({ displayName: 'Carla', inviteeEmail: CARLA });
+    expect((await minutesOf(meeting.id))?.attendees[0]).toMatchObject({ email: CARLA });
+  });
+
+  it('keeps the link when a later rename leaves it out, and removes it with null', async () => {
+    const { meeting, people } = await meet(['Marketing Acme']);
+    const path = `/meetings/${meeting.id}/participants/${people[0]?.id}`;
+    await call('PUT', path, { name: 'Carla', inviteeEmail: CARLA });
+    const kept = await read(await call('PUT', path, { name: 'Carla G' }));
+    expect(kept.participants[0]?.inviteeEmail).toBe(CARLA);
+    const cleared = await read(await call('PUT', path, { name: 'Carla G', inviteeEmail: null }));
+    expect(cleared.participants[0]?.inviteeEmail).toBeNull();
+  });
+
+  it('rejects a link to someone who was not invited', async () => {
+    const { meeting, people } = await meet(['Marketing Acme']);
+    const path = `/meetings/${meeting.id}/participants/${people[0]?.id}`;
+    expect((await call('PUT', path, { name: 'Carla', inviteeEmail: 'x@y.com' })).status).toBe(400);
+    expect((await call('PUT', `${path}/invitee`, { email: 'x@y.com' })).status).toBe(400);
+    expect((await call('PUT', `${path}/invitee`, { nope: true })).status).toBe(400);
+  });
+
+  it('links an absent invitee to a participant with "They were there"', async () => {
+    const { meeting, people } = await meet(['Marketing Acme']);
+    const body = await read(
+      await call('PUT', `/meetings/${meeting.id}/participants/${people[0]?.id}/invitee`, {
+        email: CARLA,
+      }),
+    );
+    expect(body.absent.map((invitee) => invitee.email)).not.toContain(CARLA);
+    expect((await minutesOf(meeting.id))?.absent.map((p) => p.email)).not.toContain(CARLA);
+  });
+
+  it('removes an invitee from the list for this meeting only', async () => {
+    const { meeting } = await meet(['Marketing Acme']);
+    const body = await read(
+      await call('POST', `/meetings/${meeting.id}/dismissed-invitees`, { email: OTHER }),
+    );
+    expect(body.absent.map((invitee) => invitee.email)).toEqual([CARLA, 'dana@example.com']);
+    await call('POST', `/meetings/${meeting.id}/dismissed-invitees`, { email: OTHER });
+    const [row] = await test.db.select().from(meetings).where(eq(meetings.id, meeting.id));
+    expect(row?.dismissedInvitees).toEqual([OTHER]);
+    expect((await minutesOf(meeting.id))?.absent.map((p) => p.email)).not.toContain(OTHER);
+    const other = await meet(['Marketing Acme']);
+    expect((await minutesOf(other.meeting.id))?.absent.map((p) => p.email)).toContain(OTHER);
+    const refused = await call('POST', `/meetings/${meeting.id}/dismissed-invitees`, {
+      email: 'x@y.com',
+    });
+    expect(refused.status).toBe(400);
+  });
+
+  it('keeps invitee emails off the public share page', async () => {
+    const { meeting } = await meet(['Marketing Acme']);
+    const share = await createShareLink(test.db, meeting.id, {
+      includeTranscript: false,
+      expiresInDays: null,
+    });
+    const html = await (await app.request(`/s/${share.token}`)).text();
+    expect(html).toContain('Carla Gonzalez');
+    expect(html).not.toMatch(/[\w.-]+@[\w-]+\.\w+/);
+  });
+});

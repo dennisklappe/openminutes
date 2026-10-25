@@ -1,0 +1,76 @@
+name: openminutes
+
+x-app: &app
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+  environment: &env
+    DATABASE_URL: postgres://openminutes:${POSTGRES_PASSWORD:-openminutes}@db:5432/openminutes
+    OPENMINUTES_SECRET: ${OPENMINUTES_SECRET:?Set OPENMINUTES_SECRET in .env, see .env.example}
+    OPENMINUTES_DATA_DIR: /data
+    TZ: ${TZ:-UTC}
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openminutes
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openminutes}
+      POSTGRES_DB: openminutes
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U openminutes']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    <<: *app
+    image: ${OPENMINUTES_REGISTRY:-ghcr.io/dennisklappe}/openminutes-web:${OPENMINUTES_TAG:-0.1}
+    build: { context: ., target: web }
+    environment:
+      <<: *env
+      OPENMINUTES_PUBLIC_URL: ${OPENMINUTES_PUBLIC_URL:-}
+      OPENMINUTES_AUTH: ${OPENMINUTES_AUTH:-password}
+      OPENMINUTES_ACCESS_TEAM_DOMAIN: ${OPENMINUTES_ACCESS_TEAM_DOMAIN:-}
+      OPENMINUTES_ACCESS_AUD: ${OPENMINUTES_ACCESS_AUD:-}
+      OPENMINUTES_ACCESS_EMAILS: ${OPENMINUTES_ACCESS_EMAILS:-}
+    ports:
+      - '${OPENMINUTES_PORT:-3000}:3000'
+    volumes:
+      - data:/data
+
+  worker:
+    <<: *app
+    image: ${OPENMINUTES_REGISTRY:-ghcr.io/dennisklappe}/openminutes-worker:${OPENMINUTES_TAG:-0.1}
+    build: { context: ., target: worker }
+    volumes:
+      - data:/data
+
+  bot:
+    <<: *app
+    image: ${OPENMINUTES_REGISTRY:-ghcr.io/dennisklappe}/openminutes-bot:${OPENMINUTES_TAG:-0.1}
+    build: { context: ., target: bot }
+    init: true
+    shm_size: 1gb
+    volumes:
+      - data:/data
+
+  whisper:
+    profiles: [local]
+    image: ${OPENMINUTES_REGISTRY:-ghcr.io/dennisklappe}/openminutes-whisper:${OPENMINUTES_TAG:-0.1}
+    build: services/whisper
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+    volumes:
+      - models:/models
+
+volumes:
+  pgdata:
+  data:
+  models:

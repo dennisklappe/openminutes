@@ -1,0 +1,90 @@
+---
+import SeoPage from '../../layouts/SeoPage.astro';
+
+const LEARN = 'https://learn.microsoft.com/en-us/microsoftteams/meeting-transcription-captions';
+const REC = 'https://learn.microsoft.com/en-us/microsoftteams/cloud-recording';
+const faq = [
+  {
+    q: 'Does the bot need a Microsoft account?',
+    a: 'No. It joins Teams meetings in the browser as a guest and is never signed in to Microsoft. Calendar auto-join for Outlook needs your own Azure app registration, but pasting a meeting link needs none.',
+  },
+  {
+    q: 'What stops it from joining?',
+    a: 'The organiser\'s tenant decides. If anonymous guests are blocked, or a lobby admits only people from the organisation, the bot cannot join without help. OpenMinutes shows the reason on the meeting page and does not work around it.',
+  },
+  {
+    q: 'How is this different from Teams\' own transcription?',
+    a: 'Teams\' built-in transcription is controlled by policy for the organiser and the person starting it, and stores the transcript with the recording in OneDrive or SharePoint. OpenMinutes is a separate guest that records audio and keeps the transcript in your own database.',
+  },
+  {
+    q: 'Will participants know?',
+    a: 'Yes. The bot is visible in the participant list under its own name and can post a message in the chat. You are responsible for the consent rules that apply.',
+  },
+];
+---
+
+<SeoPage
+  title="Self-hosted Microsoft Teams meeting transcription | OpenMinutes"
+  description="OpenMinutes joins Microsoft Teams meetings as a browser guest and writes a transcript with speaker names on your own server. What works and what tenants can block."
+  h1="Self-hosted Microsoft Teams meeting transcription"
+  lede="OpenMinutes sends a bot into your Teams meetings as a guest, records the audio and gives you a transcript with names on a server you run."
+  crumbs={[{ name: 'Use cases', path: '/compare' }, { name: 'Teams transcription', path: '/use/microsoft-teams-transcription-self-hosted' }]}
+  {faq}
+  related={[
+    { href: '/docs/teams', label: 'Teams setup guide' },
+    { href: '/use/google-meet-notes-self-hosted', label: 'Google Meet notes, self-hosted' },
+    { href: '/use/gdpr-meeting-notes', label: 'Meeting notes and GDPR' },
+    { href: '/compare', label: 'Compare with hosted notetakers' },
+  ]}
+>
+  <div class="callout callout-warning">
+    <p>
+      <strong>Young support</strong>
+      Teams support is new. Tests run against fake Teams pages, not live recordings, and Teams changes its web app without notice.
+      If joining or speaker names break, open an issue with the date. OpenMinutes itself is pre-release.
+    </p>
+  </div>
+
+  <h2>How the bot joins</h2>
+  <ol>
+    <li>Opens the link and chooses to continue in the browser.</li>
+    <li>Types its name, mutes the microphone, keeps the camera off unless you set an image, and joins.</li>
+    <li>Waits in the lobby until someone admits it, up to a timeout you set.</li>
+    <li>Records audio and logs participants and the active speaker, and posts the join message.</li>
+    <li>Leaves when the meeting ends, when it is alone for a set time, or at a maximum length.</li>
+  </ol>
+  <p>Links in the usual Teams formats work. See <a href="/docs/teams">the Teams guide</a> for the list.</p>
+
+  <h2>What the organiser's tenant can block</h2>
+  <p>
+    Joining as a guest only works if the organiser's tenant allows anonymous join. Meetings that require a verified attendee are
+    blocked the same way. For another organisation only its admins can change it. If you administer Teams,
+    <a href="/docs/teams">the guide</a> shows the two settings.
+  </p>
+
+  <h2>Built-in Teams transcription, for context</h2>
+  <p>
+    Microsoft documents that for a meeting to include a transcript, the organiser must have transcription turned on, and the person
+    starting it needs it too (<a href={LEARN} rel="nofollow noopener">Microsoft Learn</a>). Recording works similarly, and admins can
+    require explicit consent from participants (<a href={REC} rel="nofollow noopener">Microsoft Learn</a>). Those transcripts live with the recordings in OneDrive or SharePoint.
+  </p>
+  <p>
+    Microsoft also documents a separate route for calling and meeting bots through Microsoft Graph, which needs admin consent in the
+    tenant (<a href="https://learn.microsoft.com/en-us/microsoftteams/platform/bots/calls-and-meetings/registering-calling-bot" rel="nofollow noopener">Microsoft Learn</a>).
+    OpenMinutes does not use it. It joins as a browser guest.
+  </p>
+
+  <h2>Where the data goes</h2>
+  <p>
+    Your instance stores audio, transcripts and chat. Transcription runs locally or at a provider you choose with your own key.
+    See <a href="/use/self-hosted-ai-meeting-notetaker">self-hosted notetaker</a> and <a href="/use/gdpr-meeting-notes">GDPR notes</a>.
+  </p>
+
+  <h2>When not to choose it</h2>
+  <ul>
+    <li>You cannot ask organisers to allow anonymous guests, and your meetings are in tenants you do not control.</li>
+    <li>You need a bot-free or compliance-recording route approved by your Teams admins. OpenMinutes is a visible guest.</li>
+    <li>You want a managed, polished product with integrations rather than software you run. See <a href="/compare">the comparisons</a>.</li>
+    <li>You use Zoom as well. It is not supported.</li>
+  </ul>
+</SeoPage>

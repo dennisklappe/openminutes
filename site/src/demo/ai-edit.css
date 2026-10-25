@@ -1,0 +1,108 @@
+/* The Edit with AI styles of the app, which are not in its stylesheet on main yet. */
+.omd .ai-edit,
+.omd .ai-edit-bar {
+  margin-top: 20px;
+}
+.omd .ai-edit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--sunken);
+  text-align: left;
+}
+.omd .ai-edit-bar > span:first-child {
+  font-weight: 600;
+}
+.omd .ai-edit {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+}
+.omd .ai-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.omd .ai-edit-head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.omd .ai-log {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+.omd .ai-log p {
+  margin: 0;
+}
+.omd .ai-you {
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto !important;
+  padding: 6px 12px;
+  border-radius: var(--radius-m);
+  background: var(--sunken);
+  overflow-wrap: anywhere;
+}
+.omd .ai-changes summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.omd .ai-diff {
+  display: grid;
+  margin: 6px 0 0;
+  padding: 8px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  font: 12px/1.5 var(--mono);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+.omd .ai-diff span {
+  padding: 0 10px;
+}
+.omd .diff-add {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.omd .diff-del {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.omd .diff-gap {
+  color: var(--muted);
+}
+.omd .ai-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 8px;
+}
+.omd .chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.omd .ai-form {
+  display: flex;
+  gap: 8px;
+}
+.omd .ai-form input {
+  flex: 1;
+  min-width: 0;
+}
+.omd .ai-transcript {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 10px;
+}

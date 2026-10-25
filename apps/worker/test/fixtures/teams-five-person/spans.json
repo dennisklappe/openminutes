@@ -1,0 +1,92 @@
+[
+  {
+    "speaker": "Alice",
+    "startMs": 92079,
+    "endMs": 99077
+  },
+  {
+    "speaker": "Bob",
+    "startMs": 100080,
+    "endMs": 107076
+  },
+  {
+    "speaker": "Carol",
+    "startMs": 107077,
+    "endMs": 113077
+  },
+  {
+    "speaker": "Dave",
+    "startMs": 112080,
+    "endMs": 120079
+  },
+  {
+    "speaker": "Eve",
+    "startMs": 120082,
+    "endMs": 125080
+  },
+  {
+    "speaker": "Alice",
+    "startMs": 125080,
+    "endMs": 132079
+  },
+  {
+    "speaker": "Carol",
+    "startMs": 132080,
+    "endMs": 134080
+  },
+  {
+    "speaker": "Bob",
+    "startMs": 134080,
+    "endMs": 141086
+  },
+  {
+    "speaker": "Dave",
+    "startMs": 140084,
+    "endMs": 158097
+  },
+  {
+    "speaker": "Eve",
+    "startMs": 142085,
+    "endMs": 145087
+  },
+  {
+    "speaker": "Alice",
+    "startMs": 143084,
+    "endMs": 148088
+  },
+  {
+    "speaker": "Carol",
+    "startMs": 148087,
+    "endMs": 154089
+  },
+  {
+    "speaker": "Bob",
+    "startMs": 158095,
+    "endMs": 163100
+  },
+  {
+    "speaker": "Eve",
+    "startMs": 163100,
+    "endMs": 165102
+  },
+  {
+    "speaker": "Alice",
+    "startMs": 165104,
+    "endMs": 170106
+  },
+  {
+    "speaker": "Eve",
+    "startMs": 168105,
+    "endMs": 172105
+  },
+  {
+    "speaker": "Dave",
+    "startMs": 172104,
+    "endMs": 174104
+  },
+  {
+    "speaker": "Alice",
+    "startMs": 174103,
+    "endMs": 178106
+  }
+]

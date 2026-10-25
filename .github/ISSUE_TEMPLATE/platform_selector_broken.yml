@@ -1,0 +1,57 @@
+name: Meet or Teams page change broke the bot
+description: The bot cannot join, read speakers or capture chat after a platform update
+labels: [platform-selectors]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Meet and Teams change their pages without notice. A report with the exact step that fails lets us fix the selectors in a small PR. See [Contributing](https://github.com/dennisklappe/openminutes/blob/main/CONTRIBUTING.md#refreshing-platform-fixtures) if you want to refresh the fixture yourself.
+
+        Do not paste API keys, tokens, passcodes or meeting content. Remove names and emails from any HTML you attach.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Google Meet, Microsoft Teams]
+    validations:
+      required: true
+  - type: dropdown
+    id: step
+    attributes:
+      label: What broke
+      options:
+        [
+          Joining the meeting,
+          Signing in,
+          Speaker names,
+          Chat capture,
+          Mute or camera,
+          Leaving the call,
+        ]
+    validations:
+      required: true
+  - type: input
+    id: when
+    attributes:
+      label: Date it started failing
+      description: And the last date it worked, if you know it.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OpenMinutes version
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Bot log lines around the failure
+      description: 'Look for lines that mention a selector or `MEET_SELECTORS_VERSION` / `TEAMS_SELECTORS_VERSION`.'
+      render: text
+  - type: textarea
+    id: html
+    attributes:
+      label: Anonymised HTML of the broken part (optional)
+      description: In the browser DevTools, copy the outer HTML of the element, then remove names and emails.
+      render: html

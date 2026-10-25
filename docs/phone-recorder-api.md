@@ -1,0 +1,17 @@
+# Phone recorder upload API
+
+All endpoints need a session (the same cookie or Cloudflare Access login as the rest of the API). Types: `apps/web/src/dto.ts`.
+
+| Call                                                          | Purpose                                                                                                                                                                                                                            |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/recordings` `{id, mimeType, startedAt, speakers?}` | Create a recording (201) or return the existing one (200). `speakers` (2 to 5) is the optional number of people, see [speakers](speakers.md#phone-recordings). 403 when phone recording is off, 400 for an unsupported `mimeType`. |
+| `GET /api/recordings/:id`                                     | `{id, status, received, maxChunkBytes}`, to resume after a dropped connection.                                                                                                                                                     |
+| `PUT /api/recordings/:id/chunks/:index`                       | Raw chunk body (`application/octet-stream` or `audio/*`). Indexes `0..20000`, max 8 MiB per chunk, 2 GiB per recording (413 beyond). Re-uploading an index overwrites it. 409 once finished.                                       |
+| `POST /api/recordings/:id/finish` `{chunks, durationMs}`      | Checks chunks `0..chunks-1`, joins them into one audio file, sets status `ended` and queues `meeting.process`. 409 with `missing: [...]` when chunks are absent. 202 first time, 200 on repeats.                                   |
+| `DELETE /api/recordings/:id`                                  | Discard an unfinished recording. 409 once finished.                                                                                                                                                                                |
+
+Allowed `mimeType` (codec parameters accepted): `audio/webm`, `audio/ogg`, `audio/mp4`, `audio/aac`, `audio/mpeg`.
+
+Clients generate the recording `id` (a UUID), and every call is safe to retry. Chunks live in `meetings/<id>/chunks/` until finish, the joined file is `meetings/<id>/recording.<ext>`.
+
+`GET /api/phone` returns `{enabled, consentText}` for the recorder screen. `GET` and `PUT /api/settings/phone` manage the toggle and consent text (blank restores the default).

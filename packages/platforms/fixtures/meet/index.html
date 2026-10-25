@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Meet fixture</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      [data-participant-id] {
+        display: inline-block;
+        border: 1px solid #999;
+        margin: 4px;
+        padding: 1rem;
+      }
+      [jsname='QgSmzd']:not(.gjg47c) {
+        background: #2a9d4a;
+        height: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <section id="prejoin">
+      <h1>Ready to join?</h1>
+      <input aria-label="Your name" placeholder="Your name" />
+      <p id="account" hidden>Bot Account</p>
+      <div role="button" tabindex="0" id="mic" aria-label="Turn off microphone (ctrl + d)">Mic</div>
+      <div role="button" tabindex="0" id="camera" aria-label="Turn off camera (ctrl + e)">
+        Camera
+      </div>
+      <button id="join">Ask to join</button>
+    </section>
+
+    <section id="blocked" hidden><h1>You can't join this video call</h1></section>
+    <section id="lobby" hidden><h1>Asking to be let in...</h1></section>
+    <section id="denied" hidden><h1>Someone in the call denied your request to join</h1></section>
+    <section id="left" hidden><h1>You left the meeting</h1></section>
+
+    <section id="meeting" hidden>
+      <audio id="tone" loop></audio>
+      <div id="grid" role="main"></div>
+      <video id="self-view" width="320" height="180" muted playsinline></video>
+      <button aria-label="Chat with everyone" aria-pressed="false" id="chat-toggle">Chat</button>
+      <aside id="chat" hidden>
+        <div id="chat-log"></div>
+        <textarea aria-label="Send a message"></textarea>
+        <button aria-label="Send a message" id="chat-send">Send</button>
+      </aside>
+    </section>
+    <button aria-label="Leave call" id="leave" hidden>Leave</button>
+
+    <script>
+      const params = new URLSearchParams(location.search);
+      const number = (key, fallback) => (params.has(key) ? Number(params.get(key)) : fallback);
+      const others = (params.get('others') ?? 'Alice,Bob').split(',').filter(Boolean);
+      let self = '';
+      const $ = (id) => document.getElementById(id);
+      // The real signed-in lobby already shows the Leave call button, so the button alone is not
+      // proof of being admitted.
+      let signedIn = false;
+      const show = (id) => {
+        for (const s of document.querySelectorAll('section')) s.hidden = s.id !== id;
+        $('leave').hidden = !(id === 'meeting' || (id === 'lobby' && signedIn));
+        $('lobby').firstElementChild.textContent = signedIn
+          ? 'Please wait until a meeting host brings you into the call'
+          : 'Asking to be let in...';
+      };
+
+      signedIn = /(?:^|; )SID=fixture-session(?:;|$)/.test(document.cookie);
+      const accountName = 'Bot Account';
+      if (signedIn) {
+        document.querySelector('input').remove();
+        $('account').hidden = false;
+        if (params.has('direct')) $('join').textContent = 'Join now';
+      }
+
+      if (params.has('blocked') || (params.has('signedInOnly') && !signedIn)) {
+        $('prejoin').remove();
+        show('blocked');
+      }
+
+      let micTrack;
+      let micPeak = 0;
+      async function openMic() {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micTrack = stream.getAudioTracks()[0];
+        micTrack.enabled = document.body.dataset.mic === 'on';
+        const context = new AudioContext();
+        const analyser = context.createAnalyser();
+        const silencer = context.createGain();
+        silencer.gain.value = 0;
+        context.createMediaStreamSource(new MediaStream([micTrack])).connect(analyser);
+        analyser.connect(silencer).connect(context.destination);
+        const samples = new Float32Array(analyser.fftSize);
+        setInterval(() => {
+          analyser.getFloatTimeDomainData(samples);
+          micPeak = Math.max(micPeak, ...samples.map(Math.abs));
+          document.body.dataset.micPeak = micPeak.toFixed(3);
+        }, 50);
+      }
+
+      const setMic = (on) => {
+        document.body.dataset.mic = on ? 'on' : 'off';
+        $('mic')?.setAttribute('aria-label', `Turn ${on ? 'off' : 'on'} microphone (ctrl + d)`);
+        if (micTrack) micTrack.enabled = on;
+      };
+      // micLocked ignores every mute press, micOnAfterJoin models Meet unmuting a signed-in guest.
+      $('mic')?.addEventListener('click', () => {
+        if (!params.has('micLocked'))
+          setMic($('mic').getAttribute('aria-label').startsWith('Turn on'));
+      });
+      $('camera')?.addEventListener('click', () => {
+        const off = $('camera').getAttribute('aria-label').startsWith('Turn off');
+        $('camera').setAttribute('aria-label', `Turn ${off ? 'on' : 'off'} camera (ctrl + e)`);
+        document.body.dataset.camera = off ? 'off' : 'on';
+      });
+      setMic(true);
+
+      const report = (event) =>
+        fetch('/__event', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(event),
+        }).catch(() => undefined);
+
+      async function showCamera() {
+        const video = $('self-view');
+        video.srcObject = await navigator.mediaDevices.getUserMedia({ video: true });
+        await video.play();
+        const canvas = Object.assign(document.createElement('canvas'), { width: 160, height: 90 });
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, 160, 90);
+        const pixels = context.getImageData(0, 0, 160, 90).data;
+        const mean = [0, 1, 2].map((channel) => {
+          let sum = 0;
+          for (let i = channel; i < pixels.length; i += 4) sum += pixels[i];
+          return Math.round(sum / (pixels.length / 4));
+        });
+        document.body.dataset.cameraFrame = mean.join(',');
+        report({ type: 'camera-frame', mean, image: canvas.toDataURL('image/png') });
+      }
+
+      $('chat-toggle').addEventListener('click', () => {
+        $('chat').hidden = !$('chat').hidden;
+        $('chat-toggle').setAttribute('aria-pressed', String(!$('chat').hidden));
+      });
+
+      const linked = (text) =>
+        text.replace(/https?:\/\/[^\s<]+/g, (url) => `<a href="${url}" target="_blank">${url}</a>`);
+      const addChat = (sender, text) => {
+        const at = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const group = document.createElement('div');
+        group.className = 'Ss4fHf';
+        group.innerHTML = `<div class="poVWob"><span class="YTbUzc"></span><span class="MuzmKe">${at}</span></div><div class="beTDc"><div data-message-id="m${Date.now()}"><div class="oIy2qc"></div></div></div>`;
+        group.querySelector('.YTbUzc').textContent = sender;
+        if (sender === 'You') group.querySelector('.oIy2qc').dataset.own = '';
+        group.querySelector('.oIy2qc').innerHTML = linked(
+          text.replace(/&/g, '&amp;').replace(/</g, '&lt;'),
+        );
+        $('chat-log').append(group);
+      };
+      const seededChat = (
+        params.get('chat') ?? 'Alice|2000|I will send the agenda: https://example.com/agenda'
+      )
+        .split(';')
+        .filter(Boolean)
+        .map((entry) => entry.split('|'));
+      const startChat = () => {
+        for (const [from, after, text] of seededChat)
+          setTimeout(() => addChat(from, text), Number(after));
+      };
+      $('chat-send').addEventListener('click', () => {
+        const input = document.querySelector('textarea');
+        const text = input.value.trim();
+        if (!text) return;
+        addChat('You', text);
+        document.body.dataset.chat = text;
+        report({ type: 'chat', text });
+        input.value = '';
+      });
+
+      function tone() {
+        const rate = 16000;
+        const samples = new Int16Array(rate);
+        for (let i = 0; i < rate; i++)
+          samples[i] = Math.sin((2 * Math.PI * 440 * i) / rate) * 12000;
+        const header = new DataView(new ArrayBuffer(44));
+        const text = (offset, value) =>
+          [...value].forEach((c, i) => header.setUint8(offset + i, c.charCodeAt(0)));
+        text(0, 'RIFF');
+        header.setUint32(4, 36 + samples.byteLength, true);
+        text(8, 'WAVEfmt ');
+        header.setUint32(16, 16, true);
+        header.setUint16(20, 1, true);
+        header.setUint16(22, 1, true);
+        header.setUint32(24, rate, true);
+        header.setUint32(28, rate * 2, true);
+        header.setUint16(32, 2, true);
+        header.setUint16(34, 16, true);
+        text(36, 'data');
+        header.setUint32(40, samples.byteLength, true);
+        return URL.createObjectURL(new Blob([header, samples], { type: 'audio/wav' }));
+      }
+
+      const schedule = (key) =>
+        (params.get(key) ?? '')
+          .split(',')
+          .filter(Boolean)
+          .map((entry) => {
+            const [name, range] = entry.split(':');
+            const [from, to] = range.split('-').map(Number);
+            return { name, from, to };
+          });
+      const speakers = schedule('speakers');
+      const joins = schedule('joins');
+      const leaves = schedule('leaves');
+      const within = (list, name, at) =>
+        list.some((e) => e.name === name && at >= e.from && (e.to === undefined || at < e.to));
+
+      function render(people, speaking) {
+        $('grid').replaceChildren(
+          ...people.map((name, index) => {
+            const tile = document.createElement('div');
+            tile.dataset.participantId = `spaces/fixture/devices/${index}`;
+            const label = Object.assign(document.createElement('span'), {
+              className: 'notranslate',
+              textContent: name,
+            });
+            const indicator = Object.assign(document.createElement('div'), {
+              className: speaking.includes(name) ? 'DYfzY cYKTje sxlEM' : 'DYfzY cYKTje gjg47c',
+            });
+            indicator.setAttribute('jsname', 'QgSmzd');
+            tile.append(label, indicator);
+            return tile;
+          }),
+        );
+      }
+
+      $('join')?.addEventListener('click', () => {
+        const name = signedIn ? accountName : document.querySelector('input').value;
+        const camera = $('camera').getAttribute('aria-label').startsWith('Turn off');
+        if (params.has('blockedAfterJoin')) return show('blocked');
+        if (!params.has('direct')) show('lobby');
+        setTimeout(
+          () => {
+            if (params.has('deny')) return show('denied');
+            show('meeting');
+            self = name;
+            report({ type: 'joined', platform: 'meet', name, camera, signedIn });
+            $('meeting').append($('mic'));
+            openMic().then(() => {
+              if (params.has('micOnAfterJoin')) setMic(true);
+            });
+            startChat();
+            if (camera) showCamera();
+            $('tone').src = tone();
+            $('tone').play();
+            const joinedAt = Date.now();
+            const tick = () => {
+              const at = Date.now() - joinedAt;
+              const gone = params.has('leaveAfter') && at >= number('leaveAfter', 0);
+              const present = [
+                ...others.filter((n) => !gone && !within(leaves, n, at)),
+                ...joins.filter((e) => !gone && at >= e.from).map((e) => e.name),
+                name,
+              ].filter((n, i, all) => all.indexOf(n) === i);
+              render(
+                present,
+                speakers.filter((e) => at >= e.from && at < e.to).map((e) => e.name),
+              );
+            };
+            tick();
+            setInterval(tick, 100);
+          },
+          params.has('direct') ? 0 : number('lobby', 1500),
+        );
+      });
+
+      $('leave').addEventListener('click', () => {
+        $('tone').pause();
+        show('left');
+      });
+    </script>
+  </body>
+</html>
