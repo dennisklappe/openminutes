@@ -50,12 +50,13 @@
 You need a machine with Docker and about ten minutes.
 
 ```bash
-git clone https://github.com/dennisklappe/openminutes.git && cd openminutes
+curl -O https://raw.githubusercontent.com/dennisklappe/openminutes/main/compose.yaml
 echo "OPENMINUTES_SECRET=$(openssl rand -hex 32)" > .env
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-There is no tagged release or published image yet, so this builds the images from source (a few minutes the first time).
+This pulls the published images. To build from source instead, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Then:
 
@@ -187,7 +188,7 @@ On your phone:
 
 ## Status and limits
 
-OpenMinutes is pre-release: there is no tagged version yet and the images are not published. Expect breaking changes until v0.1. Progress is on the [roadmap](docs/roadmap.md).
+OpenMinutes is early: v0.1.0 is the first release. Expect breaking changes before v1. Progress is on the [roadmap](docs/roadmap.md).
 
 - **Google Meet** refuses signed-out guests from automated browsers. For reliable joins, sign the bot in with a dedicated Google account, see [Meet sign-in](docs/meet-sign-in.md).
 - **Microsoft Teams** works as a guest, unless the tenant blocks anonymous guests, see [Teams](docs/teams.md).

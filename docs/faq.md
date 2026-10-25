@@ -8,7 +8,7 @@ No. Version 1 covers Google Meet and Microsoft Teams. Zoom and Webex are not pla
 
 ### Is it ready to use?
 
-Pre-release: expect breaking changes until v0.1. The [roadmap](roadmap.md) shows what works and what is next.
+Early release (v0.1): expect breaking changes. The [roadmap](roadmap.md) shows what works and what is next.
 
 ### Is there a paid version?
 

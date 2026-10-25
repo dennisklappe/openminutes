@@ -3,7 +3,7 @@
 Time: about 10 minutes, plus the image download.
 
 > [!NOTE]
-> Pre-release: no tagged version or published image yet. Until the first release, build from source with `docker compose up -d --build` (see [CONTRIBUTING.md](../CONTRIBUTING.md)). The [roadmap](roadmap.md) says what works today.
+> Early release (v0.1): expect breaking changes. The [roadmap](roadmap.md) says what works today.
 
 ## What you need
 
@@ -15,12 +15,13 @@ Time: about 10 minutes, plus the image download.
 ## 1. Start it
 
 ```bash
-git clone https://github.com/dennisklappe/openminutes.git && cd openminutes
+curl -O https://raw.githubusercontent.com/dennisklappe/openminutes/main/compose.yaml
 echo "OPENMINUTES_SECRET=$(openssl rand -hex 32)" > .env
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-For the bundled local transcriber (no key needed), use `docker compose --profile local up -d --build`.
+For the bundled local transcriber (no key needed), use `docker compose --profile local up -d`.
 
 > [!IMPORTANT]
 > `OPENMINUTES_SECRET` encrypts every stored key and token. Back up `.env`: without it the secrets cannot be read.

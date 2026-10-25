@@ -96,7 +96,7 @@ export const om = {
 /** The honest limits of OpenMinutes, reused on every comparison page. */
 export const omLimits = [
   {
-    text: 'Early stage. There is no tagged release yet and breaking changes are expected before v0.1.',
+    text: 'Early stage. v0.1 is the first release and breaking changes are expected before v1.',
     href: DOCS + 'roadmap',
     label: 'Status and roadmap',
   },
