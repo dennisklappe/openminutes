@@ -79,5 +79,6 @@ export function uncertaintyLabel(segment: SegmentDto): string {
 export function editMessage(input: SpeakerEditInput): string {
   if (input.kind === 'split') return 'Line split.';
   if (input.kind === 'merge') return 'Lines merged.';
+  if (input.kind === 'reject-suggestion') return 'Suggestion rejected.';
   return 'Speaker changed.';
 }

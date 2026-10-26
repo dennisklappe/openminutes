@@ -138,6 +138,35 @@ export function SegmentLine(props: Props) {
             />
           )}
         </div>
+        {segment.suggestedSpeakerId && segment.suggestedSpeaker && !splitting && (
+          <div className="suggestion" role="group" aria-label="Suggested speaker">
+            <span className="suggestion-text">
+              Suggested: <strong>{segment.suggestedSpeaker}</strong>
+            </span>
+            <button
+              type="button"
+              className="suggestion-accept"
+              onClick={() => {
+                onEdit({
+                  kind: 'assign',
+                  segmentIds: [segment.id],
+                  speaker: { id: segment.suggestedSpeakerId as string },
+                });
+              }}
+            >
+              Accept
+            </button>
+            <button
+              type="button"
+              className="suggestion-reject"
+              onClick={() => {
+                onEdit({ kind: 'reject-suggestion', segmentIds: [segment.id] });
+              }}
+            >
+              Reject
+            </button>
+          </div>
+        )}
         {splitting ? (
           <SplitLine
             text={segment.text}

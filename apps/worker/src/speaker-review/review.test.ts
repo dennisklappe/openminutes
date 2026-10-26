@@ -66,7 +66,22 @@ describe('replay of a dialog where the diarizer merged two speakers', () => {
       speakerSource: row.speakerSource ?? null,
       speakerCandidates: row.speakerCandidates ?? null,
       previousParticipantId: null,
+      suggestedParticipantId: null,
+      rejectedSuggestions: [],
     }));
+  /** The short lines of the merged turn, where the audio also gave the other voice some weight. */
+  const withBothVoices = () =>
+    rows().map((row, i) =>
+      i === 1 || i === 2
+        ? {
+            ...row,
+            speakerCandidates: [
+              { participantId: ids.one, score: 0.7 },
+              { participantId: ids.two, score: 0.3 },
+            ],
+          }
+        : row,
+    );
 
   it('scores the short lines low and the long monologue high', () => {
     const [, ja, fijn, monologue] = rows();
@@ -77,43 +92,89 @@ describe('replay of a dialog where the diarizer merged two speakers', () => {
     expect(fijn?.participantId).toBe(ids.one);
   });
 
-  it('lets the model move the answer to the other speaker', async () => {
+  it('suggests the other speaker and keeps the label', async () => {
     const model = modelAnswering(() => changes([1, 'Speaker 2']));
-    const review = await reviewLines(model, rows(), people);
+    const review = await reviewLines(model, withBothVoices(), people);
 
     expect(review.lines.map((line) => line.participantId)).toEqual([
       ids.one,
-      ids.two,
+      ids.one,
       ids.one,
       ids.two,
     ]);
     expect(review.lines[1]).toMatchObject({
-      speakerSource: 'ai',
-      previousParticipantId: ids.one,
+      speakerSource: 'diarization',
+      suggestedParticipantId: ids.two,
       text: 'Ja, hij doet het.',
     });
-    expect(review.lines[2]?.speakerSource).toBe('diarization');
+    expect(review.lines[2]?.suggestedParticipantId).toBeNull();
     expect(review).toMatchObject({ refined: true, error: null });
-    expect(markedIndexes(model.inputs[0] ?? '')).toEqual([0, 1, 2]);
+    expect(markedIndexes(model.inputs[0] ?? '')).toEqual([1, 2]);
     expect(model.inputs[0]).toContain('[3] 12.0-40.0, Speaker 2: Ja, vertel.');
   });
 
-  it('guesses only the obvious answer when there is no model', async () => {
-    const review = await reviewLines(undefined, rows(), people);
+  it('ignores a speaker the audio did not score for the line', async () => {
+    const three = [...people, { id: 'p3', name: 'Speaker 3' }];
+    const model = modelAnswering(() => changes([1, 'Speaker 3'], [2, 'Speaker 2']));
+    const review = await reviewLines(model, withBothVoices(), three);
+
+    expect(review.lines[1]?.suggestedParticipantId).toBeNull();
+    expect(review.lines[2]?.suggestedParticipantId).toBe(ids.two);
+  });
+
+  it('ignores a speaker the audio scored under 20 percent', async () => {
+    const model = modelAnswering(() => changes([1, 'Speaker 2']));
+    const input = withBothVoices().map((line, i) =>
+      i === 1
+        ? {
+            ...line,
+            speakerCandidates: [
+              { participantId: ids.one, score: 0.85 },
+              { participantId: ids.two, score: 0.15 },
+            ],
+          }
+        : line,
+    );
+    const review = await reviewLines(model, input, people);
+    expect(review.lines[1]?.suggestedParticipantId).toBeNull();
+  });
+
+  it('does not suggest a speaker a person turned down', async () => {
+    const model = modelAnswering(() => changes([2, 'Speaker 2']));
+    const input = withBothVoices().map((line, i) =>
+      i === 1 ? { ...line, rejectedSuggestions: [ids.two] } : line,
+    );
+    const review = await reviewLines(model, input, people);
+
+    expect(review.lines[1]?.suggestedParticipantId).toBeNull();
+    expect(review.lines[2]?.suggestedParticipantId).toBe(ids.two);
+    expect(markedIndexes(model.inputs[0] ?? '')).toEqual([2]);
+  });
+
+  it('drops an old suggestion that the review no longer makes', async () => {
+    const model = modelAnswering(() => changes());
+    const input = withBothVoices().map((line, i) =>
+      i === 1 ? { ...line, suggestedParticipantId: ids.two } : line,
+    );
+    const review = await reviewLines(model, input, people);
+    expect(review.lines[1]?.suggestedParticipantId).toBeNull();
+  });
+
+  it('suggests only the obvious answer when there is no model', async () => {
+    const review = await reviewLines(undefined, withBothVoices(), people);
 
     expect(review.lines.map((line) => line.participantId)).toEqual([
       ids.one,
-      ids.two,
+      ids.one,
       ids.one,
       ids.two,
     ]);
-    expect(review.lines.map((line) => line.speakerSource)).toEqual([
-      'diarization',
-      'guess',
-      'diarization',
-      'diarization',
+    expect(review.lines.map((line) => line.suggestedParticipantId)).toEqual([
+      null,
+      ids.two,
+      null,
+      null,
     ]);
-    expect(review.lines[1]?.previousParticipantId).toBe(ids.one);
     expect(review.refined).toBe(false);
   });
 });
@@ -127,8 +188,13 @@ describe('model batches', () => {
       participantId: i % 2 === 0 ? ids.one : ids.two,
       speakerConfidence: i % uncertainEvery === 0 ? 0.4 : 0.95,
       speakerSource: 'diarization',
-      speakerCandidates: null,
+      speakerCandidates: [
+        { participantId: i % 2 === 0 ? ids.one : ids.two, score: 0.6 },
+        { participantId: i % 2 === 0 ? ids.two : ids.one, score: 0.4 },
+      ],
       previousParticipantId: null,
+      suggestedParticipantId: null,
+      rejectedSuggestions: [],
     }));
 
   it('rejects only the batch that changes far too many lines and applies the rest', async () => {
@@ -162,7 +228,9 @@ describe('model batches', () => {
     );
     const some = await reviewLines(flaky, lines(25), people);
     expect(some).toMatchObject({ refined: true, error: null });
-    expect(some.lines.filter((line) => line.speakerSource === 'ai').length).toBeGreaterThan(0);
+    expect(
+      some.lines.filter((line) => line.suggestedParticipantId !== null).length,
+    ).toBeGreaterThan(0);
 
     const broken = modelAnswering(() => new Error('down'));
     expect(await reviewLines(broken, lines(25), people)).toMatchObject({

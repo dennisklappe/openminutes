@@ -10,6 +10,8 @@ export interface ReviewLine {
   speakerSource: SpeakerSource | null;
   speakerCandidates: SpeakerCandidate[] | null;
   previousParticipantId: string | null;
+  suggestedParticipantId: string | null;
+  rejectedSuggestions: string[];
 }
 
 export interface Person {

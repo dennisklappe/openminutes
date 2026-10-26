@@ -42,6 +42,8 @@ const toLine = (row: TranscriptRow): ReviewLine => ({
   speakerSource: row.speakerSource ?? null,
   speakerCandidates: row.speakerCandidates ?? null,
   previousParticipantId: row.previousParticipantId ?? null,
+  suggestedParticipantId: row.suggestedParticipantId ?? null,
+  rejectedSuggestions: row.rejectedSuggestions ?? [],
 });
 
 /**

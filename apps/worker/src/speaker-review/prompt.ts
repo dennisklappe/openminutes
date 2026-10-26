@@ -2,7 +2,7 @@ import type { ReviewLine } from './lines.js';
 
 export const INSTRUCTIONS = `You correct speaker labels in a meeting transcript. Each line is "[index] start-end in seconds, label: text". Lines marked with a question mark after the index, like "[12]?", have a label that may be wrong, with how sure the audio analysis was and which speakers it considered. The other lines are context and are not to be changed.
 
-Change a label only when the conversation shows it is wrong. A sentence is almost never said by two people. Use who answered whom (an answer comes from someone other than the one who asked), names used to address someone ("Thanks, Alice" is said by someone other than Alice), and who owns a topic. Short replies are the most often wrong. Use only the names listed under "Speakers" and only the indexes of lines marked with a question mark.
+Keep the label unless the conversation clearly shows it is wrong. The audio analysis is evidence too: a label it was sure about stays. A sentence is almost never said by two people. Use who answered whom (an answer comes from someone other than the one who asked), names used to address someone ("Thanks, Alice" is said by someone other than Alice), and who owns a topic. Short replies are the most often wrong. Use only the indexes of lines marked with a question mark, and for such a line only a speaker named after "considered" with at least 20%, never anyone else.
 
 Reply with JSON only, in exactly this shape: {"changes":[{"index":<number>,"speaker":"<name>"}]}. Use {"changes":[]} when nothing is clearly wrong. Include only lines whose label you change.`;
 

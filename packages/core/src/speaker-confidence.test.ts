@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isUncertain, LOW_SPEAKER_CONFIDENCE, scoreSpeaker } from './speaker-confidence.js';
+import {
+  isUncertain,
+  LOW_SPEAKER_CONFIDENCE,
+  scoreSpeaker,
+  suggestionChoices,
+} from './speaker-confidence.js';
 
 const span = (participantId: string, startMs: number, endMs: number, margin?: number) => ({
   participantId,
@@ -71,5 +76,28 @@ describe('isUncertain', () => {
   it('never flags a line a person has confirmed', () => {
     expect(isUncertain({ speakerConfidence: 0.1, speakerSource: 'user' })).toBe(false);
     expect(isUncertain({ speakerConfidence: null, speakerSource: null })).toBe(false);
+  });
+});
+
+describe('suggestionChoices', () => {
+  const line = {
+    participantId: 'a',
+    speakerSource: 'diarization' as const,
+    speakerCandidates: [
+      { participantId: 'a', score: 0.6 },
+      { participantId: 'b', score: 0.25 },
+      { participantId: 'c', score: 0.15 },
+    ],
+    rejectedSuggestions: [] as string[],
+  };
+
+  it('offers the scored speakers other than the current one, from 20 percent', () => {
+    expect(suggestionChoices(line)).toEqual(['b']);
+  });
+
+  it('leaves out turned down speakers and lines a person set', () => {
+    expect(suggestionChoices({ ...line, rejectedSuggestions: ['b'] })).toEqual([]);
+    expect(suggestionChoices({ ...line, speakerSource: 'user' })).toEqual([]);
+    expect(suggestionChoices({ ...line, speakerCandidates: null })).toEqual([]);
   });
 });

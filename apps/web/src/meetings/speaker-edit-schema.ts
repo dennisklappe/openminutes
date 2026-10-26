@@ -33,6 +33,8 @@ const snapshot = z.strictObject({
     .max(50)
     .nullable(),
   previousSpeakerId: uuid.nullable(),
+  suggestedSpeakerId: uuid.nullable(),
+  rejectedSuggestions: z.array(uuid).max(50),
 });
 
 export const speakerEditInput = z.discriminatedUnion('kind', [
@@ -45,6 +47,7 @@ export const speakerEditInput = z.discriminatedUnion('kind', [
   }),
   z.strictObject({ kind: z.literal('merge'), segmentIds: z.array(uuid).min(2).max(MAX_IDS) }),
   z.strictObject({ kind: z.literal('revert'), segmentIds: ids }),
+  z.strictObject({ kind: z.literal('reject-suggestion'), segmentIds: ids }),
   z.strictObject({
     kind: z.literal('restore'),
     rows: z.array(snapshot).max(MAX_IDS),

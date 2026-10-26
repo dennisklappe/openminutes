@@ -30,6 +30,7 @@ export async function reviewMeetingSpeakers(deps: ReviewDeps, meetingId: string)
             speakerConfidence: line.speakerConfidence,
             speakerSource: line.speakerSource,
             previousParticipantId: line.previousParticipantId,
+            suggestedParticipantId: line.suggestedParticipantId,
           })
           .where(eq(transcriptSegments.id, before.id));
       }

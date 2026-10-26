@@ -230,17 +230,17 @@ describe('processMeeting', () => {
       return { id, alice, bob };
     }
 
-    it('applies the corrections of the model and flags the transcript', async () => {
+    it('stores the corrections of the model as suggestions and flags the transcript', async () => {
       const { id, alice, bob } = await twoSpeakers();
       refiner = answering(() =>
         Promise.resolve(JSON.stringify({ changes: [{ index: 1, speaker: 'Bob' }] })),
       );
       await processMeeting(deps(), id);
       const { meeting, segments } = await load(id);
-      expect(segments.map((s) => s.participantId)).toEqual([alice.id, bob.id]);
+      expect(segments.map((s) => s.participantId)).toEqual([alice.id, alice.id]);
       expect(segments[1]).toMatchObject({
-        speakerSource: 'ai',
-        previousParticipantId: alice.id,
+        speakerSource: 'indicator',
+        suggestedParticipantId: bob.id,
         text: 'Thanks, Alice.',
       });
       expect(meeting.speakersRefined).toBe(true);

@@ -105,6 +105,36 @@
   font-weight: 500;
 }
 
+.suggestion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 4px;
+  padding: 3px 8px;
+  border: 1px dashed var(--info);
+  border-radius: 6px;
+  background: var(--info-soft);
+  color: var(--info);
+  font-size: 12.5px;
+}
+
+.suggestion button {
+  padding: 0 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.suggestion button:hover {
+  background: var(--surface);
+}
+
 .transcript > li.reviewing {
   box-shadow: 0 0 0 1px var(--warn);
 }

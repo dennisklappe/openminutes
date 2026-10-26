@@ -92,6 +92,9 @@ export interface SegmentDto {
   speakerSource: SpeakerSourceDto | null;
   uncertain: boolean;
   previousSpeaker: string | null;
+  /** Who the speaker review thinks said it, for the person to accept or turn down. */
+  suggestedSpeaker: string | null;
+  suggestedSpeakerId: string | null;
 }
 
 export interface SpeakerChoiceDto {
@@ -117,6 +120,8 @@ export interface SpeakerSnapshotDto {
   speakerSource: SpeakerSourceDto | null;
   speakerCandidates: { participantId: string; score: number }[] | null;
   previousSpeakerId: string | null;
+  suggestedSpeakerId: string | null;
+  rejectedSuggestions: string[];
 }
 
 export type SpeakerTargetInput = { id: string } | { name: string } | { create: true };
@@ -131,6 +136,7 @@ export type SpeakerEditInput =
     }
   | { kind: 'merge'; segmentIds: string[] }
   | { kind: 'revert'; segmentIds: string[] }
+  | { kind: 'reject-suggestion'; segmentIds: string[] }
   | {
       kind: 'restore';
       rows: SpeakerSnapshotDto[];

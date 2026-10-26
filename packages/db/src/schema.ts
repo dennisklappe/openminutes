@@ -223,6 +223,13 @@ export const transcriptSegments = pgTable('transcript_segments', {
     (): AnyPgColumn => participants.id,
     { onDelete: 'set null' },
   ),
+  /** The speaker the review thinks is right when it disagrees with the label, never applied by itself. */
+  suggestedParticipantId: uuid('suggested_participant_id').references(
+    (): AnyPgColumn => participants.id,
+    { onDelete: 'set null' },
+  ),
+  /** Speakers a person turned down for this line, so the review does not suggest them again. */
+  rejectedSuggestions: jsonb('rejected_suggestions').$type<string[]>().notNull().default([]),
 });
 
 export const summaries = pgTable('summaries', {

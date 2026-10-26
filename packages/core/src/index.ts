@@ -227,8 +227,10 @@ export {
 export {
   isUncertain,
   LOW_SPEAKER_CONFIDENCE,
+  MIN_SUGGESTION_SCORE,
   scoreSpeaker,
   SHORT_UTTERANCE_MS,
+  suggestionChoices,
   type SpeakerScore,
 } from './speaker-confidence.js';
 export { guessSpeakers, type GuessLine } from './speaker-guess.js';
