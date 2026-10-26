@@ -207,8 +207,38 @@ export const participants = pgTable(
     nameConfirmed: boolean('name_confirmed').notNull().default(false),
     nameSuggestions: jsonb('name_suggestions').$type<NameSuggestion[]>(),
     personId: uuid('person_id').references((): AnyPgColumn => people.id, { onDelete: 'set null' }),
+    /** The owner said this tile is one person, so it is not offered as a shared room again. */
+    roomDismissedAt: timestamptz('room_dismissed_at'),
   },
   (t) => [index('participants_person_idx').on(t.personId)],
+);
+
+/**
+ * One voice found in a participant tile that probably holds several people (a meeting room). The
+ * centroid is a voice print of someone who may not be known yet, so it is deleted with the
+ * meeting, when voices are forgotten, and when the owner says the tile is one person. Nothing in
+ * the transcript changes until the owner gives the voice a person.
+ */
+export const roomVoices = pgTable(
+  'room_voices',
+  {
+    id: id(),
+    meetingId: meetingId(),
+    participantId: uuid('participant_id')
+      .notNull()
+      .references(() => participants.id, { onDelete: 'cascade' }),
+    /** 1, 2, ... within the tile, the voice with the most speech first. */
+    number: integer('number').notNull(),
+    centroid: jsonb('centroid').$type<number[]>().notNull(),
+    /** Lines that formed the voice and the speech in them. */
+    lines: integer('lines').notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    /** Who the owner said it is. Null: not named yet. */
+    personId: uuid('person_id').references((): AnyPgColumn => people.id, { onDelete: 'set null' }),
+    namedAt: timestamptz('named_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('room_voices_meeting_idx').on(t.meetingId)],
 );
 
 /** A person who was invited to a meeting, whether or not they joined. One row per person and meeting. */
@@ -345,6 +375,10 @@ export const transcriptSegments = pgTable('transcript_segments', {
    * meeting, so this is that language unless a provider names one per line. Null: not known.
    */
   language: text('language'),
+  /** The voice of a shared tile this line sounds like. Null: not assigned, overlap or too short. */
+  roomVoiceId: uuid('room_voice_id').references((): AnyPgColumn => roomVoices.id, {
+    onDelete: 'set null',
+  }),
   /** Speakers a person turned down for this line, so the review does not suggest them again. */
   rejectedSuggestions: jsonb('rejected_suggestions').$type<string[]>().notNull().default([]),
 });
