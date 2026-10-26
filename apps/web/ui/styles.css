@@ -3340,3 +3340,13 @@ th .cell-select {
     min-height: 44px;
   }
 }
+
+.via-note {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.room-notice a.button {
+  flex: none;
+}

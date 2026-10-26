@@ -10,6 +10,8 @@ import { Bin } from './pages/Bin.js';
 import { Minutes } from './pages/Minutes.js';
 import { People } from './pages/People.js';
 import { Review } from './pages/Review.js';
+import { RoomVoices } from './pages/RoomVoices.js';
+import { parseRoomRoute } from './roomRoute.js';
 import { parseReviewRoute } from './reviewRoute.js';
 import { PersonDetail } from './pages/PersonDetail.js';
 import { minutesView } from './minutes/views.js';
@@ -74,7 +76,10 @@ export function App() {
   const meetingId = /^\/meetings\/([\w-]+)$/.exec(route)?.[1];
   const personId = /^\/people\/([\w-]+)$/.exec(route)?.[1];
   const review = parseReviewRoute(route);
-  const page = review ? (
+  const room = parseRoomRoute(route);
+  const page = room ? (
+    <RoomVoices meetingId={room.meetingId} participantId={room.participantId} />
+  ) : review ? (
     <Review route={review} />
   ) : meetingId ? (
     <MeetingDetail id={meetingId} />

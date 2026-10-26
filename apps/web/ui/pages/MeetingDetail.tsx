@@ -13,6 +13,7 @@ import { StatusBadge } from '../StatusBadge.js';
 import { SummaryPanel } from '../SummaryPanel.js';
 import { MeetingCompany } from '../MeetingCompany.js';
 import { MeetingTitle } from '../MeetingTitle.js';
+import { RoomNotice } from '../RoomNotice.js';
 import { PeopleCard } from '../participants/PeopleCard.js';
 import { TranscriptPlayer, type PlayerHandle } from '../TranscriptPlayer.js';
 import { WhoIsWho } from '../WhoIsWho.js';
@@ -56,6 +57,7 @@ export function MeetingDetail({ id }: { id: string }) {
     summaries,
     speakersChangedSinceSummary,
     summaryOptions,
+    roomNotices,
   } = data;
 
   const reprocess = (options?: ReprocessOptions) => {
@@ -191,6 +193,9 @@ export function MeetingDetail({ id }: { id: string }) {
               The bot will not join this meeting. Your calendar keeps it listed, but it is not
               queued again unless you choose Join this meeting again.
             </p>
+          )}
+          {meeting.status === 'transcribed' && roomNotices.length > 0 && (
+            <RoomNotice meetingId={id} notices={roomNotices} onChanged={refresh} />
           )}
           {series?.skippedId && (
             <p className="banner">
