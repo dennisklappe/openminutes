@@ -1,13 +1,17 @@
 import {
   ANCHOR_FIRM_CONFIDENCE,
+  ANCHOR_MAX_PER_PERSON,
   ANCHOR_MIN_PEOPLE,
   buildMeetingVoices,
   clearWinner,
   combineScores,
+  isUndisturbed,
   meetingScore,
   MIN_SUGGESTION_SCORE,
   normalizeEmail,
   profileScore,
+  ROOM_MAX_LINES,
+  ROOM_MIN_LINES,
   selectAnchors,
   SHORT_UTTERANCE_MS,
   SUSPECT_CONFIDENCE_CAP,
@@ -31,6 +35,23 @@ export interface VoiceCheckDeps {
   enabled: () => Promise<boolean>;
   /** Told about every scored line, for learning the near-certain ones afterwards. */
   onScored?: (lines: ScoredLine[]) => void;
+  /**
+   * Told about every embedded line, for finding several people in one participant tile. When set,
+   * a meeting is also embedded when a tile has enough clean lines for that.
+   */
+  onEmbedded?: (lines: EmbeddedLine[]) => void;
+}
+
+/** A line with its voice, as handed to the search for shared tiles. */
+export interface EmbeddedLine {
+  startMs: number;
+  endMs: number;
+  participantId: string;
+  embedding: number[];
+  /** A clean line: see `selectAnchors`. */
+  anchor: boolean;
+  /** Nobody else speaks over it, so it may be given to one voice of a shared tile. */
+  undisturbed: boolean;
 }
 
 /** A line with its voice, what the check scored it against and how sure the timing was. */
@@ -286,10 +307,20 @@ export async function checkVoices(
     );
     if (checked.length === 0 || checked.length > MAX_LINES) return [...rows];
     const offset = range?.startMs ?? 0;
-    const anchorKeys = await pickAnchors(deps.db, meetingId, rows, offset);
-    const anchorPeople = new Set(anchorKeys.map((i) => rows[i]?.participantId));
-    // Without saved voices the meeting voices must tell at least two people apart.
-    if (profiled.length === 0 && anchorPeople.size < ANCHOR_MIN_PEOPLE) return [...rows];
+    const picked = await pickAnchors(deps.db, meetingId, rows, offset);
+    const anchorsOf = new Map<string | null | undefined, number[]>();
+    for (const key of picked.anchors) {
+      const who = rows[key]?.participantId;
+      anchorsOf.set(who, [...(anchorsOf.get(who) ?? []), key]);
+    }
+    // Without saved voices the meeting voices must tell at least two people apart, or a tile must
+    // hold enough clean lines to be looked at as a shared one.
+    const roomTile =
+      deps.onEmbedded !== undefined &&
+      [...anchorsOf.values()].some((list) => list.length >= ROOM_MIN_LINES);
+    if (profiled.length === 0 && anchorsOf.size < ANCHOR_MIN_PEOPLE && !roomTile) {
+      return [...rows];
+    }
     const diarizer = await deps.createDiarizer();
     const embedded = await embedInBatches(
       diarizer,
@@ -300,13 +331,34 @@ export async function checkVoices(
       })),
     );
     if (!embedded) return [...rows];
+    const anchorSet = new Set(picked.anchors);
     const embeddingOf = new Map(checked.map((i, n) => [i, embedded.embeddings[n] ?? null]));
-    const voices = buildMeetingVoices(
-      anchorKeys.flatMap((i) => {
-        const vector = embeddingOf.get(i);
-        const participantId = rows[i]?.participantId;
-        return vector && participantId ? [{ key: i, participantId, vector }] : [];
+    deps.onEmbedded?.(
+      checked.flatMap((i) => {
+        const row = rows[i];
+        const embedding = embeddingOf.get(i);
+        return row?.participantId && embedding
+          ? [
+              {
+                startMs: row.startMs,
+                endMs: row.endMs,
+                participantId: row.participantId,
+                embedding,
+                anchor: anchorSet.has(i),
+                undisturbed: picked.undisturbed.has(i),
+              },
+            ]
+          : [];
       }),
+    );
+    const voices = buildMeetingVoices(
+      [...anchorsOf.values()].flatMap((list) =>
+        list.slice(0, ANCHOR_MAX_PER_PERSON).flatMap((i) => {
+          const vector = embeddingOf.get(i);
+          const participantId = rows[i]?.participantId;
+          return vector && participantId ? [{ key: i, participantId, vector }] : [];
+        }),
+      ),
     );
     if (profiled.length === 0 && voices.length < ANCHOR_MIN_PEOPLE) return [...rows];
     const result = [...rows];
@@ -379,13 +431,16 @@ export async function checkVoices(
   }
 }
 
-/** The indices of the rows that are clean anchor lines: see `selectAnchors`. */
+/**
+ * The indices of the rows that are clean anchor lines (see `selectAnchors`), the longest first per
+ * participant, and of the rows nobody else speaks over.
+ */
 async function pickAnchors(
   db: Database,
   meetingId: string,
   rows: readonly TranscriptRow[],
   offset: number,
-): Promise<number[]> {
+): Promise<{ anchors: number[]; undisturbed: Set<number> }> {
   const events = await db
     .select({
       participantId: speakerEvents.participantId,
@@ -411,5 +466,10 @@ async function pickAnchors(
         ]
       : [],
   );
-  return selectAnchors(candidates, events).map((anchor) => anchor.key);
+  return {
+    anchors: selectAnchors(candidates, events, ROOM_MAX_LINES).map((anchor) => anchor.key),
+    undisturbed: new Set(
+      candidates.filter((c) => isUndisturbed(c, candidates, events)).map((c) => c.key),
+    ),
+  };
 }

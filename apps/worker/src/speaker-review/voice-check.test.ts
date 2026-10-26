@@ -4,7 +4,14 @@ import { createTestDatabase } from '@openminutes/db/testing';
 import type { Diarizer, EmbeddedLines } from '@openminutes/providers';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { TranscriptRow } from '../transcript-store.js';
-import { CONFLICT_SCORE, checkVoices, eliminate, judgeLine, RAISE_CAP } from './voice-check.js';
+import {
+  CONFLICT_SCORE,
+  checkVoices,
+  eliminate,
+  judgeLine,
+  RAISE_CAP,
+  type EmbeddedLine,
+} from './voice-check.js';
 
 const scores = (own: number, other: number) =>
   new Map([
@@ -497,6 +504,34 @@ describe('checkVoices with meeting-local anchor voices', () => {
       { path: '/a.opus' },
       expect.not.arrayContaining([{ startMs: 30_000, endMs: 34_000 }]),
     );
+  });
+
+  it('also embeds a meeting with one tile when asked to look for a shared room', async () => {
+    const { m, anna, rows } = await meeting();
+    const tile = rows.map((r) => ({ ...r, participantId: anna.id }));
+    await test.db
+      .update(speakerEvents)
+      .set({ participantId: anna.id })
+      .where(eq(speakerEvents.meetingId, m.id));
+    const embeddings = [A, A2, A, B, B2, B, B, B2];
+    const plain = voices(embeddings);
+    await checkVoices(config(plain.client), m.id, tile, '/a.opus', null);
+    expect(plain.embedEach).not.toHaveBeenCalled();
+
+    const seen: EmbeddedLine[] = [];
+    const d = voices(embeddings);
+    const out = await checkVoices(
+      { ...config(d.client), onEmbedded: (lines) => seen.push(...lines) },
+      m.id,
+      tile,
+      '/a.opus',
+      null,
+    );
+    expect(d.embedEach).toHaveBeenCalledOnce();
+    // Nothing is relabelled: one tile and no saved voices change no line.
+    expect(out).toEqual(tile);
+    expect(seen).toHaveLength(8);
+    expect(seen.filter((line) => line.anchor).length).toBeGreaterThanOrEqual(6);
   });
 
   it('makes no calls when the check is off and saves no voice for anyone', async () => {
