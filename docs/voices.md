@@ -59,7 +59,7 @@ Two options under Settings, Summaries, Voices. Both are off by default because a
 | Option                           | What it does                                                                                                                                                                                                                                 |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Learn voices                     | Lines you name, assign or verify add a voice sample to the person, in the language of the line. Names you give in phone recordings are remembered, so the voice is suggested next time. Also allows [automatic samples](#automatic-samples). |
-| Check lines against saved voices | Meet and Teams lines are compared with the saved voices of the people in the meeting. Lines that sound like someone else are flagged and show under People.                                                                                  |
+| Check lines against saved voices | Meet and Teams lines are compared with the saved voices of the people in the meeting and with the voices heard in that meeting. Lines that sound like someone else are flagged and show under People.                                        |
 
 Without learning, verifying a line only confirms who said it. Without a saved voice nothing is checked and nothing changes.
 
@@ -72,7 +72,7 @@ Without learning, verifying a line only confirms who said it. Without a saved vo
 
 ## The voice check
 
-For meetings whose speakers come from the speaking indicator, and only when someone in the meeting has a saved voice:
+For meetings whose speakers come from the speaking indicator, when someone in the meeting has a saved voice or the meeting has clean lines of at least two people to learn from ([voices of this meeting](#voices-of-this-meeting)):
 
 1. Each line is embedded on its own by the whisper service (`POST /embed-lines`). A line under half a second is read from a one second window around it.
 2. The voice is compared with the saved voices of the meeting's participants.
@@ -84,6 +84,16 @@ The check scores the participants against each other, not against a fixed bar:
 - a label that leads clearly (score of 70% or more and 30 points ahead of everyone else) gains a little confidence, never full certainty
 - a saved voice that is sure of someone else (80% or more) while the line is labelled as another person is a conflict: the line is doubted, the label loses half of its candidate score and the better fitting speaker is suggested
 - by elimination: when exactly one participant has no saved voice, nobody is marked do not track, and a line of 2.5 seconds or more fits none of the saved voices (all under 30%), the line is probably that participant. It gains confidence when already labelled so, else that participant is suggested. These lines are marked **By elimination**, always go to review, and are never added to a profile by themselves
+
+### Voices of this meeting
+
+The check also builds a temporary voice per participant from the meeting itself, so it works when nobody has a saved voice, and it can tell two unknown people apart. It uses the same option, **Check lines against saved voices**: with it off nothing is embedded and nothing is compared.
+
+- **Anchor lines** are the cleanest lines of a participant: 3 seconds or more, labelled by the speaking indicator with at least 90% confidence, not changed by you or an AI review, no other line overlapping by more than 0.3 s, and the indicator showing only that person for at least 90% of the line. At most 12 per person, the longest first
+- an anchor that does not sound like the person's other anchors (median cosine under 0.4, or under 0.5 to the rest) is dropped, so a label that lagged behind the indicator cannot poison the print. A person needs 2 anchors left to get a meeting voice. Without saved voices at least 2 people need one
+- every line is compared with the meeting voices, an anchor line with the others so it does not vouch for itself. A person who also has a saved voice scores 60% saved voice and 40% meeting voice. The line then goes through the same judgement as above, so a line that sounds clearly like someone else is doubted and that person is suggested
+- a line of 2.5 seconds or more whose label wins clearly (60% or more and 15 points ahead of the runner-up) is raised to 85% confidence, never to certainty. No label is changed by this check
+- meeting voices exist only while the meeting is checked. They are not saved, not shown, and never added to a person's profile. Profiles still learn only from lines you verify and from the guarded [automatic samples](#automatic-samples), which only count the saved voices
 
 The labels are never changed by the check. Lines you set yourself are skipped. The check runs when a meeting is transcribed, not when only the speaker check is rerun.
 
