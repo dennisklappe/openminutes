@@ -63,12 +63,12 @@ Two options under Settings, Summaries, Voices. Both are off by default because a
 
 Without learning, verifying a line only confirms who said it. Without a saved voice nothing is checked and nothing changes.
 
-| Question            | Answer                                                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| What is stored      | A list of numbers per verified line (a voice sample), the people and a profile of up to 5 vectors per language built from the samples. No audio. |
-| Where               | Your own database, tables `people` and `voice_samples`. Never sent to another service, never returned by the API.                                |
-| What it is used for | Suggesting a name next to a voice, and flagging lines that sound like someone else. You always decide.                                           |
-| Matching            | A new voice is compared with every vector of a person and scores as the best of them, not as an average.                                         |
+| Question            | Answer                                                                                                                                                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What is stored      | A list of numbers per verified line (a voice sample), the people and a profile of up to 5 vectors per language built from the samples, and a list of numbers per voice found in a [shared tile](#several-people-in-one-tile). No audio. |
+| Where               | Your own database, tables `people` and `voice_samples`. Never sent to another service, never returned by the API.                                                                                                                       |
+| What it is used for | Suggesting a name next to a voice, and flagging lines that sound like someone else. You always decide.                                                                                                                                  |
+| Matching            | A new voice is compared with every vector of a person and scores as the best of them, not as an average.                                                                                                                                |
 
 ## The voice check
 
@@ -96,6 +96,19 @@ The check also builds a temporary voice per participant from the meeting itself,
 - meeting voices exist only while the meeting is checked. They are not saved, not shown, and never added to a person's profile. Profiles still learn only from lines you verify and from the guarded [automatic samples](#automatic-samples), which only count the saved voices
 
 The labels are never changed by the check. Lines you set yourself are skipped. The check runs when a meeting is transcribed, not when only the speaker check is rerun.
+
+## Several people in one tile
+
+A meeting room, or two people in front of one screen, shows up as one participant, so the speaking indicator cannot tell them apart. With **Check lines against saved voices** on, the check looks at the clean lines of each participant (the same lines as the [voices of this meeting](#voices-of-this-meeting), up to 60 per participant) and groups them by voice. A participant whose lines fall into two or more clear groups (each with at least 3 lines and 12 seconds of speech, at most 4 groups) is flagged as probably several people. A group that sounds like another participant of the meeting is ignored, and so are bots and people marked do not track.
+
+- the meeting page shows a quiet notice, for example "Meeting room appears to have 2 voices", with **Name them** and **It is one person**
+- **Name them** opens a page scoped to that participant with one card per voice. Listen to a few lines and answer **Who is this?** with someone from the meeting, from People (**People...**) or **New person**
+- naming a voice gives its lines to that person as lines you verified: the transcript shows their name with a small "via Meeting room" note, the lines count as the person's verified samples (when **Learn voices** is on), and the next meeting recognises them even from a shared microphone. Lines you set yourself are never taken over
+- a line that overlaps someone, is shorter than 1.5 seconds or fits no voice clearly (0.5 or more, 0.1 ahead of the second voice) is not given to a voice. After you name a voice these lines of the tile become uncertain, so they show up in review
+- **It is one person** removes the voices and the notice, and is remembered for that participant when the meeting is processed again. It is not offered once a voice is named
+- nothing is ever split by itself: until you name a voice the transcript keeps the label of the participant
+
+The voice of each group is kept in the table `room_voices` with the meeting, as a list of numbers like a voice sample, so you can name it later. It is deleted with the meeting, with **Delete everyone's voices**, with the voice data of the person it was named as, and when you say it is one person. Processing a meeting again rebuilds the groups, so a voice may have to be named again, lines you already named keep their label.
 
 ## Deleting
 
