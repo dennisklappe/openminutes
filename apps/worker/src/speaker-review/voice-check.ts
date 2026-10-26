@@ -1,7 +1,14 @@
 import {
+  ANCHOR_FIRM_CONFIDENCE,
+  ANCHOR_MIN_PEOPLE,
+  buildMeetingVoices,
+  clearWinner,
+  combineScores,
+  meetingScore,
   MIN_SUGGESTION_SCORE,
   normalizeEmail,
   profileScore,
+  selectAnchors,
   SHORT_UTTERANCE_MS,
   SUSPECT_CONFIDENCE_CAP,
   type SpeechRange,
@@ -10,6 +17,7 @@ import {
   eq,
   participants,
   people,
+  speakerEvents,
   type Database,
   type SpeakerCandidate,
   type VoicePrototype,
@@ -231,11 +239,36 @@ export function eliminate(
   };
 }
 
+/** Lines are sent to the voice service in batches of this many ranges. */
+export const EMBED_BATCH_SIZE = 400;
+
+async function embedInBatches(
+  diarizer: Diarizer | undefined,
+  audioPath: string,
+  ranges: { startMs: number; endMs: number }[],
+): Promise<{ embeddings: (number[] | null)[]; model: string | null } | undefined> {
+  if (!diarizer) return undefined;
+  const embeddings: (number[] | null)[] = [];
+  let model: string | null = null;
+  for (let i = 0; i < ranges.length; i += EMBED_BATCH_SIZE) {
+    const batch = await diarizer.embedEach(
+      { path: audioPath },
+      ranges.slice(i, i + EMBED_BATCH_SIZE),
+    );
+    if (!batch) return undefined;
+    embeddings.push(...batch.embeddings);
+    model = batch.model ?? model;
+  }
+  return { embeddings, model };
+}
+
 /**
  * Embeds every line of a meeting whose labels came from the speaking indicator and compares it
- * with the saved voices of the people in that meeting. It changes nothing when the check is off,
- * nobody in the meeting has a saved voice, or the voice service is unavailable. Lines a person
- * set are never touched. A doubted line gets the better fitting speaker as a suggestion.
+ * with the saved voices of the people in that meeting and with the meeting-local voices of its
+ * participants (see `voice-anchors`). It changes nothing when the check is off, there is neither
+ * a saved voice nor a usable pair of meeting voices, or the voice service is unavailable. Lines a
+ * person set are never touched. A doubted line gets the better fitting speaker as a suggestion.
+ * Meeting voices are temporary: nothing about them is saved.
  */
 export async function checkVoices(
   deps: VoiceCheckDeps,
@@ -247,50 +280,87 @@ export async function checkVoices(
   try {
     if (!(await deps.enabled())) return [...rows];
     const { profiled, unprofiled, hasUntracked } = await profiledParticipants(deps.db, meetingId);
-    if (profiled.length === 0) return [...rows];
     const remaining = unprofiled.length === 1 && !hasUntracked ? unprofiled[0] : undefined;
     const checked = rows.flatMap((row, i) =>
       row.participantId && row.speakerSource !== 'user' ? [i] : [],
     );
     if (checked.length === 0 || checked.length > MAX_LINES) return [...rows];
-    const diarizer = await deps.createDiarizer();
     const offset = range?.startMs ?? 0;
-    const embedded = await diarizer?.embedEach(
-      { path: audioPath },
+    const anchorKeys = await pickAnchors(deps.db, meetingId, rows, offset);
+    const anchorPeople = new Set(anchorKeys.map((i) => rows[i]?.participantId));
+    // Without saved voices the meeting voices must tell at least two people apart.
+    if (profiled.length === 0 && anchorPeople.size < ANCHOR_MIN_PEOPLE) return [...rows];
+    const diarizer = await deps.createDiarizer();
+    const embedded = await embedInBatches(
+      diarizer,
+      audioPath,
       checked.map((i) => ({
         startMs: (rows[i]?.startMs ?? 0) + offset,
         endMs: (rows[i]?.endMs ?? 0) + offset,
       })),
     );
     if (!embedded) return [...rows];
+    const embeddingOf = new Map(checked.map((i, n) => [i, embedded.embeddings[n] ?? null]));
+    const voices = buildMeetingVoices(
+      anchorKeys.flatMap((i) => {
+        const vector = embeddingOf.get(i);
+        const participantId = rows[i]?.participantId;
+        return vector && participantId ? [{ key: i, participantId, vector }] : [];
+      }),
+    );
+    if (profiled.length === 0 && voices.length < ANCHOR_MIN_PEOPLE) return [...rows];
     const result = [...rows];
     const scored: ScoredLine[] = [];
-    for (const [n, i] of checked.entries()) {
+    for (const i of checked) {
       const row = rows[i];
-      const embedding = embedded.embeddings[n];
+      const embedding = embeddingOf.get(i);
       if (!row || !embedding) continue;
-      const scores = new Map(
+      const profileScores = new Map(
         profiled.map((p) => [
           p.participantId,
           clamp(profileScore(embedding, p.prototypes, row.language), 0, 1),
         ]),
       );
-      const verdict = judgeLine(row, row.endMs - row.startMs, scores);
-      const left = eliminate(row, verdict, scores, remaining);
-      if (row.participantId) {
+      const meetingScores = new Map(
+        voices.flatMap((voice) => {
+          const score = meetingScore(embedding, voice, i);
+          return score === undefined ? [] : [[voice.participantId, clamp(score, 0, 1)] as const];
+        }),
+      );
+      const scores = new Map<string, number>();
+      for (const id of new Set([...profileScores.keys(), ...meetingScores.keys()])) {
+        const mixed = combineScores(profileScores.get(id), meetingScores.get(id));
+        if (mixed !== undefined) scores.set(id, mixed);
+      }
+      const duration = row.endMs - row.startMs;
+      const verdict = judgeLine(row, duration, scores);
+      const winner = meetingScores.size > 0 ? clearWinner(scores)?.participantId : undefined;
+      // A clear winner among the meeting voices rules out elimination, which only knows saved voices.
+      const left = winner ? undefined : eliminate(row, verdict, profileScores, remaining);
+      const firm =
+        winner !== undefined &&
+        winner === row.participantId &&
+        !verdict.doubt &&
+        duration >= SHORT_UTTERANCE_MS &&
+        verdict.confidence !== null &&
+        verdict.confidence < ANCHOR_FIRM_CONFIDENCE
+          ? ANCHOR_FIRM_CONFIDENCE
+          : undefined;
+      if (row.participantId && profiled.length > 0) {
         scored.push({
           startMs: row.startMs,
           endMs: row.endMs,
           participantId: row.participantId,
           embedding,
-          embedder: embedded.model ?? null,
+          embedder: embedded.model,
           timing: row.speakerConfidence ?? null,
-          scores,
+          // Only saved voices count for learning, a meeting voice never trains a profile.
+          scores: profileScores,
         });
       }
       result[i] = {
         ...row,
-        speakerConfidence: left?.confidence ?? verdict.confidence,
+        speakerConfidence: left?.confidence ?? firm ?? verdict.confidence,
         speakerCandidates: left?.candidates ?? verdict.candidates,
         voiceDoubt: verdict.doubt,
         ...(left && { byElimination: true }),
@@ -307,4 +377,39 @@ export async function checkVoices(
     console.error(`voice check of meeting ${meetingId} failed, keeping the labels`, error);
     return [...rows];
   }
+}
+
+/** The indices of the rows that are clean anchor lines: see `selectAnchors`. */
+async function pickAnchors(
+  db: Database,
+  meetingId: string,
+  rows: readonly TranscriptRow[],
+  offset: number,
+): Promise<number[]> {
+  const events = await db
+    .select({
+      participantId: speakerEvents.participantId,
+      startMs: speakerEvents.startMs,
+      endMs: speakerEvents.endMs,
+    })
+    .from(speakerEvents)
+    .where(eq(speakerEvents.meetingId, meetingId));
+  // Every labelled line counts for overlaps, also the ones a person set.
+  const candidates = rows.flatMap((row, i) =>
+    row.participantId
+      ? [
+          {
+            key: i,
+            participantId: row.participantId,
+            startMs: row.startMs + offset,
+            endMs: row.endMs + offset,
+            speakerSource: row.speakerSource ?? null,
+            speakerConfidence: row.speakerConfidence ?? null,
+            touched:
+              !!row.previousParticipantId || !!row.suggestedParticipantId || !!row.voiceDoubt,
+          },
+        ]
+      : [],
+  );
+  return selectAnchors(candidates, events).map((anchor) => anchor.key);
 }

@@ -1,5 +1,5 @@
 import { addVoiceSamples, ensurePerson, stopTracking } from '@openminutes/core';
-import { eq, meetings, participants, people } from '@openminutes/db';
+import { eq, meetings, participants, people, speakerEvents } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import type { Diarizer, EmbeddedLines } from '@openminutes/providers';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -347,5 +347,179 @@ describe('checkVoices', () => {
       null,
     );
     expect(kept[0]?.byElimination).toBeUndefined();
+  });
+});
+
+const at = (rows: TranscriptRow[], i: number): TranscriptRow => {
+  const row = rows[i];
+  if (!row) throw new Error(`no row ${String(i)}`);
+  return row;
+};
+
+describe('checkVoices with meeting-local anchor voices', () => {
+  let test: Awaited<ReturnType<typeof createTestDatabase>>;
+  beforeAll(async () => {
+    test = await createTestDatabase();
+  });
+  afterAll(() => test.close());
+
+  // Anna and Bram have no saved voice. Lines 0 to 2 are clean Anna turns, 3 to 5 clean Bram turns,
+  // line 6 is a doubtful boundary line labelled Anna, line 7 a doubtful one labelled Bram.
+  async function meeting(extra: Partial<TranscriptRow>[] = []) {
+    const [m] = await test.db
+      .insert(meetings)
+      .values({ title: 'Anchors', platform: 'meet', joinUrl: 'u' })
+      .returning();
+    if (!m) throw new Error('insert failed');
+    const [anna, bram] = await test.db
+      .insert(participants)
+      .values([
+        { meetingId: m.id, displayName: `Anna ${m.id.slice(0, 4)}` },
+        { meetingId: m.id, displayName: `Bram ${m.id.slice(0, 4)}` },
+      ])
+      .returning();
+    if (!anna || !bram) throw new Error('insert failed');
+    const who = [anna, anna, anna, bram, bram, bram, anna, bram];
+    const rows: TranscriptRow[] = who.map((p, i) => ({
+      meetingId: m.id,
+      participantId: p.id,
+      startMs: i * 5000,
+      endMs: i * 5000 + 4000,
+      text: `Line ${String(i)}`,
+      speakerConfidence: i < 6 ? 0.95 : 0.5,
+      speakerSource: 'indicator',
+      speakerCandidates: [{ participantId: p.id, score: i < 6 ? 0.95 : 0.5 }],
+      ...extra[i],
+    }));
+    await test.db.insert(speakerEvents).values(
+      rows.map((r) => ({
+        meetingId: m.id,
+        participantId: r.participantId ?? '',
+        startMs: r.startMs,
+        endMs: r.endMs,
+      })),
+    );
+    return { m, anna, bram, rows };
+  }
+
+  const voices = (embeddings: (number[] | null)[]) => {
+    const embedEach = vi.fn((): Promise<EmbeddedLines | undefined> =>
+      Promise.resolve({ embeddings, model: 'm' }),
+    );
+    const client: Diarizer = {
+      diarize: () => Promise.resolve(undefined),
+      embed: () => Promise.resolve(undefined),
+      embedEach,
+    };
+    return { client, embedEach };
+  };
+  const config = (d: Diarizer | undefined, enabled = true) => ({
+    db: test.db,
+    createDiarizer: () => Promise.resolve(d),
+    enabled: () => Promise.resolve(enabled),
+  });
+  const A = [1, 0.05];
+  const A2 = [1, -0.05];
+  const B = [0.05, 1];
+  const B2 = [-0.05, 1];
+
+  it('separates two unknown people: a doubtful line gets the voice it sounds like', async () => {
+    const { m, anna, bram, rows } = await meeting();
+    // Line 6 is labelled Anna but sounds like Bram, line 7 is labelled Bram and sounds like Bram.
+    const d = voices([A, A2, A, B, B2, B, B, B2]);
+    const out = await checkVoices(config(d.client), m.id, rows, '/a.opus', null);
+
+    expect(d.embedEach).toHaveBeenCalledOnce();
+    expect(out[6]).toMatchObject({ voiceDoubt: true, suggestedParticipantId: bram.id });
+    expect(out[6]?.speakerConfidence).toBeLessThan(0.5 + 0.001);
+    // The agreeing doubtful line is firmed up, to below certainty.
+    expect(out[7]).toMatchObject({ voiceDoubt: false });
+    expect(out[7]?.speakerConfidence).toBe(0.85);
+    // The clean anchors keep their labels and show who the meeting voices think they are.
+    expect(out[0]?.voiceScores?.[0]?.participantId).toBe(anna.id);
+    expect(out[0]).toMatchObject({ voiceDoubt: false, speakerConfidence: 0.95 });
+  });
+
+  it('drops an anchor that sounds like someone else so the print is not poisoned', async () => {
+    // Anna gets four anchors, the last is really Bram (the indicator lagged).
+    const { m, anna, rows } = await meeting([{}, {}, {}, {}, {}, {}, {}, {}]);
+    const lagged: TranscriptRow = {
+      ...at(rows, 0),
+      participantId: anna.id,
+      startMs: 40_000,
+      endMs: 44_000,
+      text: 'Lagged',
+    };
+    await test.db.insert(speakerEvents).values({
+      meetingId: m.id,
+      participantId: anna.id,
+      startMs: 40_000,
+      endMs: 44_000,
+    });
+    const all = [...rows, lagged];
+    const d = voices([A, A2, A, B, B2, B, B, B2, B]);
+    const out = await checkVoices(config(d.client), m.id, all, '/a.opus', null);
+    // With the outlier in the print Bram-like lines would still score 0.3 against Anna.
+    const annaScore = out[6]?.voiceScores?.find((s) => s.participantId === anna.id)?.score ?? 1;
+    expect(annaScore).toBeLessThan(0.1);
+  });
+
+  it('changes nothing and calls nothing when there are no clean anchors', async () => {
+    const { m, rows } = await meeting();
+    const noisy = rows.map((r) => ({ ...r, endMs: r.startMs + 2000 }));
+    const d = voices([]);
+    expect(await checkVoices(config(d.client), m.id, noisy, '/a.opus', null)).toEqual(noisy);
+    expect(d.embedEach).not.toHaveBeenCalled();
+  });
+
+  it('needs two people with anchors when nobody has a saved voice', async () => {
+    const { m, anna, rows } = await meeting();
+    const onlyAnna = rows.map((r) => ({ ...r, participantId: anna.id }));
+    const d = voices([]);
+    await checkVoices(config(d.client), m.id, onlyAnna, '/a.opus', null);
+    expect(d.embedEach).not.toHaveBeenCalled();
+  });
+
+  it('never touches a line a person set and does not use it as an anchor', async () => {
+    const { m, bram, rows } = await meeting();
+    const edited: TranscriptRow = {
+      ...at(rows, 6),
+      participantId: bram.id,
+      speakerSource: 'user',
+      speakerConfidence: 1,
+    };
+    const all = [...rows.slice(0, 6), edited, at(rows, 7)];
+    const d = voices([A, A2, A, B, B2, B, B2]);
+    const out = await checkVoices(config(d.client), m.id, all, '/a.opus', null);
+    expect(out[6]).toBe(edited);
+    // The user line is left out of the embedded ranges.
+    expect(d.embedEach).toHaveBeenCalledWith(
+      { path: '/a.opus' },
+      expect.not.arrayContaining([{ startMs: 30_000, endMs: 34_000 }]),
+    );
+  });
+
+  it('makes no calls when the check is off and saves no voice for anyone', async () => {
+    const { m, rows } = await meeting();
+    const d = voices([A, A2, A, B, B2, B, B, B2]);
+    expect(await checkVoices(config(d.client, false), m.id, rows, '/a.opus', null)).toEqual(rows);
+    expect(d.embedEach).not.toHaveBeenCalled();
+
+    const scored: unknown[] = [];
+    await checkVoices(
+      { ...config(d.client), onScored: (lines) => scored.push(...lines) },
+      m.id,
+      rows,
+      '/a.opus',
+      null,
+    );
+    // No saved voice, so nothing is offered for automatic learning and nothing is stored.
+    expect(scored).toEqual([]);
+    expect(
+      await test.db
+        .select()
+        .from(people)
+        .where(eq(people.name, `Anna ${m.id.slice(0, 4)}`)),
+    ).toEqual([]);
   });
 });
