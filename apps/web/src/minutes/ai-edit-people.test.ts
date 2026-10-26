@@ -20,7 +20,7 @@ const section = (text: string, tag: string) =>
   new RegExp(`<${tag}>\\n([\\s\\S]*?)\\n</${tag}>`).exec(text)?.[1] ?? '';
 
 const people = (instruction: string, user: string): unknown[] => {
-  const id = /^(\S+) \| Dennis$/m.exec(section(user, 'people'))?.[1] ?? '';
+  const id = /^(\S+) \| Jan$/m.exec(section(user, 'people'))?.[1] ?? '';
   const answers: Record<string, unknown[]> = {
     'Remove dana': [{ type: 'dismiss', email: 'dana@example.com' }],
     'Jan was there': [{ type: 'link', email: 'dana@example.com', participantId: id }],
@@ -152,7 +152,7 @@ describe('edit the people with AI', () => {
     expect(response.status).toBe(201);
     expect(((await response.json()) as SummaryAiEditDto).people).toHaveLength(1);
     const [person] = await test.db.select().from(participants).where(eq(participants.id, personId));
-    expect(person?.inviteeEmail).toBe('dana@example.com');
+    expect(person?.inviteeEmails).toEqual(['dana@example.com']);
     expect(await absent()).toEqual(['anna@example.com']);
   });
 

@@ -58,7 +58,13 @@ export async function learnVoice(
             : embedding,
       })
       .where(eq(participants.id, person.id));
-    if (person.nameConfirmed) await rememberVoice(deps.db, person.displayName, embedding);
+    if (person.nameConfirmed)
+      await rememberVoice(
+        deps.db,
+        person.displayName,
+        embedding,
+        person.email ?? person.inviteeEmails[0] ?? null,
+      );
   } catch (error) {
     console.error(`learning the voice of ${participantId} in meeting ${meetingId} failed`, error);
   }

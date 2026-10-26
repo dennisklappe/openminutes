@@ -37,7 +37,10 @@ export interface ParticipantDto {
   leftAt: string | null;
   talkMs: number;
   confirmed: boolean;
-  inviteeEmail: string | null;
+  /** The address of someone who is not on the invitation, typed by the owner. */
+  email: string | null;
+  /** Every invitee this person is. */
+  inviteeEmails: string[];
 }
 
 export interface InviteeDto {
@@ -58,11 +61,14 @@ export interface ParticipantsDto {
 export interface ParticipantNameInput {
   name: string;
   remember?: boolean;
-  /** The invitee this person is: an email, null to unlink, left out to keep the link. */
-  inviteeEmail?: string | null;
+  /** Every invitee this person is, [] to unlink, left out to keep the links. */
+  inviteeEmails?: string[];
+  /** An address for someone who is not on the invitation, null to clear, left out to keep it. */
+  email?: string | null;
 }
 
 export interface InviteeLinkInput {
+  /** Added to the invitees the person is, null removes all links. */
   email: string | null;
 }
 

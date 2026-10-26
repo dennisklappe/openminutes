@@ -31,7 +31,7 @@ export interface MinutesSource {
     displayName: string;
     originalName?: string | null;
     email: string | null;
-    inviteeEmail?: string | null;
+    inviteeEmails?: readonly string[] | null;
   }[];
   botName: string;
   summary: string | null;

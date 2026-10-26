@@ -22,7 +22,7 @@ interface Props {
 const renameCandidates = (person: ParticipantDto, all: InviteeDto[], absent: InviteeDto[]) =>
   all.filter(
     (invitee) =>
-      invitee.email === person.inviteeEmail || absent.some((a) => a.email === invitee.email),
+      person.inviteeEmails.includes(invitee.email) || absent.some((a) => a.email === invitee.email),
   );
 
 export function PeopleCard({ meetingId, transcriptSize, reloadKey, hasSummary, onChanged }: Props) {

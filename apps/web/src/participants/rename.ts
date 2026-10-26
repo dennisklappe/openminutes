@@ -1,3 +1,4 @@
+import { rememberVoice } from '@openminutes/core';
 import {
   and,
   desc,
@@ -10,6 +11,7 @@ import {
   type Database,
 } from '@openminutes/db';
 import { addSummaryVersion } from '../minutes/summary-edit.js';
+import { personEmail } from './invitee-links.js';
 import { renameInText } from './replace.js';
 
 type Participant = typeof participants.$inferSelect;
@@ -19,26 +21,32 @@ export interface RenameOutcome {
   summaryUpdated: boolean;
 }
 
-async function syncAlias(
-  tx: Tx,
-  original: string,
-  name: string,
-  inviteeEmail: string | null | undefined,
-): Promise<void> {
+/** What the owner says about who this person is, besides the name. Left out keeps what is there. */
+export interface PersonLinks {
+  inviteeEmails?: string[];
+  email?: string | null;
+}
+
+async function syncAlias(tx: Tx, original: string, name: string, person: Participant) {
   const matching = sql`lower(${participantAliases.originalName}) = lower(${original})`;
-  if (name.toLowerCase() === original.toLowerCase() && !inviteeEmail) {
+  if (
+    name.toLowerCase() === original.toLowerCase() &&
+    person.inviteeEmails.length === 0 &&
+    !person.email
+  ) {
     await tx.delete(participantAliases).where(matching);
     return;
   }
+  const emails = { inviteeEmails: person.inviteeEmails, email: person.email };
   const updated = await tx
     .update(participantAliases)
-    .set({ displayName: name, ...(inviteeEmail !== undefined && { inviteeEmail }) })
+    .set({ displayName: name, ...emails })
     .where(matching)
     .returning({ id: participantAliases.id });
   if (updated.length === 0) {
     await tx
       .insert(participantAliases)
-      .values({ originalName: original, displayName: name, inviteeEmail: inviteeEmail ?? null });
+      .values({ originalName: original, displayName: name, ...emails });
   }
 }
 
@@ -73,20 +81,27 @@ export async function renameParticipant(
   person: Participant,
   name: string,
   remember: boolean,
-  inviteeEmail?: string | null,
+  links: PersonLinks = {},
 ): Promise<RenameOutcome> {
   return db.transaction(async (tx) => {
     const original = person.originalName ?? person.displayName;
-    await tx
+    const [saved] = await tx
       .update(participants)
       .set({
         displayName: name,
         originalName: original,
         nameConfirmed: true,
-        ...(inviteeEmail !== undefined && { inviteeEmail }),
+        ...(links.inviteeEmails && { inviteeEmails: links.inviteeEmails }),
+        ...(links.email !== undefined && { email: links.email }),
       })
-      .where(eq(participants.id, person.id));
-    if (remember) await syncAlias(tx, original, name, inviteeEmail);
+      .where(eq(participants.id, person.id))
+      .returning();
+    if (remember && saved) {
+      await syncAlias(tx, original, name, saved);
+      if (saved.voiceEmbedding) {
+        await rememberVoice(tx, name, saved.voiceEmbedding, personEmail(saved));
+      }
+    }
     if (name === person.displayName) return { summaryUpdated: false };
     const others = await tx
       .select({ name: participants.displayName })

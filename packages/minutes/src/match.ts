@@ -9,8 +9,8 @@ export interface MatchParticipant {
   displayName: string;
   originalName?: string | null;
   email: string | null;
-  /** An explicit link to an invitee, set by the owner. It always wins over guessing. */
-  inviteeEmail?: string | null;
+  /** Explicit links to invitees, set by the owner: one person may have several emails. They always win over guessing. */
+  inviteeEmails?: readonly string[] | null;
 }
 
 const MIN_FIRST_NAME = 2;
@@ -52,6 +52,15 @@ const sameFirstNameAndDomain = (person: MatchParticipant, invitee: MatchInvitee)
   domainOf(person.email) === domainOf(invitee.email) &&
   sharesFirstName(person, invitee);
 
+/** Every invitee the owner linked to this person. */
+const linkedInvitees = <I extends MatchInvitee>(
+  invitees: readonly I[],
+  person: MatchParticipant,
+): I[] =>
+  invitees.filter((invitee) =>
+    (person.inviteeEmails ?? []).some((email) => sameEmail(invitee.email, email)),
+  );
+
 /**
  * Which invitee each participant is, by index (undefined: nobody). In order of trust: an explicit
  * link, the same email, the same full name or first name on the same email domain, and last a
@@ -62,10 +71,8 @@ export function matchInvitees<I extends MatchInvitee>(
   invitees: readonly I[],
   participants: readonly MatchParticipant[],
 ): (I | undefined)[] {
-  const matches: (I | undefined)[] = participants.map((person) =>
-    person.inviteeEmail
-      ? invitees.find((invitee) => sameEmail(invitee.email, person.inviteeEmail ?? null))
-      : undefined,
+  const matches: (I | undefined)[] = participants.map(
+    (person) => linkedInvitees(invitees, person)[0],
   );
   const claimed = new Set(matches.filter((invitee): invitee is I => invitee !== undefined));
   const candidates = (
@@ -114,6 +121,9 @@ export function unmatchedInvitees<I extends MatchInvitee>(
   invitees: readonly I[],
   participants: readonly MatchParticipant[],
 ): I[] {
-  const matched = new Set(matchInvitees(invitees, participants));
+  const matched = new Set([
+    ...matchInvitees(invitees, participants),
+    ...participants.flatMap((person) => linkedInvitees(invitees, person)),
+  ]);
   return invitees.filter((invitee) => !matched.has(invitee));
 }
