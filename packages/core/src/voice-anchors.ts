@@ -62,24 +62,16 @@ const overlapMs = (a: { startMs: number; endMs: number }, b: { startMs: number; 
 export function selectAnchors(
   lines: readonly AnchorCandidate[],
   events: readonly AnchorSpan[],
+  perPerson = ANCHOR_MAX_PER_PERSON,
 ): AnchorCandidate[] {
   const clean = lines.filter((line) => {
     const duration = line.endMs - line.startMs;
     if (duration < ANCHOR_MIN_MS || line.touched) return false;
     if (line.speakerSource !== 'indicator') return false;
     if ((line.speakerConfidence ?? 0) < ANCHOR_MIN_CONFIDENCE) return false;
-    const inside = events.filter((event) => overlapMs(event, line) > 0);
-    if (
-      inside.some(
-        (event) =>
-          event.participantId !== line.participantId &&
-          overlapMs(event, line) > ANCHOR_OVERLAP_SLACK_MS,
-      )
-    ) {
-      return false;
-    }
-    const own = inside
-      .filter((event) => event.participantId === line.participantId)
+    if (!isUndisturbed(line, lines, events)) return false;
+    const own = events
+      .filter((event) => event.participantId === line.participantId && overlapMs(event, line) > 0)
       .toSorted((a, b) => a.startMs - b.startMs);
     let covered = 0;
     let reach = line.startMs;
@@ -89,23 +81,29 @@ export function selectAnchors(
       if (to > from) covered += to - from;
       reach = Math.max(reach, to);
     }
-    if (covered / duration < ANCHOR_MIN_COVERAGE) return false;
-    return !lines.some(
-      (other) =>
-        other.key !== line.key &&
-        other.participantId !== line.participantId &&
-        overlapMs(other, line) > ANCHOR_OVERLAP_SLACK_MS,
-    );
+    return covered / duration >= ANCHOR_MIN_COVERAGE;
   });
   const byPerson = new Map<string, AnchorCandidate[]>();
   for (const line of clean) {
     byPerson.set(line.participantId, [...(byPerson.get(line.participantId) ?? []), line]);
   }
   return [...byPerson.values()].flatMap((list) =>
-    list
-      .toSorted((a, b) => b.endMs - b.startMs - (a.endMs - a.startMs))
-      .slice(0, ANCHOR_MAX_PER_PERSON),
+    list.toSorted((a, b) => b.endMs - b.startMs - (a.endMs - a.startMs)).slice(0, perPerson),
   );
+}
+
+/**
+ * Nobody else speaks over the line: no other participant is active in the indicator and no line
+ * of another participant overlaps it by more than ANCHOR_OVERLAP_SLACK_MS.
+ */
+export function isUndisturbed(
+  line: AnchorSpan & { key: number },
+  lines: readonly (AnchorSpan & { key: number })[],
+  events: readonly AnchorSpan[],
+): boolean {
+  const other = (span: AnchorSpan) =>
+    span.participantId !== line.participantId && overlapMs(span, line) > ANCHOR_OVERLAP_SLACK_MS;
+  return !events.some(other) && !lines.some((o) => o.key !== line.key && other(o));
 }
 
 export interface AnchorVector {
