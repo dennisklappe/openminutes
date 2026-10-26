@@ -15,6 +15,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { LoginRateLimiter } from '../auth/rate-limit.js';
 import type { SummaryAiEditDto } from '../dto.js';
+import { applyPeopleEdit } from '../participants/ai-edit.js';
 import { addSummaryVersion, findDoneSummary, hasPendingSummary } from './summary-edit.js';
 
 const EDITS_PER_WINDOW = 20;
@@ -71,14 +72,39 @@ export function summaryAiEditRoutes(deps: AiEditDeps): Hono {
         return c.json({ error: 'There is no transcript to use' }, 409);
       }
       limiter.recordFailure(id);
-      const content = await editSummary(summarizer.provider, {
-        summary: current.content,
-        instruction: body.data.instruction,
-        earlier: recentInstructions(await loadEditLineage(deps.db, id)),
-        transcript,
-        confirmShrink: body.data.confirmShrink,
-        signal: c.req.raw.signal,
-      });
+      const people = await applyPeopleEdit(
+        deps,
+        summarizer.provider,
+        id,
+        body.data.instruction,
+        c.req.raw.signal,
+      );
+      let content: string;
+      try {
+        content = await editSummary(summarizer.provider, {
+          summary: current.content,
+          instruction: body.data.instruction,
+          earlier: recentInstructions(await loadEditLineage(deps.db, id)),
+          transcript,
+          confirmShrink: body.data.confirmShrink,
+          signal: c.req.raw.signal,
+        });
+      } catch (error) {
+        if (
+          people.length > 0 &&
+          error instanceof SummaryEditError &&
+          error.reason === 'unchanged'
+        ) {
+          return c.json<SummaryAiEditDto>({ previousId: current.id, people }, 201);
+        }
+        if (error instanceof SummaryEditError && error.reason === 'unchanged') {
+          throw new SummaryEditError(
+            'unchanged',
+            'The model made no changes, try rephrasing the instruction. Attendees and Unable to attend can be changed here too',
+          );
+        }
+        throw error;
+      }
       const latest = await findDoneSummary(deps.db, id);
       if (latest?.id !== current.id || (await hasPendingSummary(deps.db, id))) {
         return c.json({ error: 'The summary changed meanwhile, try again' }, 409);
@@ -92,7 +118,7 @@ export function summaryAiEditRoutes(deps: AiEditDeps): Hono {
           instruction: body.data.instruction,
         },
       });
-      return c.json<SummaryAiEditDto>({ summaryId, previousId: current.id }, 201);
+      return c.json<SummaryAiEditDto>({ summaryId, previousId: current.id, people }, 201);
     } catch (error) {
       if (error instanceof SummaryNotConfiguredError) {
         return c.json({ error: 'No summary provider is configured, see Settings' }, 400);

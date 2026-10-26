@@ -187,6 +187,13 @@ export { loadTranscriptText } from './transcript-text.js';
 export { cleanSummaryText } from './summary-text.js';
 export { MAX_SUMMARY_CHARS, sanitizeSummaryMarkdown } from './summary-markdown.js';
 export {
+  parsePeopleActions,
+  planPeopleEdit,
+  type PeopleAction,
+  type PeopleEditInvitee,
+  type PeopleEditParticipant,
+} from './people-edit.js';
+export {
   editSummary,
   EARLIER_INSTRUCTIONS,
   MAX_INSTRUCTION_CHARS,

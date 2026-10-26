@@ -24,6 +24,7 @@ import { downloadItems, moreItems } from './meetingMenus.js';
 export function MeetingDetail({ id }: { id: string }) {
   const load = useCallback(() => api.meeting(id), [id]);
   const { data, error, refresh } = usePolling(load);
+  const [peopleKey, setPeopleKey] = useState(0);
   const [actionError, setActionError] = useState<string>();
   const [showChat, setShowChat] = useShowChat();
   const [chosenTab, setChosenTab] = useState<'transcript' | 'summary'>();
@@ -286,6 +287,9 @@ export function MeetingDetail({ id }: { id: string }) {
               options={summaryOptions}
               hasTranscript={segments.length > 0}
               onRequested={refresh}
+              onPeopleChanged={() => {
+                setPeopleKey((key) => key + 1);
+              }}
             />
           )}
         </section>
@@ -336,6 +340,7 @@ export function MeetingDetail({ id }: { id: string }) {
             <PeopleCard
               meetingId={id}
               transcriptSize={segments.length}
+              reloadKey={peopleKey}
               hasSummary={summaries.length > 0}
               onChanged={refresh}
             />

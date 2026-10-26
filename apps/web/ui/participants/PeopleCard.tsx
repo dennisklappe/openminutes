@@ -13,6 +13,8 @@ import './participants.css';
 interface Props {
   meetingId: string;
   transcriptSize: number;
+  /** Changes when the people were edited elsewhere on the page. */
+  reloadKey?: number;
   hasSummary: boolean;
   onChanged: () => void;
 }
@@ -23,7 +25,7 @@ const renameCandidates = (person: ParticipantDto, all: InviteeDto[], absent: Inv
       invitee.email === person.inviteeEmail || absent.some((a) => a.email === invitee.email),
   );
 
-export function PeopleCard({ meetingId, transcriptSize, hasSummary, onChanged }: Props) {
+export function PeopleCard({ meetingId, transcriptSize, reloadKey, hasSummary, onChanged }: Props) {
   const [people, setPeople] = useState<ParticipantDto[]>([]);
   const [invitees, setInvitees] = useState<InviteeDto[]>([]);
   const [absent, setAbsent] = useState<InviteeDto[]>([]);
@@ -44,7 +46,7 @@ export function PeopleCard({ meetingId, transcriptSize, hasSummary, onChanged }:
       },
     );
   }, [meetingId]);
-  useEffect(load, [load, transcriptSize]);
+  useEffect(load, [load, transcriptSize, reloadKey]);
 
   const regenerate = async () => {
     const confirmed = await confirm({
