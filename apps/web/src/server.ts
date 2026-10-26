@@ -6,6 +6,7 @@ import { baseEnvSchema, JobQueue, LocalStorage, parseEnv, SettingsStore } from '
 import { createDatabase, migrateOnStartup } from '@openminutes/db';
 import { z } from 'zod';
 import { createApp } from './app.js';
+import { DEFAULT_IMPORT_MAX_GB } from './imports/config.js';
 import { googleMailDeps } from './email/mailer.js';
 import { sendSessionAlert } from './settings/session-alert.js';
 import { runCalendarLink } from './minutes/calendar-link.js';
@@ -19,6 +20,7 @@ const env = parseEnv(
     ...calendarEnvSchema.shape,
     ...accessEnvSchema.shape,
     PORT: z.coerce.number().int().default(3000),
+    OPENMINUTES_IMPORT_MAX_GB: z.coerce.number().positive().default(DEFAULT_IMPORT_MAX_GB),
     OPENMINUTES_PUBLIC_URL: z.union([z.url(), z.literal('')]).optional(),
   }),
 );
@@ -64,6 +66,7 @@ const app = createApp({
   endpoints,
   secret: env.OPENMINUTES_SECRET,
   calendarProviders,
+  importMaxBytes: Math.floor(env.OPENMINUTES_IMPORT_MAX_GB * 1024 ** 3),
   ...(publicUrl && { publicUrl }),
   ...(accessConfig && { access: new AccessVerifier(accessConfig) }),
   version: readVersion(),

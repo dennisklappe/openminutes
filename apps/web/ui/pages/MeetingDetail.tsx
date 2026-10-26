@@ -5,7 +5,7 @@ import { JoinChoice } from '../JoinChoice.js';
 import { formatDate, formatDuration, platformLabels, progressLabel } from '../format.js';
 import { languageName } from '../languages.js';
 import { RerunDialog } from '../RerunDialog.js';
-import { ChevronIcon, ClockIcon, PlatformIcon } from '../icons.js';
+import { ChevronIcon, ClockIcon, ExternalIcon, PlatformIcon } from '../icons.js';
 import { Panel } from '../Panel.js';
 import { talkTime } from '../speakers.js';
 import { MinutesPanel } from '../MinutesPanel.js';
@@ -294,7 +294,17 @@ export function MeetingDetail({ id }: { id: string }) {
             <dl className="facts">
               <dt>Platform</dt>
               <dd>{platformLabels[meeting.platform]}</dd>
-              {meeting.platform !== 'recording' && (
+              {meeting.platform === 'imported' && (
+                <>
+                  <dt>Source</dt>
+                  <dd>
+                    <a href={meeting.joinUrl} target="_blank" rel="noreferrer">
+                      Fireflies <ExternalIcon />
+                    </a>
+                  </dd>
+                </>
+              )}
+              {meeting.platform !== 'recording' && meeting.platform !== 'imported' && (
                 <>
                   <dt>Link</dt>
                   <dd className="mono" title={meeting.joinUrl}>

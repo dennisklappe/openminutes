@@ -9,6 +9,7 @@ import {
   LocalStorage,
   parseEnv,
   purgeExpiredBin,
+  removeStaleImports,
   requestSummary,
   SettingsStore,
   SummaryNotConfiguredError,
@@ -20,7 +21,9 @@ import { longFetch } from './long-fetch.js';
 import { mergeAudio } from './merge-audio.js';
 import { detectSilence } from './detect-silence.js';
 import { trimAudio } from './trim-audio.js';
+import { importMeeting } from './import-meeting.js';
 import { processMeeting } from './process.js';
+import { probeDuration } from './probe-duration.js';
 import { learnVoice } from './learn-voice.js';
 import { createRecordingDeps } from './recording-deps.js';
 import { deleteExpiredAudio } from './retention.js';
@@ -32,6 +35,7 @@ const SYNC_CRON = '*/2 * * * *';
 const RETENTION_CRON = '17 3 * * *';
 const BIN_CRON = '47 3 * * *';
 const WATCHDOG_CRON = '* * * * *';
+const STALE_IMPORT_MS = 7 * 24 * 60 * 60 * 1000;
 
 const env = parseEnv(baseEnvSchema.extend(calendarEnvSchema.shape));
 const { db, pool } = createDatabase(env.DATABASE_URL);
@@ -63,6 +67,14 @@ const processDeps = {
     createLocalDiarizer(config, { fetch: longFetch }),
   ),
 };
+const importDeps = {
+  db,
+  queue,
+  settings,
+  local,
+  loadStorage: processDeps.loadStorage,
+  probeDuration,
+};
 const summaryDeps = {
   db,
   settings,
@@ -84,6 +96,7 @@ await queue.work('meeting.schedule', ({ meetingId }) =>
 await queue.work('meeting.process', ({ meetingId, language }) =>
   processMeeting(processDeps, meetingId, language),
 );
+await queue.work('meeting.import', (job) => importMeeting(importDeps, job));
 await queue.work('meeting.learn-voice', (job) =>
   learnVoice(
     {
@@ -103,6 +116,8 @@ await queue.work('meeting.summarize', ({ summaryId }) => runSummary(summaryDeps,
 await queue.work('audio.retention', async () => {
   const deleted = await deleteExpiredAudio({ db, settings, local });
   if (deleted > 0) console.log(`retention deleted the audio of ${deleted} meetings`);
+  const abandoned = await removeStaleImports(local, STALE_IMPORT_MS, new Date());
+  if (abandoned > 0) console.log(`removed ${abandoned} unfinished imports`);
 });
 await queue.schedule('audio.retention', RETENTION_CRON, {});
 await queue.work('bin.purge', async () => {

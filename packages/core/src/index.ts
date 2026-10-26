@@ -49,6 +49,7 @@ export {
   CALENDAR_LINK_RETRY,
   jobNames,
   type CalendarSyncPayload,
+  type ImportJobPayload,
   type JobName,
   type JobPayloads,
   type JoinJobPayload,
@@ -233,3 +234,4 @@ export {
 } from './speaker-review-reply.js';
 export { findSuspects, SUSPECT_CONFIDENCE_CAP } from './speaker-suspects.js';
 export type { TurnLine } from './turn-patterns.js';
+export * from './fireflies/index.js';

@@ -26,7 +26,7 @@ export interface Minutes {
   title: string;
   startedAt: string | null;
   endedAt: string | null;
-  platform: 'meet' | 'teams' | 'recording';
+  platform: 'meet' | 'teams' | 'recording' | 'imported';
   joinUrl: string;
   location: string | null;
   attendees: MinutesPerson[];

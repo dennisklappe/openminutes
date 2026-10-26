@@ -14,6 +14,8 @@ import { oauthRoutes } from './accounts/oauth.js';
 import { authRoutes, requireAccess, requireSession } from './auth/routes.js';
 import type { AccessVerifier } from './auth/access.js';
 import type { LoginRateLimiter } from './auth/rate-limit.js';
+import { importRoutes } from './imports/routes.js';
+import { DEFAULT_IMPORT_MAX_GB } from './imports/config.js';
 import { libraryRoutes } from './library/routes.js';
 import { binRoutes } from './meetings/bin-routes.js';
 import { meetingRoutes } from './meetings/routes.js';
@@ -67,11 +69,13 @@ export interface AppDeps {
   uiRoot?: string;
   exporters?: ExporterRegistry;
   endpoints?: Endpoints;
+  importMaxBytes?: number;
 }
 
 /** Every JSON body is far smaller than this. Uploads that need more set their own limit. */
 export const MAX_API_BODY_BYTES = 4 * 1024 * 1024;
-const CHUNK_UPLOAD = /^\/api\/recordings\/[^/]+\/chunks\//;
+const GIB = 1024 * 1024 * 1024;
+const CHUNK_UPLOAD = /^\/api\/(recordings|imports)\/[^/]+\/chunks\//;
 const limitBody = bodyLimit({
   maxSize: MAX_API_BODY_BYTES,
   onError: (c) => c.json({ error: 'The request is too large' }, 413),
@@ -136,6 +140,11 @@ export function createApp(deps: AppDeps): Hono {
   api.route('/library', libraryRoutes(deps));
   api.use('/recordings/*', requireSession(deps));
   api.route('/recordings', recordingRoutes(deps));
+  api.use('/imports/*', requireSession(deps));
+  api.route(
+    '/imports',
+    importRoutes({ ...deps, importMaxBytes: deps.importMaxBytes ?? DEFAULT_IMPORT_MAX_GB * GIB }),
+  );
   api.use('/phone', requireSession(deps));
   api.route('/phone', phoneConfigRoutes(deps));
   api.use('/exporters', requireSession(deps));

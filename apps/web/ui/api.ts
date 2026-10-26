@@ -1,6 +1,9 @@
 import type { CustomTemplate } from '@openminutes/minutes';
 import type {
   AccountsDto,
+  ImportConfigDto,
+  ImportPreviewDto,
+  ImportStartInput,
   EmailSettingsDto,
   EmailSettingsInput,
   ShareEmailInput,
@@ -74,7 +77,7 @@ export const errorMessage = (error: unknown) =>
 
 async function request<T>(
   path: string,
-  init?: { method: string; body?: unknown; file?: File },
+  init?: { method: string; body?: unknown; file?: Blob },
 ): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method: init?.method ?? 'GET',
@@ -277,6 +280,15 @@ export const api = {
   speakerSettings: () => request<SpeakerSettingsDto>('/settings/speakers'),
   saveSpeakerSettings: (body: SpeakerSettingsDto) =>
     request<SpeakerSettingsDto>('/settings/speakers', { method: 'PUT', body }),
+  importConfig: () => request<ImportConfigDto>('/imports/config'),
+  importChunk: (id: string, index: number, file: Blob) =>
+    request<{ ok: true }>(`/imports/${id}/chunks/${String(index)}`, { method: 'PUT', file }),
+  importFinish: (id: string, chunks: number) =>
+    request<ImportPreviewDto>(`/imports/${id}/finish`, { method: 'POST', body: { chunks } }),
+  importPreview: (id: string) => request<ImportPreviewDto>(`/imports/${id}`),
+  importStart: (id: string, body: ImportStartInput) =>
+    request<ImportPreviewDto>(`/imports/${id}/start`, { method: 'POST', body }),
+  importDiscard: (id: string) => request<{ ok: true }>(`/imports/${id}`, { method: 'DELETE' }),
   phoneSettings: () => request<PhoneSettingsDto>('/settings/phone'),
   savePhoneSettings: (body: { enabled: boolean; consentText: string }) =>
     request<PhoneSettingsDto>('/settings/phone', { method: 'PUT', body }),

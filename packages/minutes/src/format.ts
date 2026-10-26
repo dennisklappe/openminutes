@@ -42,9 +42,11 @@ export function formatOffset(ms: number): string {
   return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
 }
 
-export const platformName = (platform: 'meet' | 'teams' | 'recording') =>
+export const platformName = (platform: 'meet' | 'teams' | 'recording' | 'imported') =>
   platform === 'meet'
     ? 'Google Meet'
     : platform === 'teams'
       ? 'Microsoft Teams'
-      : 'Phone recording';
+      : platform === 'imported'
+        ? 'Imported from Fireflies'
+        : 'Phone recording';

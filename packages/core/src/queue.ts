@@ -13,6 +13,7 @@ export interface SendOptions {
 // for transcribing and identifying the speakers of a long recording on a small server.
 const QUEUE_OPTIONS: Partial<Record<JobName, { expireInSeconds: number; retryLimit: number }>> = {
   'meeting.process': { expireInSeconds: 6 * 3600, retryLimit: 1 },
+  'meeting.import': { expireInSeconds: 3600, retryLimit: 1 },
 };
 
 export interface JobSender {

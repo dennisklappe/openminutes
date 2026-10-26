@@ -6,6 +6,11 @@ export interface ProcessJobPayload extends MeetingJobPayload {
   language?: string;
 }
 
+export interface ImportJobPayload extends MeetingJobPayload {
+  uploadId: string;
+  firefliesId: string;
+}
+
 export interface JoinJobPayload extends MeetingJobPayload {
   scheduledStart: string | null;
 }
@@ -37,6 +42,7 @@ export interface JobPayloads {
   'meeting.schedule': MeetingJobPayload;
   'meeting.join': JoinJobPayload;
   'meeting.process': ProcessJobPayload;
+  'meeting.import': ImportJobPayload;
   'meeting.review-speakers': MeetingJobPayload;
   'meeting.learn-voice': LearnVoiceJobPayload;
   'calendar.sync': CalendarSyncPayload;
@@ -56,6 +62,7 @@ export const jobNames: readonly JobName[] = [
   'meeting.schedule',
   'meeting.join',
   'meeting.process',
+  'meeting.import',
   'meeting.review-speakers',
   'meeting.learn-voice',
   'calendar.sync',

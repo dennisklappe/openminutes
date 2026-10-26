@@ -19,6 +19,7 @@ import {
   meetings,
   speakerEvents,
   type Database,
+  type MeetingPlatform,
   type MeetingStatus,
 } from '@openminutes/db';
 import type { Segment, SummaryProvider, TranscriptionProvider } from '@openminutes/providers';
@@ -178,6 +179,9 @@ async function chooseLanguage(
   }
 }
 
+const separatesVoices = (platform: MeetingPlatform) =>
+  platform === 'recording' || platform === 'imported';
+
 export async function processMeeting(
   deps: ProcessDeps,
   meetingId: string,
@@ -217,18 +221,17 @@ export async function processMeeting(
     const silences = await findSilences(deps, original.path, original.durationMs, meetingId);
     const segments = dropSilentSpeech(dropMadeUpLines(transcribed), silences, events);
     const range = detectSpeechRange(segments, original.durationMs);
-    const labels =
-      meeting.platform === 'recording'
-        ? await labelRecording(
-            deps.db,
-            deps.recording,
-            meetingId,
-            segments,
-            original.path,
-            meeting.trimStartMs ?? 0,
-            meeting.speakerCount,
-          )
-        : undefined;
+    const labels = separatesVoices(meeting.platform)
+      ? await labelRecording(
+          deps.db,
+          deps.recording,
+          meetingId,
+          segments,
+          original.path,
+          meeting.trimStartMs ?? 0,
+          meeting.speakerCount,
+        )
+      : undefined;
     const spans = labels?.spans ?? events;
     await publishAudio(deps, storage, meetingId, original.path, range);
     await run.step('saving');

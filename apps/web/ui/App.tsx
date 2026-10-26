@@ -3,6 +3,7 @@ import type { SessionDto, WizardDto } from '../src/dto.js';
 import { api } from './api.js';
 import { AuthForm } from './pages/AuthForm.js';
 import { MeetingDetail } from './pages/MeetingDetail.js';
+import { Import } from './pages/Import.js';
 import { Meetings } from './pages/Meetings.js';
 import { Archive } from './pages/Archive.js';
 import { Bin } from './pages/Bin.js';
@@ -77,6 +78,8 @@ export function App() {
     <Bin />
   ) : route === '/record' ? (
     <Record />
+  ) : route === '/import' ? (
+    <Import />
   ) : route.startsWith('/settings') ? (
     <Settings
       route={route}

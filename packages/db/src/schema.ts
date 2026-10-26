@@ -14,7 +14,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-export const meetingPlatforms = ['meet', 'teams', 'recording'] as const;
+export const meetingPlatforms = ['meet', 'teams', 'recording', 'imported'] as const;
 export const meetingStatuses = [
   'scheduled',
   'uploading',
@@ -88,6 +88,8 @@ export const meetings = pgTable(
     platform: text('platform', { enum: meetingPlatforms }).notNull(),
     joinUrl: text('join_url').notNull(),
     joinKey: text('join_key'),
+    /** Where an imported meeting came from, such as `fireflies:<id>`. Importing it again is skipped. */
+    externalId: text('external_id'),
     titleEdited: boolean('title_edited').notNull().default(false),
     seriesKey: text('series_key'),
     allowDuplicate: boolean('allow_duplicate').notNull().default(false),
@@ -125,6 +127,7 @@ export const meetings = pgTable(
     index('meetings_created_at_idx').on(t.createdAt),
     index('meetings_deleted_at_idx').on(t.deletedAt),
     uniqueIndex('meetings_join_key_start_idx').on(t.joinKey, t.scheduledStart),
+    uniqueIndex('meetings_external_id_idx').on(t.externalId),
   ],
 );
 

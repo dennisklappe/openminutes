@@ -6,6 +6,7 @@ const PLATFORMS = [
   { value: 'meet', label: 'Meet' },
   { value: 'teams', label: 'Teams' },
   { value: 'recording', label: 'Phone' },
+  { value: 'imported', label: 'Imported' },
 ];
 
 interface Props {

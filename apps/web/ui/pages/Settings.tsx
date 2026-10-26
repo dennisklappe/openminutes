@@ -11,6 +11,7 @@ import { GoogleSessionSettings } from './GoogleSessionSettings.js';
 import { LimitsSettings } from './LimitsSettings.js';
 import { MinutesSettings } from './MinutesSettings.js';
 import { PromptsSection } from './PromptsSection.js';
+import { ImportSettings } from './ImportSettings.js';
 import { PhoneSettings } from './PhoneSettings.js';
 import { SpeakerSettings } from './SpeakerSettings.js';
 import { SummaryChatSettings } from './SummaryChatSettings.js';
@@ -158,6 +159,13 @@ const sections: Section[] = [
     title: 'Phone recorder',
     description: 'Record in-person conversations from your phone.',
     render: () => <PhoneSettings />,
+  },
+  {
+    id: 'import',
+    label: 'Import',
+    title: 'Import',
+    description: 'Bring your meeting history over from another notetaker.',
+    render: () => <ImportSettings />,
   },
   {
     id: 'transcription',

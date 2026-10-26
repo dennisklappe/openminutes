@@ -18,6 +18,7 @@ export const platformLabels: Record<MeetingDto['platform'], string> = {
   meet: 'Google Meet',
   teams: 'Microsoft Teams',
   recording: 'Phone recording',
+  imported: 'Imported',
 };
 
 export const joinRuleLabels: Record<JoinRule, string> = {
