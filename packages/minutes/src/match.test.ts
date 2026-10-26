@@ -36,6 +36,16 @@ describe('matching invitees to participants', () => {
     expect(unmatched([bare], [person({ displayName: 'Carla' })])).toEqual([]);
   });
 
+  it('matches a first name against a name-less invitee whose local part glues first and last name', () => {
+    const glued = { email: 'danaparker@example.com', name: null };
+    expect(unmatched([glued], [person({ displayName: 'Dana' })])).toEqual([]);
+  });
+
+  it('does not match a short first name against a glued local part', () => {
+    const glued = { email: 'anneliese@example.com', name: null };
+    expect(unmatched([glued], [person({ displayName: 'Ann' })])).toEqual([glued.email]);
+  });
+
   it('does not match a one letter first name', () => {
     const initial = { email: 'b@acme.example', name: 'B' };
     expect(unmatched([initial], [person({ displayName: 'B. Smith' })])).toEqual([initial.email]);

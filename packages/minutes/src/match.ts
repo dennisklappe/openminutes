@@ -30,6 +30,18 @@ const sharesFirstName = (person: MatchParticipant, invitee: MatchInvitee) => {
     .some((name) => name.length >= MIN_FIRST_NAME && wanted.has(name));
 };
 
+/** A name-less invitee's local part often glues first and last name together: dennisklappe for Dennis. */
+const MIN_PREFIX_NAME = 4;
+const localPartStartsWithFirstName = (person: MatchParticipant, invitee: MatchInvitee) => {
+  const local = normalise(localPart(invitee.email)).replace(/ /g, '');
+  return (
+    invitee.name === null &&
+    participantNames(person)
+      .map(firstName)
+      .some((name) => name.length >= MIN_PREFIX_NAME && local.startsWith(name))
+  );
+};
+
 const sameFullName = (person: MatchParticipant, invitee: MatchInvitee) => {
   const wanted = new Set(inviteeNames(invitee).map(normalise));
   return participantNames(person).some((name) => wanted.has(normalise(name)));
@@ -81,7 +93,14 @@ export function matchInvitees<I extends MatchInvitee>(
     (person, invitee) => sameFullName(person, invitee) || sameFirstNameAndDomain(person, invitee),
   );
 
-  const options = participants.map((_, index) => candidates(index, sharesFirstName, false));
+  const options = participants.map((_, index) =>
+    candidates(
+      index,
+      (person, invitee) =>
+        sharesFirstName(person, invitee) || localPartStartsWithFirstName(person, invitee),
+      false,
+    ),
+  );
   options.forEach((own, index) => {
     const [only] = own;
     if (own.length === 1 && only && options.filter((other) => other.includes(only)).length === 1) {
