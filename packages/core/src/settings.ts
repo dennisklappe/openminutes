@@ -25,6 +25,7 @@ const definitions = {
   'phone.enabled': { secret: false, default: 'true' },
   'phone.consent_text': { secret: false, default: undefined },
   'voices.remember': { secret: false, default: 'false' },
+  'voices.check': { secret: false, default: 'false' },
   'bot.name': { secret: false, default: undefined },
   'bot.join_message': { secret: false, default: undefined },
   'bot.join_message_enabled': { secret: false, default: undefined },

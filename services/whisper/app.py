@@ -154,3 +154,13 @@ def embed_audio(file: UploadFile = File(...), ranges: str = Form(...)) -> dict:
             return diarize.embed_ranges(path, wanted)
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/embed-lines", dependencies=[Depends(check_token)])
+def embed_lines(file: UploadFile = File(...), ranges: str = Form(...)) -> dict:
+    wanted = parse_ranges(ranges)
+    with uploaded(file) as path:
+        try:
+            return diarize.embed_each(path, wanted)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error

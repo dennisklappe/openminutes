@@ -35,6 +35,12 @@ export const MinutesIcon = () => (
     <path d="M4 1.8h5.2L12.5 5v8.2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2.8a1 1 0 0 1 1-1zM9 1.8V5h3.5M5.5 8h5M5.5 10.6h5" />
   </Svg>
 );
+export const PeopleIcon = () => (
+  <Svg>
+    <circle cx="6" cy="5.5" r="2.3" />
+    <path d="M1.8 13.5c0-2.4 1.9-4.2 4.2-4.2s4.2 1.8 4.2 4.2M10.6 3.5a2.3 2.3 0 0 1 0 4.4M12 9.6c1.4.5 2.2 1.8 2.2 3.9" />
+  </Svg>
+);
 export const FolderIcon = () => (
   <Svg>
     <path d="M2 4.2a1 1 0 0 1 1-1h3l1.4 1.6H13a1 1 0 0 1 1 1v6.4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />

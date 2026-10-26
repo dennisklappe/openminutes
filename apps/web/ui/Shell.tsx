@@ -4,6 +4,7 @@ import {
   MeetingsIcon,
   MinutesIcon,
   MoonIcon,
+  PeopleIcon,
   SettingsIcon,
   SignOutIcon,
   SunIcon,
@@ -45,6 +46,7 @@ export function Shell(props: {
   const { route, email, onSignOut, children } = props;
   const settings = route.startsWith('/settings');
   const minutes = route.startsWith('/minutes');
+  const people = route.startsWith('/people');
   const record = route === '/record';
   const stored = route === '/archive' || route === '/bin';
   return (
@@ -55,7 +57,7 @@ export function Shell(props: {
           <a
             className="nav-item"
             href="#/"
-            aria-current={settings || record || minutes || stored ? undefined : 'page'}
+            aria-current={settings || record || minutes || stored || people ? undefined : 'page'}
           >
             <MeetingsIcon />
             <span>Meetings</span>
@@ -67,6 +69,10 @@ export function Shell(props: {
           >
             <MinutesIcon />
             <span>Minutes</span>
+          </a>
+          <a className="nav-item" href="#/people" aria-current={people ? 'page' : undefined}>
+            <PeopleIcon />
+            <span>People</span>
           </a>
           <RecordLink className="nav-item record-link" current={record} />
           <a className="nav-item" href="#/settings" aria-current={settings ? 'page' : undefined}>

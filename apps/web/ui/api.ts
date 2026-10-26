@@ -56,6 +56,10 @@ import type {
   SummaryChatSettingsDto,
   StorageSettingsDto,
   StorageSettingsInput,
+  PeopleDto,
+  PersonDetailDto,
+  PersonInput,
+  PersonUpdateInput,
   VoiceNameInput,
   VoicesDto,
   VoiceSettingsDto,
@@ -209,8 +213,36 @@ export const api = {
   deleteParticipantAlias: (id: string) =>
     request<ParticipantAliasesDto>(`/settings/participant-aliases/${id}`, { method: 'DELETE' }),
   voiceSettings: () => request<VoiceSettingsDto>('/settings/voices'),
-  saveVoiceSettings: (remember: boolean) =>
-    request<VoiceSettingsDto>('/settings/voices', { method: 'PUT', body: { remember } }),
+  saveVoiceSettings: (body: { remember?: boolean; check?: boolean }) =>
+    request<VoiceSettingsDto>('/settings/voices', { method: 'PUT', body }),
+  people: () => request<PeopleDto>('/people'),
+  person: (id: string) => request<PersonDetailDto>(`/people/${id}`),
+  createPerson: (body: PersonInput) =>
+    request<PersonDetailDto>('/people', { method: 'POST', body }),
+  updatePerson: (id: string, body: PersonUpdateInput) =>
+    request<PersonDetailDto>(`/people/${id}`, { method: 'PATCH', body }),
+  mergePerson: (id: string, sourceId: string) =>
+    request<PersonDetailDto>(`/people/${id}/merge`, { method: 'POST', body: { sourceId } }),
+  deletePerson: (id: string) => request<PeopleDto>(`/people/${id}`, { method: 'DELETE' }),
+  forgetPersonVoice: (id: string) =>
+    request<PersonDetailDto>(`/people/${id}/voice`, { method: 'DELETE' }),
+  verifyLine: (id: string, segmentId: string) =>
+    request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/verify`, {
+      method: 'POST',
+      body: {},
+    }),
+  rejectLine: (id: string, segmentId: string) =>
+    request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/reject`, {
+      method: 'POST',
+      body: {},
+    }),
+  moveLine: (id: string, segmentId: string, personId: string) =>
+    request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/move`, {
+      method: 'POST',
+      body: { personId },
+    }),
+  removeLineFromProfile: (id: string, segmentId: string) =>
+    request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/profile`, { method: 'DELETE' }),
   forgetVoice: (id: string) =>
     request<VoiceSettingsDto>(`/settings/voices/${id}`, { method: 'DELETE' }),
   forgetAllVoices: () => request<VoiceSettingsDto>('/settings/voices', { method: 'DELETE' }),

@@ -1,7 +1,8 @@
 import {
-  mergedAudioPath,
+  addVoiceSamples,
+  linkParticipant,
   mergeEmbeddings,
-  rememberVoice,
+  mergedAudioPath,
   type AudioStorage,
   type JobPayloads,
 } from '@openminutes/core';
@@ -19,8 +20,9 @@ const MIN_RANGE_MS = 800;
 const EXISTING_VOICE_WEIGHT = 4;
 
 /**
- * Teaches a participant's voice from lines a person assigned to them. Best effort: a failure is
- * logged and the job ends, a missed sample is not worth a retry.
+ * Teaches a participant's voice from lines a person assigned or verified. Every line becomes a
+ * sample of its own in the voice profile of the person, so a wrong one can be taken out again.
+ * Best effort: a failure is logged and the job ends, a missed sample is not worth a retry.
  */
 export async function learnVoice(
   deps: LearnVoiceDeps,
@@ -41,31 +43,62 @@ export async function learnVoice(
           inArray(transcriptSegments.id, segmentIds),
         ),
       );
-    const ranges = lines.filter((line) => line.endMs - line.startMs >= MIN_RANGE_MS);
+    const ranges = lines
+      .filter((line) => line.endMs - line.startMs >= MIN_RANGE_MS)
+      .toSorted((a, b) => a.startMs - b.startMs);
     if (!person || ranges.length === 0) return;
     const diarizer = await deps.createDiarizer();
     const storage = await deps.loadStorage();
     const path = await storage.ensureLocal(mergedAudioPath(meetingId));
-    const embedding = await diarizer?.embed({ path }, ranges);
-    if (!embedding) return;
+    const embedded = await diarizer?.embedEach({ path }, ranges);
+    if (!embedded) return;
+    const samples = ranges.flatMap((line, i) => {
+      const embedding = embedded.embeddings[i];
+      return embedding
+        ? [
+            {
+              kind: 'line' as const,
+              embedding,
+              embedder: embedded.model,
+              meetingId,
+              segmentId: line.id,
+              durationMs: line.endMs - line.startMs,
+            },
+          ]
+        : [];
+    });
+    if (samples.length === 0) return;
+    let combined = samples[0]?.embedding ?? [];
+    let seconds = samples[0]?.durationMs ?? 0;
+    for (const sample of samples.slice(1)) {
+      combined = mergeWeighted(combined, seconds, sample.embedding, sample.durationMs);
+      seconds += sample.durationMs;
+    }
     const current = person.voiceEmbedding;
     await deps.db
       .update(participants)
       .set({
         voiceEmbedding:
-          current && current.length === embedding.length
-            ? mergeEmbeddings(current, EXISTING_VOICE_WEIGHT, embedding)
-            : embedding,
+          current && current.length === combined.length
+            ? mergeEmbeddings(current, EXISTING_VOICE_WEIGHT, combined)
+            : combined,
       })
       .where(eq(participants.id, person.id));
-    if (person.nameConfirmed)
-      await rememberVoice(
-        deps.db,
-        person.displayName,
-        embedding,
-        person.email ?? person.inviteeEmails[0] ?? null,
-      );
+    if (person.nameConfirmed) {
+      const known = await linkParticipant(deps.db, person);
+      if (known) await addVoiceSamples(deps.db, known.id, samples);
+    }
   } catch (error) {
     console.error(`learning the voice of ${participantId} in meeting ${meetingId} failed`, error);
   }
+}
+
+function mergeWeighted(
+  a: readonly number[],
+  weightA: number,
+  b: readonly number[],
+  weightB: number,
+): number[] {
+  const total = weightA + weightB;
+  return a.map((value, i) => (value * weightA + (b[i] ?? 0) * weightB) / (total || 1));
 }

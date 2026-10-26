@@ -1,8 +1,7 @@
-import { matchVoices, type SettingsStore } from '@openminutes/core';
+import { matchVoices, savedVoices, type SettingsStore } from '@openminutes/core';
 import {
   asc,
   eq,
-  knownVoices,
   participants,
   transcriptSegments,
   type Database,
@@ -23,6 +22,9 @@ type Participant = typeof participants.$inferSelect;
 export const rememberEnabled = async (settings: SettingsStore) =>
   (await settings.get('voices.remember')) === 'true';
 
+export const checkEnabled = async (settings: SettingsStore) =>
+  (await settings.get('voices.check')) === 'true';
+
 function calendarNames(meeting: Meeting): VoiceSuggestionDto[] {
   return (meeting.invitees ?? []).map((invitee) => ({
     name: invitee.name ?? invitee.email,
@@ -39,7 +41,7 @@ export async function loadVoices(deps: VoiceDeps, meeting: Meeting): Promise<Voi
       .from(transcriptSegments)
       .where(eq(transcriptSegments.meetingId, meeting.id))
       .orderBy(asc(transcriptSegments.startMs)),
-    remember ? deps.db.select().from(knownVoices) : Promise.resolve([]),
+    remember ? savedVoices(deps.db) : Promise.resolve([]),
   ]);
 
   const firstSpoken = (p: Participant) => segments.findIndex((s) => s.participantId === p.id);

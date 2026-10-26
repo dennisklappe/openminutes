@@ -2,15 +2,16 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createProviders } from '@openminutes/calendar';
-import { LocalStorage, SettingsStore } from '@openminutes/core';
+import { LocalStorage, rememberVoice, SettingsStore } from '@openminutes/core';
 import {
   eq,
-  knownVoices,
   meetings,
   participants,
+  people,
   speakerEvents,
   summaries,
   transcriptSegments,
+  voiceSamples,
 } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import type { Hono } from 'hono';
@@ -296,7 +297,9 @@ describe('titles and voices', () => {
 
     it('stores nothing while the setting is off', async () => {
       await namedVoice('Anna', [1, 0], true);
-      expect(await test.db.select().from(knownVoices)).toEqual([]);
+      expect(await test.db.select().from(voiceSamples)).toEqual([]);
+      const [anna] = await test.db.select().from(people).where(eq(people.name, 'Anna'));
+      expect(anna?.voicePrototypes).toEqual([]);
     });
 
     it('stores, averages and suggests voices once the setting is on', async () => {
@@ -306,9 +309,14 @@ describe('titles and voices', () => {
       await namedVoice('Anna', [1, 0], true);
       await namedVoice('Anna', [0, 1], true);
       await namedVoice('Bram', [0, 1], false);
-      const rows = await test.db.select().from(knownVoices);
-      expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({ name: 'Anna', samples: 2, embedding: [0.5, 0.5] });
+      const [anna] = await test.db.select().from(people).where(eq(people.name, 'Anna'));
+      expect(anna?.voicePrototypes).toEqual([
+        { vector: [1, 0], samples: 1 },
+        { vector: [0, 1], samples: 1 },
+      ]);
+      const [bram] = await test.db.select().from(people).where(eq(people.name, 'Bram'));
+      expect(bram?.voicePrototypes).toEqual([]);
+      expect(await test.db.select().from(voiceSamples)).toHaveLength(2);
 
       const meeting = await recording();
       const voice = await speaker(meeting.id, 'Speaker 1', { voiceEmbedding: [1, 1] });
@@ -319,7 +327,7 @@ describe('titles and voices', () => {
     });
 
     it('lists, deletes and forgets known voices without exposing embeddings', async () => {
-      await test.db.insert(knownVoices).values({ name: 'Zoe', embedding: [1, 0, 0] });
+      await rememberVoice(test.db, 'Zoe', [1, 0, 0]);
       const response = await call('GET', '/settings/voices');
       const text = await response.text();
       expect(text).not.toContain('embedding');
@@ -341,7 +349,10 @@ describe('titles and voices', () => {
 
       const forgotten = await call('DELETE', '/settings/voices');
       expect(((await forgotten.json()) as VoiceSettingsDto).known).toEqual([]);
-      expect(await test.db.select().from(knownVoices)).toEqual([]);
+      expect(await test.db.select().from(voiceSamples)).toEqual([]);
+      expect(
+        (await test.db.select().from(people)).every((p) => p.voicePrototypes.length === 0),
+      ).toBe(true);
     });
 
     it('never leaks embeddings through the voices API', async () => {

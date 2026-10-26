@@ -1,3 +1,4 @@
+import { dropLineSamples } from '@openminutes/core';
 import {
   and,
   eq,
@@ -127,6 +128,15 @@ async function assign(
       .set(assignment(row, target.id))
       .where(eq(transcriptSegments.id, row.id));
   }
+  const [targetPerson] = await tx
+    .select({ personId: participants.personId })
+    .from(participants)
+    .where(eq(participants.id, target.id));
+  await dropLineSamples(
+    tx,
+    rows.map((row) => row.id),
+    targetPerson?.personId,
+  );
   return {
     undo: {
       kind: 'restore',

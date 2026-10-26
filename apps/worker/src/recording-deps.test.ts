@@ -10,6 +10,7 @@ describe('createRecordingDeps', () => {
   const diarizer: Diarizer = {
     diarize: () => Promise.resolve(undefined),
     embed: () => Promise.resolve(undefined),
+    embedEach: () => Promise.resolve(undefined),
   };
   const configs: unknown[] = [];
   const deps = () =>

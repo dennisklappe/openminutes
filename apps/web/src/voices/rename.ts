@@ -1,4 +1,4 @@
-import { rememberVoice } from '@openminutes/core';
+import { linkParticipant, rememberVoice } from '@openminutes/core';
 import {
   and,
   desc,
@@ -61,13 +61,15 @@ export async function nameVoice(
       await mergeInto(tx, voice, twin);
     }
     const survivor = twin ?? voice;
-    await tx
+    const [saved] = await tx
       .update(participants)
       .set({ displayName: name, nameConfirmed: true, voiceEmbedding: embedding })
-      .where(eq(participants.id, survivor.id));
+      .where(eq(participants.id, survivor.id))
+      .returning();
     await rewriteSummary(tx, voice.meetingId, voice.displayName, name);
+    if (saved) await linkParticipant(tx, saved);
     if (remember && embedding) {
-      await rememberVoice(tx, name, embedding, personEmail(survivor));
+      await rememberVoice(tx, name, embedding, personEmail(survivor), voice.meetingId);
     }
   });
 }

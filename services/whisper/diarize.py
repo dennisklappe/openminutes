@@ -40,11 +40,26 @@ SEGMENTATION = ModelFile(
     "https://huggingface.co/csukuangfj/sherpa-onnx-pyannote-segmentation-3-0/resolve/main/model.int8.onnx",
     "d582f4b4c6b48205de7e0643c57df0df5615a3c176189be3fc461e9d18827b5d",
 )
-EMBEDDING = ModelFile(
+DEFAULT_EMBEDDING = ModelFile(
     "eres2net-en-voxceleb-16k.onnx",
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx",
     "c59158379255ad66e161679cca6af8d52d51e389e3224ab7d7a7baae295c2db5",
 )
+
+
+def embedding_model() -> ModelFile:
+    """The speaker embedding model. A multilingual model (for Dutch, say) can be set with
+    DIARIZATION_EMBEDDING_NAME, _URL and _SHA256 without a code change. Voice prints of two
+    models cannot be compared, so the name travels with every print."""
+    name = os.environ.get("DIARIZATION_EMBEDDING_NAME")
+    url = os.environ.get("DIARIZATION_EMBEDDING_URL")
+    sha256 = os.environ.get("DIARIZATION_EMBEDDING_SHA256")
+    if name and url and sha256:
+        return ModelFile(name, url, sha256)
+    return DEFAULT_EMBEDDING
+
+
+EMBEDDING = DEFAULT_EMBEDDING
 
 _lock = threading.Lock()
 
@@ -98,7 +113,7 @@ def _load():
     import sherpa_onnx
 
     segmentation = fetch(SEGMENTATION)
-    embedding = fetch(EMBEDDING)
+    embedding = fetch(embedding_model())
     try:
         extractor = sherpa_onnx.SpeakerEmbeddingExtractor(
             sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(embedding), num_threads=2)
@@ -282,4 +297,41 @@ def embed_ranges(path: str, ranges: list[tuple[int, int]]) -> dict:
         "available": True,
         "embedding": unit(total).tolist() if used else None,
         "durationMs": used,
+        "model": embedding_model().name,
     }
+
+
+LINE_WINDOW_MS = 1_000
+
+
+def _line_window(start: int, end: int, length_ms: int) -> tuple[int, int]:
+    """A line of at least MIN_EMBED_MS as it is, a shorter one as a LINE_WINDOW_MS window around
+    its middle, moved to stay inside the file."""
+    if end - start >= MIN_EMBED_MS:
+        return start, min(end, length_ms)
+    middle = (start + end) // 2
+    first = max(0, min(middle - LINE_WINDOW_MS // 2, length_ms - LINE_WINDOW_MS))
+    return first, min(first + LINE_WINDOW_MS, length_ms)
+
+
+def embed_each(path: str, ranges: list[tuple[int, int]]) -> dict:
+    """One voice print per range, in the order given, so every line of a transcript can be
+    compared to a saved voice. A range under MIN_EMBED_MS is read from a window around it.
+    An entry is None when the file has no audio there."""
+    try:
+        extractor = _load()[3]
+    except Unavailable as error:
+        log.warning("diarization unavailable: %s", error)
+        return {"available": False, "reason": str(error)}
+    audio = decode_audio(path, sampling_rate=SAMPLE_RATE)
+    length_ms = len(audio) * 1000 // SAMPLE_RATE
+    prints: list[list[float] | None] = []
+    with _lock:
+        for start, end in ranges:
+            first, last = _line_window(start, end, length_ms)
+            if last - first < MIN_EMBED_MS:
+                prints.append(None)
+                continue
+            clip = audio[first * SAMPLE_RATE // 1000 : last * SAMPLE_RATE // 1000]
+            prints.append(unit(_embed(extractor, clip)).tolist())
+    return {"available": True, "embeddings": prints, "model": embedding_model().name}

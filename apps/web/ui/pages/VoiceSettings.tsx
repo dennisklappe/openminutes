@@ -15,11 +15,14 @@ function VoiceForm({
   onChanged: (next: VoiceSettingsDto) => void;
 }) {
   const confirm = useConfirm();
-  const form = useSettingsForm({ remember: settings.remember }, async (draft) => {
-    const next = await api.saveVoiceSettings(draft.remember);
-    onChanged(next);
-    return { remember: next.remember };
-  });
+  const form = useSettingsForm(
+    { remember: settings.remember, check: settings.check },
+    async (draft) => {
+      const next = await api.saveVoiceSettings(draft);
+      onChanged(next);
+      return { remember: next.remember, check: next.check };
+    },
+  );
 
   const run = (action: Promise<VoiceSettingsDto>) => {
     action.then(onChanged, (failure: unknown) => {
@@ -29,9 +32,14 @@ function VoiceForm({
 
   const forgetAll = async () => {
     const confirmed = await confirm({
-      title: 'Forget all remembered voices?',
-      body: <p>Names will no longer be suggested for returning voices. This cannot be undone.</p>,
-      confirmLabel: 'Forget all',
+      title: 'Delete all voice data?',
+      body: (
+        <p>
+          Every saved voice sample and voice profile is deleted. People, names and emails stay.
+          Names will no longer be suggested for returning voices. This cannot be undone.
+        </p>
+      ),
+      confirmLabel: 'Delete all voice data',
       destructive: true,
     });
     if (confirmed) run(api.forgetAllVoices());
@@ -40,8 +48,13 @@ function VoiceForm({
   return (
     <SettingsCard
       form={form}
-      title="Recognise voices"
-      description="After you name a voice in a phone recording, OpenMinutes can suggest that name when the same voice shows up again."
+      title="Voices"
+      description={
+        <>
+          How OpenMinutes uses voices to tell people apart. Everyone you have named is listed under{' '}
+          <a href="#/people">People</a>, where you verify their lines.
+        </>
+      }
       actions={
         settings.known.length > 0 && (
           <button
@@ -51,7 +64,7 @@ function VoiceForm({
               void forgetAll();
             }}
           >
-            Forget all
+            Delete all voice data
           </button>
         )
       }
@@ -64,15 +77,39 @@ function VoiceForm({
             form.patch({ remember: e.target.checked });
           }}
         />
-        <span>Remember voices of people I name</span>
+        <span>
+          Learn voices from lines I verify{' '}
+          <span className="muted">
+            When you name a speaker, assign a line or verify it under People, the voice of that line
+            is saved to the person. Nothing is learned from lines you did not confirm.
+          </span>
+        </span>
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={form.draft.check}
+          onChange={(e) => {
+            form.patch({ check: e.target.checked });
+          }}
+        />
+        <span>
+          Check lines against saved voices{' '}
+          <span className="muted">
+            In meetings with speaking indicators, each line is compared with the saved voices of the
+            people in that meeting. Lines that sound like someone else are flagged under People for
+            you to review. Only people with a saved voice are checked.
+          </span>
+        </span>
       </label>
       <p className="privacy-note">
-        A voiceprint is a list of numbers that describes how a voice sounds. It is stored only in
-        your own database, never sent anywhere, and used only to suggest names. Off by default. You
-        can delete any voice, or all of them, at any time.
+        A voiceprint is a list of numbers that describes how a voice sounds. It counts as biometric
+        data. It is stored only in your own database, never sent anywhere, and used only to suggest
+        names and to flag doubtful lines. Both options are off by default. You can delete the voice
+        data of one person on their page under People, or all of it here.
       </p>
       {settings.known.length > 0 && (
-        <ul className="voice-settings-list" aria-label="Remembered voices">
+        <ul className="voice-settings-list" aria-label="Saved voices">
           {settings.known.map((voice) => (
             <li key={voice.id}>
               <span>
@@ -85,12 +122,12 @@ function VoiceForm({
               <button
                 type="button"
                 className="danger"
-                aria-label={`Forget ${voice.name}`}
+                aria-label={`Delete the voice data of ${voice.name}`}
                 onClick={() => {
                   run(api.forgetVoice(voice.id));
                 }}
               >
-                Forget
+                Delete
               </button>
             </li>
           ))}
