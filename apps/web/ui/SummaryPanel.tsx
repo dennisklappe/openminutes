@@ -15,8 +15,9 @@ export function SummaryPanel(props: {
   options: SummaryOptionsDto;
   hasTranscript: boolean;
   onRequested: () => void;
+  onPeopleChanged: () => void;
 }) {
-  const { meetingId, summaries, options, hasTranscript, onRequested } = props;
+  const { meetingId, summaries, options, hasTranscript, onRequested, onPeopleChanged } = props;
   const [chosen, setChosen] = useState<string>();
   const [promptId, setPromptId] = useState(options.defaultPromptId);
   const [provider, setProvider] = useState('');
@@ -213,6 +214,7 @@ export function SummaryPanel(props: {
               summaries={summaries}
               model={options.editModel}
               locked={pending}
+              onPeopleChanged={onPeopleChanged}
               onEdited={({ previousId, instruction }) => {
                 setUndo({ previousId, text: `Changed: ${instruction}.` });
                 setChosen(undefined);

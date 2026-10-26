@@ -48,7 +48,9 @@ flowchart LR
 
 A shared account such as "Marketing Acme" renamed to "Carla" matches the invitee "Carla Gonzalez" by first name. When that is not enough (two invitees called Carla), fix it by hand:
 
-- In the rename dialog pick **Which invitee is this?**. It is pre-selected when exactly one unmatched invitee shares a first name. With **Remember for next time** the shared account name maps to that invitee for future meetings.
+- In the rename dialog tick **Which invitees is this?**. One person can be several invitees (work and private email). A single match by first name is pre-ticked. With **Remember for next time** the shared account name maps to those invitees for future meetings.
+- Someone who is not on the invitation can get an email address in the same dialog. It is used for the minutes recipients, and with **Remember for next time** it is stored with the name and, when the voice is known, with the saved voice.
+- **They were there** adds the invitee to the participant, so earlier links stay.
 - On the People card, the **Unable to attend** list has a menu per invitee: **They were there** (choose the participant) and **Remove from list**. Removing is per meeting and applies to exports, share pages, emails and Google Docs.
 
 ## Privacy

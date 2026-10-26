@@ -148,7 +148,10 @@ export const participants = pgTable('participants', {
   originalName: text('original_name'),
   isBot: boolean('is_bot').notNull().default(false),
   email: text('email'),
+  /** Replaced by inviteeEmails, kept so a rollback still finds the data. */
   inviteeEmail: text('invitee_email'),
+  /** Every calendar invitee this person is, set by the owner. One person may use several emails. */
+  inviteeEmails: jsonb('invitee_emails').$type<string[]>().notNull().default([]),
   joinedAt: timestamptz('joined_at'),
   leftAt: timestamptz('left_at'),
   voiceEmbedding: jsonb('voice_embedding').$type<number[]>(),
@@ -162,7 +165,11 @@ export const participantAliases = pgTable(
     id: id(),
     originalName: text('original_name').notNull(),
     displayName: text('display_name').notNull(),
+    /** Replaced by inviteeEmails, kept so a rollback still finds the data. */
     inviteeEmail: text('invitee_email'),
+    inviteeEmails: jsonb('invitee_emails').$type<string[]>().notNull().default([]),
+    /** An address for a person who is not on the invitation. */
+    email: text('email'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
   },
   (t) => [uniqueIndex('participant_aliases_original_idx').on(sql`lower(${t.originalName})`)],
@@ -174,6 +181,7 @@ export const knownVoices = pgTable(
     id: id(),
     name: text('name').notNull(),
     embedding: jsonb('embedding').$type<number[]>().notNull(),
+    email: text('email'),
     samples: integer('samples').notNull().default(1),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),

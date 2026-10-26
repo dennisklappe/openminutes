@@ -36,6 +36,16 @@ describe('matching invitees to participants', () => {
     expect(unmatched([bare], [person({ displayName: 'Carla' })])).toEqual([]);
   });
 
+  it('matches a first name against a name-less invitee whose local part glues first and last name', () => {
+    const glued = { email: 'danaparker@example.com', name: null };
+    expect(unmatched([glued], [person({ displayName: 'Dana' })])).toEqual([]);
+  });
+
+  it('does not match a short first name against a glued local part', () => {
+    const glued = { email: 'anneliese@example.com', name: null };
+    expect(unmatched([glued], [person({ displayName: 'Ann' })])).toEqual([glued.email]);
+  });
+
   it('does not match a one letter first name', () => {
     const initial = { email: 'b@acme.example', name: 'B' };
     expect(unmatched([initial], [person({ displayName: 'B. Smith' })])).toEqual([initial.email]);
@@ -60,18 +70,25 @@ describe('matching invitees to participants', () => {
 
   it('lets an explicit link win over a name that points at someone else', () => {
     const other = { email: 'carla.smith@elsewhere.com', name: 'Carla Smith' };
-    const linked = person({ displayName: 'Carla', inviteeEmail: 'CARLA.SMITH@elsewhere.com' });
+    const linked = person({ displayName: 'Carla', inviteeEmails: ['CARLA.SMITH@elsewhere.com'] });
     expect(matchInvitees([carla, other], [linked])).toEqual([other]);
     expect(unmatched([carla, other], [linked])).toEqual([carla.email]);
   });
 
+  it('lets one participant be linked to several invitees', () => {
+    const work = { email: 'dennis@work.example', name: null };
+    const home = { email: 'dana@example.com', name: null };
+    const linked = person({ displayName: 'Someone', inviteeEmails: [work.email, home.email] });
+    expect(unmatched([work, home, carla], [linked])).toEqual([carla.email]);
+  });
+
   it('lets an explicit link match a participant with a completely different name', () => {
-    const linked = person({ displayName: 'Marketing Acme', inviteeEmail: carla.email });
+    const linked = person({ displayName: 'Marketing Acme', inviteeEmails: [carla.email] });
     expect(unmatched([carla], [linked])).toEqual([]);
   });
 
   it('ignores a link to someone who was not invited and falls back to names', () => {
-    const stale = person({ displayName: 'Carla', inviteeEmail: 'gone@example.com' });
+    const stale = person({ displayName: 'Carla', inviteeEmails: ['gone@example.com'] });
     expect(unmatched([carla], [stale])).toEqual([]);
   });
 

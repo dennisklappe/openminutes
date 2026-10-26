@@ -20,14 +20,16 @@ export function SummaryAiEdit(props: {
   model: string | null;
   locked: boolean;
   onEdited: (change: { previousId: string; instruction: string }) => void;
+  onPeopleChanged: () => void;
 }) {
-  const { meetingId, summaries, model, locked, onEdited } = props;
+  const { meetingId, summaries, model, locked, onEdited, onPeopleChanged } = props;
   const [open, setOpen] = useState(false);
   const [instruction, setInstruction] = useState('');
   const [useTranscript, setUseTranscript] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [latest, setLatest] = useState<string>();
+  const [people, setPeople] = useState<string[]>([]);
   const [updating, setUpdating] = useState<string>();
   const confirm = useConfirm();
   const documents = useDocumentExports(meetingId, latest);
@@ -49,6 +51,7 @@ export function SummaryAiEdit(props: {
 
   const send = async (confirmShrink: boolean) => {
     setError(undefined);
+    setPeople([]);
     setBusy(true);
     try {
       const result = await api.aiEditSummary(meetingId, {
@@ -56,8 +59,12 @@ export function SummaryAiEdit(props: {
         useTranscript,
         confirmShrink,
       });
-      onEdited({ previousId: result.previousId, instruction });
-      setLatest(result.summaryId);
+      if (result.people.length > 0) onPeopleChanged();
+      setPeople(result.people);
+      if (result.summaryId) {
+        onEdited({ previousId: result.previousId, instruction });
+        setLatest(result.summaryId);
+      }
       setInstruction('');
     } catch (failure) {
       if (failure instanceof ApiError && failure.code === 'shrunk' && !confirmShrink) {
@@ -185,7 +192,7 @@ export function SummaryAiEdit(props: {
       >
         <input
           aria-label="Instruction for the AI"
-          placeholder="Tell the AI what to change..."
+          placeholder="Tell the AI what to change, in the summary or the attendees..."
           maxLength={MAX_INSTRUCTION}
           value={instruction}
           disabled={busy || locked}
@@ -212,10 +219,18 @@ export function SummaryAiEdit(props: {
         Use the transcript too
         <span className="muted"> (for adding or checking facts)</span>
       </label>
+      {people.length > 0 && (
+        <ul className="hint" role="status">
+          {people.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
       {error && <p className="error">{error}</p>}
       <p className="hint">
-        Saved as a new version that becomes the active one, so share links update. Uses {model}:
-        each instruction is one request to your summary provider and is billed by them.
+        Summary changes are saved as a new version that becomes the active one, so share links
+        update. It can also fix the attendees and the Unable to attend list. Uses {model}: each
+        instruction is one request to your summary provider and is billed by them.
       </p>
     </section>
   );

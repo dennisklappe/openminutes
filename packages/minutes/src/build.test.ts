@@ -181,7 +181,9 @@ describe('buildMinutes for a phone recording', () => {
   it('honours an explicit link and leaves the other invitee absent', () => {
     const minutes = buildMinutes(
       source({
-        participants: [{ displayName: 'Marketing', email: null, inviteeEmail: 'EVA@example.com' }],
+        participants: [
+          { displayName: 'Marketing', email: null, inviteeEmails: ['EVA@example.com'] },
+        ],
       }),
     );
     expect(minutes.attendees[0]?.email).toBe('eva@example.com');

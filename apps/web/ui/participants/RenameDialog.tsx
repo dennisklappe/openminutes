@@ -2,7 +2,7 @@ import { useState, type SubmitEvent } from 'react';
 import type { InviteeDto, ParticipantDto } from '../../src/dto.js';
 import { api, errorMessage } from '../api.js';
 import { Dialog } from '../Dialog.js';
-import { inviteeLabel, likelyInvitee, NAME_MAX, renameToSave } from './names.js';
+import { inviteeLabel, likelyInvitee, NAME_MAX, renameToSave, validEmail } from './names.js';
 
 interface Props {
   meetingId: string;
@@ -15,14 +15,17 @@ interface Props {
 
 export function RenameDialog({ meetingId, person, invitees, onClose, onSaved }: Props) {
   const [draft, setDraft] = useState(person.name);
-  const [chosen, setChosen] = useState<string>();
+  const [chosen, setChosen] = useState<string[]>();
+  const [email, setEmail] = useState(person.email ?? '');
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const original = person.originalName ?? person.name;
-  const link =
-    chosen ?? person.inviteeEmail ?? likelyInvitee([draft, person.originalName], invitees);
-  const change = renameToSave(draft, person, link);
+  const guess = likelyInvitee([draft, person.originalName], invitees);
+  const links =
+    chosen ??
+    (person.inviteeEmails.length > 0 ? person.inviteeEmails : guess === '' ? [] : [guess]);
+  const change = renameToSave(draft, person, links, email);
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
@@ -64,21 +67,42 @@ export function RenameDialog({ meetingId, person, invitees, onClose, onSaved }: 
           />
         </label>
         {invitees.length > 0 && (
+          <fieldset className="field people-invitees">
+            <legend>Which invitees is this? (one person can have several emails)</legend>
+            {invitees.map((invitee) => (
+              <label key={invitee.email} className="check">
+                <input
+                  type="checkbox"
+                  checked={links.includes(invitee.email)}
+                  onChange={(e) => {
+                    setChosen(
+                      e.target.checked
+                        ? [...links, invitee.email]
+                        : links.filter((entry) => entry !== invitee.email),
+                    );
+                  }}
+                />
+                <span>{inviteeLabel(invitee)}</span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {links.length === 0 && (
           <label className="field">
-            <span>Which invitee is this?</span>
-            <select
-              value={link}
+            <span>
+              {invitees.length > 0 ? 'Not on the invitation, email (optional)' : 'Email (optional)'}
+            </span>
+            <input
+              type="email"
+              value={email}
+              maxLength={254}
+              autoComplete="off"
+              placeholder="name@example.com"
+              aria-invalid={!validEmail(email.trim())}
               onChange={(e) => {
-                setChosen(e.target.value);
+                setEmail(e.target.value);
               }}
-            >
-              <option value="">Not on the invitation</option>
-              {invitees.map((invitee) => (
-                <option key={invitee.email} value={invitee.email}>
-                  {inviteeLabel(invitee)}
-                </option>
-              ))}
-            </select>
+            />
           </label>
         )}
         <label className="check people-remember">
