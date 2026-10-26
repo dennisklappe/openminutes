@@ -24,19 +24,19 @@ Almost everything lives in the Settings page (stored in Postgres). The environme
 
 Every card that edits values works the same way: change it, then press Save changes (off until you change something). Nothing saves by itself. Buttons such as Test connection, Connect or Forget act at once and are not a save.
 
-| Section               | What is in it                                                                                                                           |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| General               | Appearance, Timezone, Meeting limits, Setup wizard                                                                                      |
-| Bot identity          | Display name, join chat message, camera image, see [bot identity](bot-identity.md)                                                      |
-| Minutes               | Template, logo, Include defaults, destinations, export and calendar link, see [minutes](minutes.md)                                     |
-| Email                 | Provider, sender, test mail, see [email](email.md)                                                                                      |
-| Calendar accounts     | Google and Microsoft calendars, join rule per calendar, skipped series                                                                  |
-| Google Meet sign-in   | Dedicated Google account for the bot, see [Meet bot account](meet-sign-in.md)                                                           |
-| Phone recorder        | On or off, consent text, see [phone recorder](phone-recorder.md)                                                                        |
-| Transcription         | Provider, keys, language, Test, see [providers](providers.md)                                                                           |
-| Summaries             | Provider and model, Speaker names (`speakers.refine`), People, Recognise voices, Meeting chat (`summary.include_chat`), Summary prompts |
-| Storage and retention | Local volume or S3, days to keep audio, see [storage](storage.md)                                                                       |
-| Access and updates    | Password or Cloudflare Access, update notice                                                                                            |
+| Section               | What is in it                                                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| General               | Appearance, Timezone, Meeting limits, Setup wizard                                                                            |
+| Bot identity          | Display name, join chat message, camera image, see [bot identity](bot-identity.md)                                            |
+| Minutes               | Template, logo, Include defaults, destinations, export and calendar link, see [minutes](minutes.md)                           |
+| Email                 | Provider, sender, test mail, see [email](email.md)                                                                            |
+| Calendar accounts     | Google and Microsoft calendars, join rule per calendar, skipped series                                                        |
+| Google Meet sign-in   | Dedicated Google account for the bot, see [Meet bot account](meet-sign-in.md)                                                 |
+| Phone recorder        | On or off, consent text, see [phone recorder](phone-recorder.md)                                                              |
+| Transcription         | Provider, keys, language, Test, see [providers](providers.md)                                                                 |
+| Summaries             | Provider and model, Speaker names (`speakers.refine`), People, Voices, Meeting chat (`summary.include_chat`), Summary prompts |
+| Storage and retention | Local volume or S3, days to keep audio, see [storage](storage.md)                                                             |
+| Access and updates    | Password or Cloudflare Access, update notice                                                                                  |
 
 Meeting limits: lobby wait (default 10 minutes), alone time (60 seconds), longest stay (4 hours), simultaneous recordings (default 1, up to 10, see [sizing](sizing.md)). Calendars are polled every 2 minutes for the next 14 days. A join rule is all meetings, only ones you organise, only ones with external guests, or never. New calendars start on Never. Redirect URIs: `/api/oauth/google/callback` and `/api/oauth/microsoft/callback`. Skipped series: see [meeting lifecycle](meeting-lifecycle.md).
 

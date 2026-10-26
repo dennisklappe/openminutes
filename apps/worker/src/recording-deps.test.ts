@@ -45,6 +45,9 @@ describe('createRecordingDeps', () => {
     expect(await deps().voicesRemembered()).toBe(false);
     await settings.set('voices.remember', 'true');
     expect(await deps().voicesRemembered()).toBe(true);
+    expect(await deps().voicesChecked()).toBe(false);
+    await settings.set('voices.check', 'true');
+    expect(await deps().voicesChecked()).toBe(true);
     expect(await deps().createSuggester()).toBeUndefined();
     await saveProviderSettings(settings, 'summary', 'openai-compatible', {
       baseUrl: 'http://x/v1',

@@ -68,6 +68,7 @@ describe('replay of a dialog where the diarizer merged two speakers', () => {
       previousParticipantId: null,
       suggestedParticipantId: null,
       rejectedSuggestions: [],
+      voiceDoubt: false,
     }));
   /** The short lines of the merged turn, where the audio also gave the other voice some weight. */
   const withBothVoices = () =>
@@ -195,6 +196,7 @@ describe('model batches', () => {
       previousParticipantId: null,
       suggestedParticipantId: null,
       rejectedSuggestions: [],
+      voiceDoubt: false,
     }));
 
   it('rejects only the batch that changes far too many lines and applies the rest', async () => {

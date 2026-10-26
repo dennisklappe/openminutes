@@ -11,16 +11,17 @@ docker run -d -p 8000:8000 -v openminutes-models:/models -e WHISPER_MODEL=small 
 
 Models download on first use into `/models`, so mount a volume to keep them.
 
-| Variable                   | Default | Meaning                                                         |
-| -------------------------- | ------- | --------------------------------------------------------------- |
-| `WHISPER_MODEL`            | `small` | Model used when a request names none (`tiny` to `large-v3`)     |
-| `WHISPER_DEVICE`           | `auto`  | `cpu`, `cuda` or `auto`                                         |
-| `WHISPER_COMPUTE_TYPE`     | `int8`  | `float32` for full precision, `float16` for GPUs                |
-| `WHISPER_TOKEN`            | unset   | If set, requests need `Authorization: Bearer <token>`           |
-| `WHISPER_MAX_UPLOAD_BYTES` | 4 GiB   | Largest upload a request may carry, larger ones get a 413       |
-| `DIARIZATION`              | `on`    | `off` disables `/diarize`                                       |
-| `DIARIZATION_THRESHOLD`    | `0.9`   | Default clustering threshold when the request names none        |
-| `DIARIZATION_MAX_SPEAKERS` | `99`    | When the count is unknown, fold the smallest voices beyond this |
+| Variable                                        | Default  | Meaning                                                         |
+| ----------------------------------------------- | -------- | --------------------------------------------------------------- |
+| `WHISPER_MODEL`                                 | `small`  | Model used when a request names none (`tiny` to `large-v3`)     |
+| `WHISPER_DEVICE`                                | `auto`   | `cpu`, `cuda` or `auto`                                         |
+| `WHISPER_COMPUTE_TYPE`                          | `int8`   | `float32` for full precision, `float16` for GPUs                |
+| `WHISPER_TOKEN`                                 | unset    | If set, requests need `Authorization: Bearer <token>`           |
+| `WHISPER_MAX_UPLOAD_BYTES`                      | 4 GiB    | Largest upload a request may carry, larger ones get a 413       |
+| `DIARIZATION`                                   | `on`     | `off` disables `/diarize`                                       |
+| `DIARIZATION_THRESHOLD`                         | `0.9`    | Default clustering threshold when the request names none        |
+| `DIARIZATION_MAX_SPEAKERS`                      | `99`     | When the count is unknown, fold the smallest voices beyond this |
+| `DIARIZATION_EMBEDDING_NAME`, `_URL`, `_SHA256` | ERes2Net | Use another speaker embedding model, all three together         |
 
 ## API
 
@@ -64,6 +65,10 @@ Errors use FastAPI's `{"detail": "..."}` body with status 400 (bad input) or 401
 Speakers are ordered by speaking time, `embedding` is an L2-normalised 192-dimension voice print. `similarity` is the cosine between the turn's voice print (the mean of its 1 s window prints) and its speaker's centroid in this recording, `runnerUp` the best other speaker. Both are absent on a turn under 0.5 s, `runnerUp` also with a single speaker. The scale is that of 1 s clips, so a clean turn scores 0.6 to 0.9 and a noisy one 0.1 to 0.4: read the gap to `runnerUp`, not the absolute value. A short turn that was kept on its label with a small or negative gap is the one to treat as uncertain.
 
 `POST /embed` takes `file` and `ranges`, a JSON string `[[startMs, endMs], ...]`, and returns the voice print of those stretches, for matching a person against a stored print: `{"available": true, "embedding": [...], "durationMs": 6000}`. The prints of the ranges are averaged by length, longest first up to 30 s, and L2-normalised. Ranges under 0.5 s are skipped, `embedding` is `null` when nothing is left. Bad ranges answer 400.
+
+`POST /embed-lines` takes the same `file` and `ranges` and returns one voice print per range, in the order given, for checking every line of a transcript against saved voices: `{"available": true, "embeddings": [[...], null], "model": "eres2net-en-voxceleb-16k.onnx"}`. A range under 0.5 s is read from a 1 s window around its middle, moved to stay inside the file. An entry is `null` when the file has no audio there. Prints are L2-normalised and are not averaged.
+
+The speaker embedding model can be swapped without a code change: set `DIARIZATION_EMBEDDING_NAME`, `DIARIZATION_EMBEDDING_URL` and `DIARIZATION_EMBEDDING_SHA256` together (a multilingual model for Dutch, for example). Voice prints of two models cannot be compared, `model` in the answers says which one made them.
 
 When the models cannot be downloaded or loaded the answer is `{"available": false, "reason": "..."}` with status 200. `/transcribe` never has a speaker. A single short interjection at the start of a segment that is a join or leave tone heard as a word ("you", "woo") is removed from the text and words (`tones.py`). The models, sizes and licences are in [docs/speakers.md](../../docs/speakers.md). They download on first use into `/models/diarization` (checked against a pinned sha256), so keep the `/models` volume to run without network afterwards.
 

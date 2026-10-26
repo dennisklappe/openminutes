@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import {
+  addVoiceSamples,
   AudioStorage,
+  ensurePerson,
   LocalStorage,
   mergedAudioPath,
   originalAudioPath,
@@ -21,7 +23,12 @@ import {
 } from '@openminutes/db';
 import { startFakeS3 } from '@openminutes/core/testing';
 import { createTestDatabase } from '@openminutes/db/testing';
-import type { Segment, SummaryProvider, TranscriptionProvider } from '@openminutes/providers';
+import type {
+  Diarizer,
+  Segment,
+  SummaryProvider,
+  TranscriptionProvider,
+} from '@openminutes/providers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { processMeeting, type ProcessDeps } from './process.js';
 
@@ -266,6 +273,77 @@ describe('processMeeting', () => {
       loaded = await load(id);
       expect(loaded.segments.map((s) => s.participantId)).toEqual([alice.id, alice.id]);
       expect(loaded.meeting.speakersRefined).toBe(false);
+    });
+
+    describe('voice check', () => {
+      const diarizer = (embeddings: number[][]): Diarizer => ({
+        diarize: () => Promise.resolve(undefined),
+        embed: () => Promise.resolve(undefined),
+        embedEach: () => Promise.resolve({ embeddings, model: 'test' }),
+      });
+      const withRecording = (checked: boolean, embeddings: number[][]): ProcessDeps => ({
+        ...deps(),
+        recording: {
+          createDiarizer: () => Promise.resolve(diarizer(embeddings)),
+          voicesRemembered: () => Promise.resolve(false),
+          voicesChecked: () => Promise.resolve(checked),
+          createSuggester: () => Promise.resolve(undefined),
+        },
+      });
+      async function saveVoices(...names: string[]) {
+        for (const [i, name] of names.entries()) {
+          const person = await ensurePerson(test.db, name);
+          await addVoiceSamples(test.db, person.id, [
+            { kind: 'imported', embedding: i === 0 ? [1, 0] : [0, 1] },
+          ]);
+        }
+      }
+
+      it('flags a line that sounds like the other participant and suggests them', async () => {
+        const { id, alice, bob } = await twoSpeakers();
+        await saveVoices('Alice', 'Bob');
+        await processMeeting(
+          withRecording(true, [
+            [1, 0],
+            [1, 0],
+          ]),
+          id,
+        );
+        const { segments } = await load(id);
+        expect(segments[0]).toMatchObject({ participantId: alice.id, voiceDoubt: false });
+        expect(segments[1]).toMatchObject({
+          participantId: alice.id,
+          voiceDoubt: false,
+        });
+        await processMeeting(
+          withRecording(true, [
+            [1, 0],
+            [0, 1],
+          ]),
+          id,
+        );
+        const flagged = (await load(id)).segments[1];
+        expect(flagged).toMatchObject({
+          participantId: alice.id,
+          voiceDoubt: true,
+          suggestedParticipantId: bob.id,
+        });
+        expect(flagged?.speakerConfidence).toBeLessThan(0.7);
+      });
+
+      it('changes nothing when the check is off', async () => {
+        const { id } = await twoSpeakers();
+        await saveVoices('Alice', 'Bob');
+        await processMeeting(
+          withRecording(false, [
+            [1, 0],
+            [0, 1],
+          ]),
+          id,
+        );
+        const { segments } = await load(id);
+        expect(segments.every((s) => !s.voiceDoubt && s.voiceScores === null)).toBe(true);
+      });
     });
 
     it('does not refine when no model is set up', async () => {

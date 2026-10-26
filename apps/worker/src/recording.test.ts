@@ -94,6 +94,7 @@ describe('processMeeting for phone recordings', () => {
           recording: {
             createDiarizer: () => Promise.resolve(diarizer),
             voicesRemembered: () => Promise.resolve(remember),
+            voicesChecked: () => Promise.resolve(false),
             createSuggester: () => Promise.resolve(suggester),
           },
         }

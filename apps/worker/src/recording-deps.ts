@@ -23,6 +23,7 @@ export function createRecordingDeps(
       return diarizerFor(token ? { baseUrl, token } : { baseUrl });
     },
     voicesRemembered: async () => (await settings.get('voices.remember')) === 'true',
+    voicesChecked: async () => (await settings.get('voices.check')) === 'true',
     createSuggester: async () => {
       try {
         return (await createConfiguredSummarizer(settings)).provider;

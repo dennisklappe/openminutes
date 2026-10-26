@@ -487,12 +487,13 @@ export function PersonDetail({ id }: { id: string }) {
             {!detail.learning && (
               <p className="privacy-note">
                 Learning is off, so verifying a line only confirms who said it. Turn it on in
-                Settings, Speakers, to build a voice profile from verified lines.
+                Settings, Summaries, Voices, to build a voice profile from verified lines.
               </p>
             )}
             {!detail.checking && detail.learning && person.samples > 0 && (
               <p className="privacy-note">
-                Checking lines against saved voices is off. Turn it on in Settings, Speakers.
+                Checking lines against saved voices is off. Turn it on in Settings, Summaries,
+                Voices.
               </p>
             )}
           </div>

@@ -12,6 +12,7 @@ export interface ReviewLine {
   previousParticipantId: string | null;
   suggestedParticipantId: string | null;
   rejectedSuggestions: string[];
+  voiceDoubt: boolean;
 }
 
 export interface Person {

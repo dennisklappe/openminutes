@@ -41,8 +41,15 @@ function suggest<T extends ReviewLine>(
 ): T[] {
   return lines.map((line, i) => {
     const wanted = changes.get(i);
-    const suggested =
-      wanted !== undefined && suggestionChoices(line).includes(wanted) ? wanted : null;
+    const choices = suggestionChoices(line);
+    // What the voice check found stays until the model names someone else.
+    const voiceFound =
+      line.voiceDoubt &&
+      line.suggestedParticipantId &&
+      choices.includes(line.suggestedParticipantId)
+        ? line.suggestedParticipantId
+        : null;
+    const suggested = wanted !== undefined && choices.includes(wanted) ? wanted : voiceFound;
     return suggested === line.suggestedParticipantId
       ? line
       : { ...line, suggestedParticipantId: suggested };

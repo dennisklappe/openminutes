@@ -67,7 +67,7 @@ Calendar sync (or a pasted link) starts the bot a minute before the meeting. Aft
 - [Summary versions and AI edit](summaries.md): Every summary is a version: edit by hand, rewrite with AI, restore, regenerate.
 - [Speakers and accuracy](speakers.md): Where speaker names come from, how they are matched to the transcript, and the known limits.
 - [Participant names](participants.md): Rename people, how the summary follows, remembered names and absent invitees.
-- [Voices and speaker names](voices.md): Name voices in phone recordings and the optional voiceprint memory.
+- [Voices and speaker names](voices.md): Name voices, manage people and the optional voice profiles.
 - [Meeting chat](chat.md): How the bot captures the Meet and Teams chat and where it ends up.
 - [Phone recorder](phone-recorder.md): Record in person on your phone, also offline, with a speaker count and crash recovery.
 - [Import from Fireflies](import-fireflies.md): Bring your Fireflies meetings in recordings from your account data export, transcribed and summarised by your own setup.
