@@ -7,6 +7,7 @@ import type {
   SpeakerChoiceDto,
   SpeakerCheckDto,
 } from './meetings.js';
+import type { RoomNoticeDto } from './rooms.js';
 import type {
   ChatMessageDto,
   SummaryDto,
@@ -38,6 +39,8 @@ export interface MeetingDetailDto {
   /** A person changed who said a line after the active summary was written, and has not dismissed it. */
   speakersChangedSinceSummary: boolean;
   summaryOptions: SummaryOptionsDto;
+  /** Participant tiles that probably hold several people and still need naming. */
+  roomNotices: RoomNoticeDto[];
 }
 
 export interface LibraryMeetingDto {

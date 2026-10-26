@@ -12,5 +12,6 @@ export const makeSegment = (overrides: Partial<SegmentDto> & { id: string }): Se
   previousSpeaker: null,
   suggestedSpeaker: null,
   suggestedSpeakerId: null,
+  viaSpeaker: null,
   ...overrides,
 });

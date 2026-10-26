@@ -1,17 +1,35 @@
 import { isUncertain } from '@openminutes/core';
-import { asc, eq, participants, transcriptSegments, type Database } from '@openminutes/db';
+import {
+  asc,
+  eq,
+  participants,
+  roomVoices,
+  transcriptSegments,
+  type Database,
+} from '@openminutes/db';
 import type { SegmentDto, SpeakerChoiceDto } from '../dto.js';
 
 export async function loadSegments(db: Database, meetingId: string): Promise<SegmentDto[]> {
-  const [rows, people] = await Promise.all([
+  const [rows, people, rooms] = await Promise.all([
     db
       .select()
       .from(transcriptSegments)
       .where(eq(transcriptSegments.meetingId, meetingId))
       .orderBy(asc(transcriptSegments.startMs), asc(transcriptSegments.id)),
     db.select().from(participants).where(eq(participants.meetingId, meetingId)),
+    db.select().from(roomVoices).where(eq(roomVoices.meetingId, meetingId)),
   ]);
   const names = new Map(people.map((person) => [person.id, person.displayName]));
+  const personOf = new Map(people.map((person) => [person.id, person.personId]));
+  const room = new Map(rooms.map((voice) => [voice.id, voice]));
+  // Only a named voice shows where a line was heard, and only while the line still has that person.
+  const viaOf = (row: (typeof rows)[number]) => {
+    const voice = row.roomVoiceId ? room.get(row.roomVoiceId) : undefined;
+    if (!voice?.personId || !row.participantId || row.participantId === voice.participantId) {
+      return null;
+    }
+    return personOf.get(row.participantId) === voice.personId ? nameOf(voice.participantId) : null;
+  };
   const nameOf = (id: string | null) => (id ? (names.get(id) ?? null) : null);
   return rows.map((row) => ({
     id: row.id,
@@ -26,6 +44,7 @@ export async function loadSegments(db: Database, meetingId: string): Promise<Seg
     previousSpeaker: nameOf(row.previousParticipantId),
     suggestedSpeaker: nameOf(row.suggestedParticipantId),
     suggestedSpeakerId: row.suggestedParticipantId,
+    viaSpeaker: viaOf(row),
   }));
 }
 
