@@ -189,6 +189,7 @@ export {
   type NewSample,
   type Person,
 } from './people.js';
+export * from './voice-anchors.js';
 export * from './voice-auto.js';
 export {
   isKnownLanguage,
