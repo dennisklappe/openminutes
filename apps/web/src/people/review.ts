@@ -24,7 +24,7 @@ import { SESSION_CAP, TARGET_MS, selectUseful, whyOf, type Candidate } from './u
 import { rememberEnabled } from '../voices/load.js';
 import { loadChoices, loadPeople, personLines, trainingLines, type PeopleDeps } from './load.js';
 
-/** The most lines looked at per person and in one queue. A session shows SESSION_CAP of them. */
+/** The most lines fetched per person. A session shows SESSION_CAP of what is useful. */
 const QUEUE_LIMIT = 500;
 /** Confident lines fetched per person that still needs samples. */
 const TRAINING_LIMIT = 150;
@@ -122,7 +122,7 @@ async function pickUseful(
       suggested: line.reason === 'suggested' || line.reason === 'elimination',
     };
   });
-  const { picked } = selectUseful(candidates, coverage, QUEUE_LIMIT);
+  const { picked } = selectUseful(candidates, coverage);
   return { picked, candidates };
 }
 
@@ -135,16 +135,14 @@ export interface ReviewScope {
 }
 
 /**
- * The lines that need a look, for everyone, one person, one meeting or a person within a meeting.
- * By default the newest meeting first and within a meeting in the order spoken, or the least
- * certain line first. Each line carries who it is proposed for, who else was considered and the
- * other people of its meeting. People marked do not track never show up, as the proposed person,
- * as someone considered or in the meeting's list. Undefined when the meeting does not exist.
+ * Everything the queue and the counts are built from: the proposed lines of a scope, minus the
+ * skipped ones (or only those), with the profile coverage. The one place that decides which lines
+ * are asked about, so a number shown anywhere equals the length of the queue behind it.
  */
-export async function loadReviewQueue(
+async function gatherQueue(
   deps: PeopleDeps,
-  { personId, meetingId, order = 'newest', skipped = false }: ReviewScope = {},
-): Promise<ReviewQueueDto | undefined> {
+  { personId, meetingId, skipped = false }: ReviewScope,
+) {
   const { db } = deps;
   let meeting: ReviewScopeDto['meeting'];
   let inMeeting: Set<string> | undefined;
@@ -216,6 +214,47 @@ export async function loadReviewQueue(
   }
   const dateIds = [...new Set([...proposals.values()].map((c) => c.line.meetingId))];
   const meetingRows = dateIds.length === 0 ? [] : await dbMeetings(db, dateIds);
+  const picked = await pickUseful(db, proposals, meetingRows, coverage);
+  return { everyone, proposals, meeting, meetingRows, coverage, skippedCount, picked };
+}
+
+/** Lines that are asked about for each person, uncapped, and over everyone. */
+export interface ReviewCounts {
+  total: number;
+  byPerson: Map<string, number>;
+}
+
+/**
+ * How many lines are worth a person's time: the lines in doubt plus only as many training lines
+ * as the profile still needs to reach its target. Skipped lines, short, overlapped and filler
+ * lines never count. Taken from the same selection as the review queue, without the session cap.
+ */
+export async function loadReviewCounts(
+  deps: PeopleDeps,
+  scope: Pick<ReviewScope, 'personId' | 'meetingId'> = {},
+): Promise<ReviewCounts> {
+  const lines = (await gatherQueue(deps, scope))?.picked.picked ?? [];
+  const byPerson = new Map<string, number>();
+  for (const c of lines) byPerson.set(c.personId, (byPerson.get(c.personId) ?? 0) + 1);
+  return { total: lines.length, byPerson };
+}
+
+/**
+ * The lines that need a look, for everyone, one person, one meeting or a person within a meeting.
+ * By default the newest meeting first and within a meeting in the order spoken, or the least
+ * certain line first. Each line carries who it is proposed for, who else was considered and the
+ * other people of its meeting. People marked do not track never show up, as the proposed person,
+ * as someone considered or in the meeting's list. Undefined when the meeting does not exist.
+ */
+export async function loadReviewQueue(
+  deps: PeopleDeps,
+  request: ReviewScope = {},
+): Promise<ReviewQueueDto | undefined> {
+  const { db } = deps;
+  const { personId, order = 'newest', skipped = false } = request;
+  const gathered = await gatherQueue(deps, request);
+  if (!gathered) return undefined;
+  const { everyone, proposals, meeting, meetingRows, coverage, skippedCount, picked } = gathered;
   const stamps = new Map(meetingRows.map((m) => [m.id, m.createdAt.getTime()]));
   const when = (line: PersonLineDto) => stamps.get(line.meetingId) ?? 0;
   const byTime = (a: PersonLineDto, b: PersonLineDto) =>
@@ -231,7 +270,6 @@ export async function loadReviewQueue(
   // Only lines that teach a voice profile something are asked, the skipped list excepted.
   let useful = [...proposals.values()];
   let complete: ReviewCompleteDto[] = [];
-  const picked = await pickUseful(db, proposals, meetingRows, coverage);
   const why = new Map(picked.candidates.map((c) => [c.id, whyOf(c)]));
   if (!skipped) {
     const byId = new Map(proposals);

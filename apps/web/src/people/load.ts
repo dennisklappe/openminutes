@@ -39,6 +39,11 @@ const LINE_LIMIT = 200;
 
 type Person = typeof people.$inferSelect;
 
+/**
+ * Every line that could be asked about per person, before the useful-line rules (length, overlap,
+ * filler, profile target, skips). Only a prefilter for the review queue: what is shown to people
+ * comes from loadReviewCounts, which counts the queue itself.
+ */
 export async function reviewCounts(
   db: Database,
   only?: readonly string[],

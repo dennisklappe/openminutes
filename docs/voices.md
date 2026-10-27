@@ -21,14 +21,14 @@ Open a person to see:
 
 - a **voice profile card per language**: one person, one name and one set of emails, but a separate profile for each language they speak, because most people sound different in Dutch than in English. Each card shows the language, the verified seconds against the target of 90 s, the sample count, a **Delete this profile** button and the verified lines in that language. A card appears by itself the first time a line in that language is verified, and up to 5 vectors (ways of sounding) are kept per language
 - the **People list** shows a small chip per language next to the profile status
-- **Needs review**: lines labelled as this person or suggested for them that are uncertain, plus lines the voice check doubts
+- **Needs review**: how many lines the review queue would ask about for this person, not every unsure line: the doubtful ones plus only as many confident lines as the voice profile still needs to reach its 90 seconds. Lines under 3 seconds, overlapped lines, filler and skipped lines never count. The same number shows in the People list (**To review**) and above the Review button
 - **Verified lines**: lines you confirmed as this person
 
 Each line can be played. **Verify** says the line is this person, sets the label as a correction of yours and, when learning is on, adds its voice to the profile. **Not this person** takes the line away and gives it to the next best speaker, and it is not offered to this person again. **Move to...** gives it to someone else. **Remove from profile** keeps the label but forgets the voice sample.
 
 ## Reviewing speakers
 
-**Review** on the People page goes through a short queue of lines worth a look, all people mixed. The button shows how many (at most 25). Scope the same flow to one person (**Review** on their page) or one meeting (**Review speakers** in the meeting menu, also in the row menu of the meetings list). A chip shows the scope, its cross goes back to everyone.
+**Review** on the People page goes through a short queue of lines worth a look, all people mixed. The button shows how many it asks in one session (at most 25), as `25 of 140 lines` when more are waiting. Scope the same flow to one person (**Review** on their page) or one meeting (**Review speakers** in the meeting menu, also in the row menu of the meetings list). A chip shows the scope, its cross goes back to everyone.
 
 A line enters the queue for one of two reasons, and the card says which:
 

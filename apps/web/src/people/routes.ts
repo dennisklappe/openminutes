@@ -20,7 +20,7 @@ import {
 } from './edit.js';
 import { rejectLine, removeFromProfile, skipLine, undoDecision, verifyLine } from './lines.js';
 import { deleteProfile } from './profiles.js';
-import { loadReviewQueue } from './review.js';
+import { loadReviewCounts, loadReviewQueue } from './review.js';
 import { loadPersonDetail, type PeopleDeps } from './load.js';
 import { loadPeoplePage } from './page.js';
 
@@ -75,6 +75,11 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
 
   const detail = async (id: string) => {
     const found = await loadPersonDetail(deps, id);
+    // The same count the review queue of this person is built from, not every unsure line.
+    if (found) {
+      found.person.needsReview =
+        found.person.tracking === 'on' ? (await loadReviewCounts(deps, { personId: id })).total : 0;
+    }
     return found;
   };
 

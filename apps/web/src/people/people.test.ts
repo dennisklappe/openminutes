@@ -721,6 +721,68 @@ describe('people', () => {
       expect(trained.more).toBe(5);
     });
 
+    describe('the number of lines to review', () => {
+      /** What every place shows for a person: page, list column, and the queue behind them. */
+      async function counts(personId: string, name: string) {
+        const page = (await (
+          await call('GET', `/people?q=${encodeURIComponent(name)}`)
+        ).json()) as PeopleDto;
+        const column = page.people.find((p) => p.id === personId)?.needsReview;
+        const queued = await queue(`?personId=${personId}`);
+        return {
+          column,
+          header: (await detail(personId)).person.needsReview,
+          queue: queued.lines.length + queued.more,
+        };
+      }
+
+      it('asks only for the lines a thin profile still needs, not every unverified line', async () => {
+        const { person } = await lines(
+          Array.from({ length: 200 }, () => ({ ms: 6000, sure: true })),
+        );
+        // 90 s target at 6 s a line is 15 lines, however many confident lines there are.
+        expect(await counts(person.id, person.name)).toEqual({ column: 15, header: 15, queue: 15 });
+      });
+
+      it('counts only the doubtful lines of a well-profiled person', async () => {
+        const { person } = await lines([
+          ...Array.from({ length: 3 }, () => ({ ms: 5000 })),
+          ...Array.from({ length: 30 }, () => ({ ms: 5000, sure: true })),
+        ]);
+        await test.db.insert(voiceSamples).values({
+          personId: person.id,
+          kind: 'imported',
+          embedding: [1, 0],
+          durationMs: 120_000,
+        });
+        expect(await counts(person.id, person.name)).toEqual({ column: 3, header: 3, queue: 3 });
+      });
+
+      it('never counts short, overlapped or filler lines', async () => {
+        const { person } = await lines([
+          { ms: 2000 },
+          { other: true },
+          { text: 'yeah okay right' },
+          { ms: 2000, sure: true },
+          { text: 'uh yeah no sure thanks', sure: true },
+          {},
+        ]);
+        // Only the last, plain doubtful line is worth a look.
+        expect(await counts(person.id, person.name)).toEqual({ column: 1, header: 1, queue: 1 });
+      });
+
+      it('adds up to the People page total, capped to a session for the button', async () => {
+        const { person } = await lines(
+          Array.from({ length: 200 }, () => ({ ms: 3000, sure: true })),
+        );
+        const page = (await (await call('GET', '/people')).json()) as PeopleDto;
+        const sum = (await counts(person.id, person.name)).column ?? 0;
+        expect(sum).toBe(30);
+        expect(page.needsReview).toBeGreaterThanOrEqual(sum);
+        expect(page.reviewable).toBe(Math.min(page.needsReview, 25));
+      });
+    });
+
     it('counts the useful lines on the People page, capped', async () => {
       const response = await call('GET', '/people');
       const page = (await response.json()) as PeopleDto;

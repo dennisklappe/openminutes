@@ -16,6 +16,7 @@ import {
   coverageText,
   parseEmails,
   profileLabels,
+  reviewLabel,
   profileLevel,
   trackingLabels,
   validEmail,
@@ -253,7 +254,7 @@ export function People() {
         <div className="head-actions">
           {data && data.reviewable > 0 && (
             <a className="button" href="#/people/review">
-              Review {data.reviewable} {data.reviewable === 1 ? 'line' : 'lines'}
+              Review {reviewLabel(data.needsReview)}
             </a>
           )}
           <button disabled={scanning} onClick={scan}>
@@ -374,7 +375,12 @@ export function People() {
                   <SortHeader label="Name" field="name" sort={sort} dir={dir} onSort={changeSort} />
                   <th>Emails</th>
                   <th>Voice</th>
-                  <th className="num">To review</th>
+                  <th
+                    className="num"
+                    title="Lines worth your time for this person: the ones the voice check or the labelling is unsure about, plus as many confident lines as their voice profile still needs to be good enough. Short, overlapped and filler lines never count."
+                  >
+                    To review
+                  </th>
                   <SortHeader
                     label="Meetings"
                     field="meetings"
