@@ -1,4 +1,9 @@
-export { unmatchedInvitees, type MatchInvitee, type MatchParticipant } from './match.js';
+export {
+  matchInvitees,
+  unmatchedInvitees,
+  type MatchInvitee,
+  type MatchParticipant,
+} from './match.js';
 export { buildMinutes, type MinutesInvitee, type MinutesSource } from './build.js';
 export { demoMinutes } from './demo.js';
 export {
@@ -74,3 +79,4 @@ export type {
   MinutesPerson,
   MinutesSegment,
 } from './types.js';
+export { displayNameOf, normalise } from './people.js';

@@ -11,6 +11,8 @@ const person = (name: string, extra: Partial<PersonDto> = {}): PersonDto => ({
   voiceSeconds: 0,
   needsReview: 0,
   meetings: 0,
+  lastSeenAt: null,
+  source: 'joined',
   ...extra,
 });
 

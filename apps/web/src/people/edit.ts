@@ -153,6 +153,10 @@ export async function mergePeople(db: Database, targetId: string, sourceId: stri
       .update(participantAliases)
       .set({ displayName: target.name })
       .where(sameName(participantAliases.displayName, source.name));
+    await tx.execute(sql`
+      insert into meeting_invitees (meeting_id, person_id)
+      select meeting_id, ${targetId}::uuid from meeting_invitees where person_id = ${sourceId}::uuid
+      on conflict do nothing`);
     const notes = [target.notes, source.notes].filter((note): note is string => !!note);
     await tx.delete(people).where(eq(people.id, sourceId));
     await tx
@@ -160,6 +164,7 @@ export async function mergePeople(db: Database, targetId: string, sourceId: stri
       .set({
         emails: cleanEmails([...target.emails, ...source.emails]),
         notes: notes.length > 0 ? notes.join('\n\n') : null,
+        source: target.source === 'invited' ? source.source : target.source,
         updatedAt: new Date(),
       })
       .where(eq(people.id, targetId));

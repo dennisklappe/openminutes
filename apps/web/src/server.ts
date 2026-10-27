@@ -2,7 +2,14 @@ import { fileURLToPath } from 'node:url';
 import { relative } from 'node:path';
 import { serve } from '@hono/node-server';
 import { calendarEnvSchema, createProviders, endpointsFor } from '@openminutes/calendar';
-import { baseEnvSchema, JobQueue, LocalStorage, parseEnv, SettingsStore } from '@openminutes/core';
+import {
+  backfillPeople,
+  baseEnvSchema,
+  JobQueue,
+  LocalStorage,
+  parseEnv,
+  SettingsStore,
+} from '@openminutes/core';
 import { createDatabase, migrateOnStartup } from '@openminutes/db';
 import { z } from 'zod';
 import { createApp } from './app.js';
@@ -30,6 +37,14 @@ await migrateOnStartup(pool);
 const queue = await JobQueue.start(env.DATABASE_URL);
 
 const settings = new SettingsStore(db, env.OPENMINUTES_SECRET);
+// Once, in the background: give everyone from the existing meetings a profile. The People page can run it again.
+void (async () => {
+  if ((await settings.get('people.backfilled')) === 'true') return;
+  await backfillPeople(db);
+  await settings.set('people.backfilled', 'true');
+})().catch((error: unknown) => {
+  console.error('people backfill failed, it runs again on the next start', error);
+});
 const storage = new LocalStorage(env.OPENMINUTES_DATA_DIR);
 const publicUrl = env.OPENMINUTES_PUBLIC_URL || undefined;
 const calendarProviders = createProviders({ fakeBaseUrl: env.OPENMINUTES_FAKE_CALENDAR_URL });

@@ -57,7 +57,9 @@ import type {
   StorageSettingsDto,
   StorageSettingsInput,
   PeopleDto,
+  PeopleQuery,
   PersonDetailDto,
+  ReviewQueueDto,
   PersonInput,
   PersonUpdateInput,
   VoiceNameInput,
@@ -215,8 +217,21 @@ export const api = {
   voiceSettings: () => request<VoiceSettingsDto>('/settings/voices'),
   saveVoiceSettings: (body: { remember?: boolean; check?: boolean }) =>
     request<VoiceSettingsDto>('/settings/voices', { method: 'PUT', body }),
-  people: () => request<PeopleDto>('/people'),
+  people: (query: PeopleQuery = {}) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== '') params.set(key, String(value));
+    }
+    const text = params.toString();
+    return request<PeopleDto>(text ? `/people?${text}` : '/people');
+  },
+  scanPeople: () =>
+    request<{ createdJoined: number; createdInvited: number }>('/people/backfill', {
+      method: 'POST',
+    }),
   person: (id: string) => request<PersonDetailDto>(`/people/${id}`),
+  reviewQueue: (personId?: string) =>
+    request<ReviewQueueDto>(`/people/review${personId ? `?personId=${personId}` : ''}`),
   createPerson: (body: PersonInput) =>
     request<PersonDetailDto>('/people', { method: 'POST', body }),
   updatePerson: (id: string, body: PersonUpdateInput) =>

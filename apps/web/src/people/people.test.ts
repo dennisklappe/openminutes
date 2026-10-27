@@ -21,7 +21,7 @@ import { createTestDatabase } from '@openminutes/db/testing';
 import type { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
-import type { PeopleDto, PersonDetailDto } from '../dto.js';
+import type { PeopleDto, PersonDetailDto, ReviewQueueDto } from '../dto.js';
 
 const secret = 'a-long-enough-test-secret';
 const json = { 'content-type': 'application/json' };
@@ -420,6 +420,76 @@ describe('people', () => {
       });
       expect(response.status).toBe(200);
       expect((await detail(person.id)).person.samples).toBe(0);
+    });
+  });
+  describe('the review queue', () => {
+    const queue = async (query = '') =>
+      (await (await call('GET', `/people/review${query}`)).json()) as ReviewQueueDto;
+
+    async function room() {
+      const person = await create({ name: `Queue ${String(Math.random()).slice(2, 8)}` });
+      const carl = await create({ name: `Carl ${String(Math.random()).slice(2, 8)}` });
+      const fixture = await meeting('Queue meeting');
+      await test.db
+        .update(participants)
+        .set({ displayName: person.name, personId: person.id, nameConfirmed: true })
+        .where(eq(participants.id, fixture.one.id));
+      await test.db.insert(participants).values([
+        { meetingId: fixture.meeting.id, displayName: carl.name, personId: carl.id },
+        { meetingId: fixture.meeting.id, displayName: 'Notetaker', isBot: true },
+        { meetingId: fixture.meeting.id, displayName: 'Dana Named', nameConfirmed: true },
+      ]);
+      await test.db
+        .update(transcriptSegments)
+        .set({ speakerConfidence: 0.2 })
+        .where(eq(transcriptSegments.id, fixture.a.id));
+      await test.db
+        .update(transcriptSegments)
+        .set({ speakerConfidence: 0.5 })
+        .where(eq(transcriptSegments.id, fixture.b.id));
+      return { person, carl, ...fixture };
+    }
+
+    it('needs a session and a valid person', async () => {
+      expect((await app.request('/api/people/review')).status).toBe(401);
+      expect((await call('GET', '/people/review?personId=nope')).status).toBe(404);
+    });
+
+    it('lists the least certain line first with the proposal and what was considered', async () => {
+      const { person, a, b } = await room();
+      const body = await queue(`?personId=${person.id}`);
+      expect(body.lines.map((l) => l.id)).toEqual([a.id, b.id]);
+      expect(body.lines[0]).toMatchObject({
+        meetingTitle: 'Queue meeting',
+        speakerConfidence: 0.2,
+        reason: 'uncertain',
+        proposed: { id: person.id, name: person.name },
+        considered: [{ name: 'Speaker 2', score: 0.4 }],
+      });
+      expect(Date.parse(body.lines[0]?.meetingDate ?? '')).not.toBeNaN();
+      expect(body.people.map((p) => p.id)).toContain(person.id);
+    });
+
+    it('offers only the other people of the meeting, without bots, the proposal and placeholders', async () => {
+      const { person, carl } = await room();
+      const [line] = (await queue(`?personId=${person.id}`)).lines;
+      const names = line?.roster.map((r) => r.name) ?? [];
+      expect(names).toEqual([carl.name, 'Dana Named'].sort((x, y) => x.localeCompare(y)));
+      expect(line?.roster.find((r) => r.name === carl.name)?.personId).toBe(carl.id);
+      expect(line?.roster.find((r) => r.name === 'Dana Named')?.personId).toBeNull();
+      expect(names).not.toContain('Notetaker');
+      expect(names).not.toContain(person.name);
+      expect(names).not.toContain('Speaker 2');
+    });
+
+    it('drops lines once they are verified and covers every person without a filter', async () => {
+      const { person, a, b } = await room();
+      expect((await call('POST', `/people/${person.id}/lines/${a.id}/verify`, {})).status).toBe(
+        200,
+      );
+      const scoped = await queue(`?personId=${person.id}`);
+      expect(scoped.lines.map((l) => l.id)).toEqual([b.id]);
+      expect((await queue()).lines.map((l) => l.id)).toContain(b.id);
     });
   });
 });
