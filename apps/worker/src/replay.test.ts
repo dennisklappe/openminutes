@@ -63,8 +63,9 @@ describe('replay of the five person Teams meeting', () => {
     const { lines } = await replay();
 
     expect(lines).toContain(
-      'Alice: Good morning, everyone. Today we are planning the launch of the new mobile app. The release date is the 14th of November.',
+      'Alice: Good morning, everyone. Today we are planning the launch of the new mobile app.',
     );
+    expect(lines).toContain('Alice: The release date is the 14th of November.');
     expect(lines).toContain('Eve: Do we have a budget for the launch event?');
     expect(lines).toContain('Alice: I will confirm the budget of 5,000 euros with finance.');
   });
