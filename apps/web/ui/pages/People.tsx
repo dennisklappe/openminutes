@@ -140,7 +140,7 @@ export function People() {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<PeopleSort>('name');
   const [dir, setDir] = useState<'asc' | 'desc'>('asc');
-  const [source, setSource] = useState<PeopleFilter>('all');
+  const [source, setSource] = useState<PeopleFilter>('joined');
   const [page, setPage] = useState(1);
   const [adding, setAdding] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -286,8 +286,19 @@ export function People() {
         >
           <option value="all">Everyone</option>
           <option value="joined">Was in a meeting</option>
-          <option value="invited">Only invited</option>
+          <option value="invited">Invited only</option>
         </select>
+        <button
+          type="button"
+          aria-pressed={source === 'invited'}
+          className={source === 'invited' ? 'primary' : undefined}
+          onClick={() => {
+            setSource(source === 'invited' ? 'joined' : 'invited');
+            setPage(1);
+          }}
+        >
+          Invited only ({data?.invitedOnly ?? 0})
+        </button>
         <select
           aria-label="Tracking"
           value={tracking}
@@ -337,12 +348,12 @@ export function People() {
       {data && shown.length === 0 ? (
         <div className="panel empty-state">
           <h3>
-            {search || source !== 'all' || tracking !== 'tracked'
+            {search || source !== 'joined' || tracking !== 'tracked'
               ? 'Nobody matches'
               : 'No people yet'}
           </h3>
           <p>
-            {search || source !== 'all' || tracking !== 'tracked'
+            {search || source !== 'joined' || tracking !== 'tracked'
               ? 'Try another name or email.'
               : 'People appear after a meeting, when you name a speaker, or when you add them here.'}
           </p>

@@ -80,8 +80,12 @@ export interface SyncStats {
   linked: number;
   /** Invitee links added. */
   invitedLinks: number;
-  /** Participants and invitees that are bots or placeholders. */
+  /** Participants and invitees that are bots or placeholders, or shared mailboxes. */
   skipped: number;
+  /** Participants and invitees that already had a person. */
+  matched: number;
+  /** Auto-created invited-only people removed because they are shared mailboxes. */
+  removed: number;
 }
 
 const newStats = (): SyncStats => ({
@@ -91,7 +95,71 @@ const newStats = (): SyncStats => ({
   linked: 0,
   invitedLinks: 0,
   skipped: 0,
+  matched: 0,
+  removed: 0,
 });
+
+/** Invited to this many meetings and never joined: a shared mailbox or a resource, not a person. */
+export const SHARED_MAILBOX_INVITATIONS = 10;
+
+/**
+ * Emails invited to many meetings by someone who never joined any of them. Counted from the calendar
+ * invitations of live meetings, so it also works before the person exists. Anyone with a joined or
+ * manual profile, or an email seen on a participant, is never in it.
+ */
+export async function sharedMailboxEmails(db: Database): Promise<Set<string>> {
+  const { rows } = await db.execute<{ email: string }>(sql`
+    with invited as (
+      select lower(i.value->>'email') as email, count(distinct m.id) as n
+      from meetings m, jsonb_array_elements(coalesce(m.invitees, '[]'::jsonb)) i
+      where m.deleted_at is null and coalesce(i.value->>'email', '') <> ''
+      group by 1
+    )
+    select email from invited
+    where n >= ${SHARED_MAILBOX_INVITATIONS}
+      and not exists (
+        select 1 from participants p
+        where lower(p.email) = invited.email or p.invitee_emails ? invited.email
+      )
+      and not exists (
+        select 1 from people pe
+        where pe.emails ? invited.email
+          and (pe.source <> 'invited' or exists (select 1 from participants q where q.person_id = pe.id))
+      )`);
+  return new Set(rows.map((row) => row.email));
+}
+
+/**
+ * Deletes auto-created invited-only people who were invited to {@link SHARED_MAILBOX_INVITATIONS}
+ * or more meetings and never joined one. Anyone the owner touched stays: a joined or manual source
+ * (a merge or a manual add), notes, tracking switched off, or any later edit.
+ */
+export async function removeSharedMailboxes(db: Database): Promise<number> {
+  const { rows } = await db.execute<{ id: string }>(sql`
+    delete from people p
+    where p.source = 'invited'
+      and p.tracking = 'on'
+      and p.notes is null
+      and p.updated_at - p.created_at < interval '1 second'
+      and not exists (select 1 from participants x where x.person_id = p.id)
+      and not exists (select 1 from voice_samples v where v.person_id = p.id)
+      and (select count(*) from meeting_invitees mi where mi.person_id = p.id) >= ${SHARED_MAILBOX_INVITATIONS}
+    returning p.id`);
+  return rows.length;
+}
+
+/** The one-off clean-up of shared mailboxes made by an earlier backfill, with a log line. */
+export async function cleanupSharedMailboxes(db: Database): Promise<number> {
+  const removed = await removeSharedMailboxes(db);
+  console.log(`people cleanup: removed ${String(removed)} shared mailboxes`);
+  return removed;
+}
+
+const logStats = (what: string, stats: SyncStats) => {
+  console.log(
+    `${what}: ${String(stats.meetings)} meetings, created ${String(stats.createdJoined)} joined and ${String(stats.createdInvited)} invited people, matched ${String(stats.matched)}, skipped ${String(stats.skipped)}, removed ${String(stats.removed)} shared mailboxes, linked ${String(stats.linked)} participants and ${String(stats.invitedLinks)} invitations`,
+  );
+};
 
 /** Everyone known, found by any email or by exact name. Never merges two people. */
 class PeopleIndex {
@@ -122,6 +190,10 @@ class PeopleIndex {
       owners[0] ??
       this.byName.get(wanted)
     );
+  }
+
+  known(name: string, emails: readonly string[]): boolean {
+    return this.find(name, emails) !== undefined;
   }
 
   /** The person for a name and emails, made when nobody fits. */
@@ -164,7 +236,8 @@ class PeopleIndex {
       .set({
         ...(free.length > 0 && { emails: cleanEmails([...person.emails, ...free]) }),
         ...(promote && { source: 'joined' as const }),
-        updatedAt: new Date(),
+        // Only a promotion counts as a change: sync adding an email must not look like an edit.
+        ...(promote && { updatedAt: new Date() }),
       })
       .where(eq(people.id, person.id))
       .returning();
@@ -195,6 +268,7 @@ async function syncMeeting(
   meeting: MeetingRow,
   rows: readonly ParticipantRow[],
   stats: SyncStats,
+  shared: ReadonlySet<string>,
 ): Promise<void> {
   stats.meetings++;
   const dismissed = new Set((meeting.dismissedInvitees ?? []).map((email) => email.toLowerCase()));
@@ -234,6 +308,7 @@ async function syncMeeting(
       continue;
     }
     if (created) stats.createdJoined++;
+    else stats.matched++;
     joined.add(person.id);
     if (row.personId === null) {
       await db.update(participants).set({ personId: person.id }).where(eq(participants.id, row.id));
@@ -250,12 +325,17 @@ async function syncMeeting(
       stats.skipped++;
       continue;
     }
+    if (shared.has(invitee.email.toLowerCase()) && !index.known(name, email)) {
+      stats.skipped++;
+      continue;
+    }
     const { person, created } = await index.resolve(name, email, 'invited');
     if (person.tracking === 'off') {
       stats.skipped++;
       continue;
     }
     if (created) stats.createdInvited++;
+    else stats.matched++;
     if (joined.has(person.id)) continue;
     const added = await db
       .insert(meetingInvitees)
@@ -275,6 +355,8 @@ const BATCH = 200;
  */
 export async function backfillPeople(db: Database): Promise<SyncStats> {
   const stats = newStats();
+  stats.removed = await removeSharedMailboxes(db);
+  const shared = await sharedMailboxEmails(db);
   const index = await loadIndex(db);
   let after: string | undefined;
   for (;;) {
@@ -305,13 +387,12 @@ export async function backfillPeople(db: Database): Promise<SyncStats> {
         meeting,
         rows.filter((row) => row.meetingId === meeting.id),
         stats,
+        shared,
       );
     }
     after = batch.at(-1)?.id;
   }
-  console.log(
-    `people backfill: ${String(stats.meetings)} meetings, ${String(stats.createdJoined)} joined and ${String(stats.createdInvited)} invited people created, ${String(stats.linked)} participants and ${String(stats.invitedLinks)} invitations linked, ${String(stats.skipped)} bots and placeholders skipped`,
-  );
+  logStats('people backfill', stats);
   return stats;
 }
 
@@ -328,6 +409,6 @@ export async function linkMeetingPeople(db: Database, meetingId: string): Promis
     .where(eq(meetings.id, meetingId));
   if (!meeting) return stats;
   const rows = await db.select().from(participants).where(eq(participants.meetingId, meetingId));
-  await syncMeeting(db, await loadIndex(db), meeting, rows, stats);
+  await syncMeeting(db, await loadIndex(db), meeting, rows, stats, await sharedMailboxEmails(db));
   return stats;
 }

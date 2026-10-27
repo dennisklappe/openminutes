@@ -4,6 +4,7 @@ import { serve } from '@hono/node-server';
 import { calendarEnvSchema, createProviders, endpointsFor } from '@openminutes/calendar';
 import {
   backfillPeople,
+  cleanupSharedMailboxes,
   baseEnvSchema,
   JobQueue,
   LocalStorage,
@@ -39,9 +40,16 @@ const queue = await JobQueue.start(env.DATABASE_URL);
 const settings = new SettingsStore(db, env.OPENMINUTES_SECRET);
 // Once, in the background: give everyone from the existing meetings a profile. The People page can run it again.
 void (async () => {
-  if ((await settings.get('people.backfilled')) === 'true') return;
-  await backfillPeople(db);
-  await settings.set('people.backfilled', 'true');
+  if ((await settings.get('people.backfilled')) !== 'true') {
+    // The backfill also removes shared mailboxes, so the clean-up is done with it.
+    await backfillPeople(db);
+    await settings.set('people.backfilled', 'true');
+    await settings.set('people.cleanup_shared', 'true');
+    return;
+  }
+  if ((await settings.get('people.cleanup_shared')) === 'true') return;
+  await cleanupSharedMailboxes(db);
+  await settings.set('people.cleanup_shared', 'true');
 })().catch((error: unknown) => {
   console.error('people backfill failed, it runs again on the next start', error);
 });

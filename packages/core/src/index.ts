@@ -158,6 +158,10 @@ export {
 } from './summary-prompts.js';
 export {
   backfillPeople,
+  cleanupSharedMailboxes,
+  removeSharedMailboxes,
+  sharedMailboxEmails,
+  SHARED_MAILBOX_INVITATIONS,
   isPlaceholderName,
   linkMeetingPeople,
   looksLikeBot,
