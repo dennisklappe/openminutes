@@ -57,8 +57,11 @@ export interface SummaryAiEditInput {
 }
 
 export interface SummaryAiEditDto {
-  summaryId: string;
+  /** Left out when only the people lists changed and no new version was written. */
+  summaryId?: string;
   previousId: string;
+  /** What changed in the attendee lists, in plain words. */
+  people: string[];
 }
 
 export interface CalendarLinkDto {

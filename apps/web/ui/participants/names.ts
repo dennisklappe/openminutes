@@ -4,19 +4,43 @@ export const NAME_MAX = 80;
 
 export interface RenameChange {
   name: string;
-  inviteeEmail: string | null;
+  inviteeEmails: string[];
+  /** Only set when the person is not on the invitation, null clears it. */
+  email?: string | null;
 }
 
-/** What to save, or undefined when the name is invalid or nothing changed. `link` is '' for none. */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const validEmail = (value: string) => value === '' || EMAIL.test(value);
+
+const sameSet = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((email) => b.includes(email));
+
+/**
+ * What to save, or undefined when the name or the typed email is invalid or nothing changed.
+ * `links` are the invitees this person is. `email` is only used when there are none.
+ */
 export function renameToSave(
   draft: string,
   person: ParticipantDto,
-  link: string,
+  links: readonly string[],
+  email = '',
 ): RenameChange | undefined {
   const name = draft.trim();
-  if (name === '' || name.length > NAME_MAX) return undefined;
-  if (name === person.name && link === (person.inviteeEmail ?? '')) return undefined;
-  return { name, inviteeEmail: link === '' ? null : link };
+  const typed = email.trim();
+  if (name === '' || name.length > NAME_MAX || !validEmail(typed)) return undefined;
+  const ownEmail = links.length === 0;
+  if (
+    name === person.name &&
+    sameSet(links, person.inviteeEmails) &&
+    (!ownEmail || typed === (person.email ?? ''))
+  ) {
+    return undefined;
+  }
+  return {
+    name,
+    inviteeEmails: [...links],
+    ...(ownEmail && { email: typed === '' ? null : typed }),
+  };
 }
 
 const firstWord = (value: string) =>

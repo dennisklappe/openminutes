@@ -67,7 +67,8 @@ it('applies a remembered alias and keeps the name used in the meeting', async ()
   await test.db.insert(participantAliases).values({
     originalName: 'Marketing Acme',
     displayName: 'Carla',
-    inviteeEmail: 'carla@acme.example',
+    inviteeEmails: ['carla@acme.example'],
+    email: 'carla.private@example.com',
   });
 
   await saveRoom(test.db, meetingId, new Date('2026-10-20T10:00:00Z'), {
@@ -83,14 +84,15 @@ it('applies a remembered alias and keeps the name used in the meeting', async ()
     .from(participants)
     .where(eq(participants.meetingId, meetingId))
     .orderBy(participants.displayName);
-  expect(people.map((p) => [p.displayName, p.inviteeEmail])).toEqual([
-    ['Bob', null],
-    ['Carla', 'carla@acme.example'],
+  expect(people.map((p) => [p.displayName, p.inviteeEmails])).toEqual([
+    ['Bob', []],
+    ['Carla', ['carla@acme.example']],
   ]);
   expect(people.map((p) => [p.displayName, p.originalName])).toEqual([
     ['Bob', 'Bob'],
     ['Carla', 'marketing acme'],
   ]);
+  expect(people.map((p) => p.email)).toEqual([null, 'carla.private@example.com']);
   const events = await test.db.select().from(speakerEvents);
   expect(events.map((e) => e.participantId)).toEqual([people[1]?.id]);
   await test.close();

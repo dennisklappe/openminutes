@@ -10,7 +10,8 @@ const person: ParticipantDto = {
   leftAt: null,
   talkMs: 0,
   confirmed: true,
-  inviteeEmail: null,
+  email: null,
+  inviteeEmails: [],
 };
 
 const invitee = (email: string, name: string | null): InviteeDto => ({
@@ -21,23 +22,51 @@ const invitee = (email: string, name: string | null): InviteeDto => ({
 
 describe('renameToSave', () => {
   it('trims and returns a changed name', () => {
-    expect(renameToSave('  Bren  ', person, '')).toEqual({ name: 'Bren', inviteeEmail: null });
+    expect(renameToSave('  Bren  ', person, [])).toEqual({
+      name: 'Bren',
+      inviteeEmails: [],
+      email: null,
+    });
   });
 
   it('returns nothing for an empty, unchanged or too long name', () => {
-    expect(renameToSave('   ', person, '')).toBeUndefined();
-    expect(renameToSave(' Carla ', person, '')).toBeUndefined();
-    expect(renameToSave('x'.repeat(81), person, '')).toBeUndefined();
+    expect(renameToSave('   ', person, [])).toBeUndefined();
+    expect(renameToSave(' Carla ', person, [])).toBeUndefined();
+    expect(renameToSave('x'.repeat(81), person, [])).toBeUndefined();
   });
 
   it('saves a changed invitee link with the same name, and a cleared one as null', () => {
-    expect(renameToSave('Carla', person, 'b@x.com')).toEqual({
+    expect(renameToSave('Carla', person, ['b@x.com'])).toEqual({
       name: 'Carla',
-      inviteeEmail: 'b@x.com',
+      inviteeEmails: ['b@x.com'],
     });
-    const linked = { ...person, inviteeEmail: 'b@x.com' };
-    expect(renameToSave('Carla', linked, '')).toEqual({ name: 'Carla', inviteeEmail: null });
-    expect(renameToSave('Carla', linked, 'b@x.com')).toBeUndefined();
+    const linked = { ...person, inviteeEmails: ['b@x.com'] };
+    expect(renameToSave('Carla', linked, [])).toEqual({
+      name: 'Carla',
+      inviteeEmails: [],
+      email: null,
+    });
+    expect(renameToSave('Carla', linked, ['b@x.com'])).toBeUndefined();
+  });
+
+  it('saves several invitees for one person, whatever the order', () => {
+    const linked = { ...person, inviteeEmails: ['a@x.com', 'b@x.com'] };
+    expect(renameToSave('Carla', linked, ['b@x.com', 'a@x.com'])).toBeUndefined();
+    expect(renameToSave('Carla', linked, ['a@x.com', 'b@x.com', 'c@x.com'])?.inviteeEmails).toEqual(
+      ['a@x.com', 'b@x.com', 'c@x.com'],
+    );
+  });
+
+  it('saves a typed email for someone who is not invited, and rejects a bad one', () => {
+    expect(renameToSave('Carla', person, [], ' jo@parker.example ')).toEqual({
+      name: 'Carla',
+      inviteeEmails: [],
+      email: 'jo@parker.example',
+    });
+    expect(renameToSave('Carla', person, [], 'jo@parker')).toBeUndefined();
+    const known = { ...person, email: 'jo@parker.example' };
+    expect(renameToSave('Carla', known, [], 'jo@parker.example')).toBeUndefined();
+    expect(renameToSave('Carla', known, [], '')?.email).toBeNull();
   });
 });
 

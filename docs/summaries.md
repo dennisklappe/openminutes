@@ -28,7 +28,7 @@ flowchart LR
 
 ## Edit with AI
 
-The Summary tab has a collapsed **Edit with AI** bar under the summary. Type an instruction ("remove all open questions, they were clear") or pick a chip, and the AI rewrites the active summary.
+The Summary tab has a collapsed **Edit with AI** bar under the summary. Type an instruction ("remove all open questions, they were clear") or pick a chip, and the AI rewrites the active summary. The same box can also fix the people: "remove Dennis from unable to attend, he was there as Dennis K" dismisses that invitee or marks them as present under the matching attendee.
 
 ```mermaid
 flowchart LR
@@ -41,8 +41,9 @@ flowchart LR
 
 - It uses your configured summary provider and model, shown under the box. Each instruction is one request, billed by that provider. Without a provider the bar is replaced by a hint.
 - It uses your configured summary provider, one billed request per instruction. Without a provider the bar shows a hint.
+- When the meeting has invitees under **Unable to attend**, a first request lets the model pick invitees to remove or to mark as present. It can only choose from the people listed on the page, nothing else is accepted. If only the people changed, no summary version is written.
 - The model returns the full Markdown and invents nothing. **Use the transcript too** (off by default) lets it add or check facts.
 - Limits: 1000 characters per instruction, 20 edits per meeting per 10 minutes, one at a time. Nothing is saved when the provider fails or the result is empty or unchanged. A result under 15 percent of the original asks for confirmation.
 - The last instructions are listed with **Show changes** and **Undo**. Google Docs, Word files and sent emails are copies: use **Update the Google Doc** after an edit.
 
-API: `POST /api/meetings/:id/summary/ai-edit` with `{ "instruction": "...", "useTranscript": false }`, returns `201 { summaryId, previousId }`. Add `"confirmShrink": true` to accept a result that removes almost everything.
+API: `POST /api/meetings/:id/summary/ai-edit` with `{ "instruction": "...", "useTranscript": false }`, returns `201 { summaryId, previousId, people }`. `summaryId` is left out when only the people lists changed, `people` lists what changed in words. Add `"confirmShrink": true` to accept a result that removes almost everything.

@@ -66,7 +66,8 @@ export async function loadParticipants(
       leftAt: person.leftAt?.toISOString() ?? null,
       talkMs: talk.get(person.id) ?? 0,
       confirmed: person.nameConfirmed,
-      inviteeEmail: person.inviteeEmail,
+      email: person.email,
+      inviteeEmails: person.inviteeEmails,
     })),
   };
 }

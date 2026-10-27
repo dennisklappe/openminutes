@@ -17,7 +17,7 @@ export interface MinutesInvitee {
 export interface MinutesSource {
   meeting: {
     title: string;
-    platform: 'meet' | 'teams' | 'recording';
+    platform: 'meet' | 'teams' | 'recording' | 'imported';
     joinUrl: string;
     scheduledStart: Date | null;
     startedAt: Date | null;
@@ -31,7 +31,7 @@ export interface MinutesSource {
     displayName: string;
     originalName?: string | null;
     email: string | null;
-    inviteeEmail?: string | null;
+    inviteeEmails?: readonly string[] | null;
   }[];
   botName: string;
   summary: string | null;
@@ -123,6 +123,7 @@ function buildPhoneMinutes(source: MinutesSource): Minutes {
 export function buildMinutes(source: MinutesSource): Minutes {
   if (source.meeting.platform === 'recording') return buildPhoneMinutes(source);
   const { meeting } = source;
+  const joinUrl = meeting.platform === 'imported' ? '' : meeting.joinUrl;
   const invitees = meeting.invitees ?? [];
   const present = presentPeople(source, invitees);
   const nobodySeen = present.length === 0;
@@ -133,8 +134,8 @@ export function buildMinutes(source: MinutesSource): Minutes {
     startedAt: iso(meeting.startedAt ?? meeting.scheduledStart),
     endedAt: iso(meeting.endedAt),
     platform: meeting.platform,
-    joinUrl: meeting.joinUrl,
-    location: locationOf(meeting.location, meeting.joinUrl),
+    joinUrl,
+    location: locationOf(meeting.location, joinUrl),
     attendees: nobodySeen ? invitees.filter((invitee) => !invitee.declined).map(toPerson) : present,
     absent: absentees(source, invitees, nobodySeen),
     summary: withoutSummaryHeading(source.summary),

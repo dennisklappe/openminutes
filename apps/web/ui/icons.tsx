@@ -150,8 +150,13 @@ export function PhoneIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-export function PlatformIcon({ platform }: { platform: 'meet' | 'teams' | 'recording' }) {
+export function PlatformIcon({
+  platform,
+}: {
+  platform: 'meet' | 'teams' | 'recording' | 'imported';
+}) {
   if (platform === 'recording') return <PhoneIcon />;
+  if (platform === 'imported') return <ImportIcon />;
   return platform === 'meet' ? <MeetIcon /> : <TeamsIcon />;
 }
 export const DocumentIcon = () => (
@@ -162,6 +167,11 @@ export const DocumentIcon = () => (
 export const ExternalIcon = () => (
   <Svg size={12}>
     <path d="M6.5 3H3v10h10V9.5M9.5 2.5h4v4M13.5 2.5 7.5 8.5" />
+  </Svg>
+);
+export const ImportIcon = () => (
+  <Svg>
+    <path d="M8 10.2V2M4.8 5 8 1.8 11.2 5M2.5 13.5h11" />
   </Svg>
 );
 export const DownloadIcon = () => (

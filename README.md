@@ -33,17 +33,18 @@
 
 ## What it does
 
-| Feature              | Details                                                                                  |
-| -------------------- | ---------------------------------------------------------------------------------------- |
-| Joins for you        | Reads Google Calendar and Outlook invites, or paste a Meet or Teams link to join now.    |
-| Records audio        | Opus segments plus the participant list and active speaker, logged with timestamps.      |
-| Knows who spoke      | Transcript words are aligned to who was speaking, so segments carry names.               |
-| Transcribes anywhere | Local faster-whisper with no key, or OpenAI, Groq, Deepgram or AssemblyAI with yours.    |
-| Summarises if asked  | Off by default. Any OpenAI-compatible endpoint (including Ollama) or Anthropic.          |
-| Sorts your minutes   | A Minutes tab sorts transcripts by date, company or person, or in your own folders.      |
-| Shares minutes       | Email the minutes to attendees through Emailit, SMTP or Gmail. Never without a click.    |
-| Records in person    | A phone recorder (installable web app) for conversations that are not on a call.         |
-| Stays yours          | One Postgres, one volume. Secrets encrypted at rest. No telemetry, no account, no cloud. |
+| Feature              | Details                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Joins for you        | Reads Google Calendar and Outlook invites, or paste a Meet or Teams link to join now.                         |
+| Records audio        | Opus segments plus the participant list and active speaker, logged with timestamps.                           |
+| Knows who spoke      | Transcript words are aligned to who was speaking, so segments carry names.                                    |
+| Transcribes anywhere | Local faster-whisper with no key, or OpenAI, Groq, Deepgram or AssemblyAI with yours.                         |
+| Summarises if asked  | Off by default. Any OpenAI-compatible endpoint (including Ollama) or Anthropic.                               |
+| Sorts your minutes   | A Minutes tab sorts transcripts by date, company or person, or in your own folders.                           |
+| Shares minutes       | Email the minutes to attendees through Emailit, SMTP or Gmail. Never without a click.                         |
+| Records in person    | A phone recorder (installable web app) for conversations that are not on a call.                              |
+| Imports Fireflies    | Upload your Fireflies data export to bring in the recordings, which are then transcribed and summarised here. |
+| Stays yours          | One Postgres, one volume. Secrets encrypted at rest. No telemetry, no account, no cloud.                      |
 
 ## Install
 

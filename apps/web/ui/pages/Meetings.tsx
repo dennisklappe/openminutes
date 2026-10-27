@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import type { MeetingListItemDto, MeetingStatus } from '../../src/dto.js';
 import { api, type BulkAction, type MeetingFilter } from '../api.js';
 import { formatLength, formatWhen } from '../format.js';
-import { ClockIcon, MoreIcon, SearchIcon, UsersIcon, PlatformIcon } from '../icons.js';
+import { ClockIcon, ImportIcon, MoreIcon, SearchIcon, UsersIcon, PlatformIcon } from '../icons.js';
 import { JoinBox } from '../JoinBox.js';
 import { JoinChoice } from '../JoinChoice.js';
 import { Menu } from '../Menu.js';
@@ -34,6 +34,7 @@ const PLATFORMS = [
   { value: 'meet', label: 'Meet' },
   { value: 'teams', label: 'Teams' },
   { value: 'recording', label: 'Phone' },
+  { value: 'imported', label: 'Imported' },
 ];
 const LIVE: MeetingStatus[] = ['joining', 'in_lobby', 'recording'];
 
@@ -321,7 +322,13 @@ export function Meetings() {
           <h1>Meetings</h1>
           <p className="lede">Send the bot into a meeting now, or let your calendar do it.</p>
         </div>
-        <RecordLink className="button primary record-cta" />
+        <div className="head-actions">
+          <a className="button" href="#/import">
+            <ImportIcon />
+            <span>Import</span>
+          </a>
+          <RecordLink className="button primary record-cta" />
+        </div>
       </header>
       <UnfinishedBanner />
       <JoinBox onJoined={refresh} />

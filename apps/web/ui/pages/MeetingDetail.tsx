@@ -5,7 +5,7 @@ import { JoinChoice } from '../JoinChoice.js';
 import { formatDate, formatDuration, platformLabels, progressLabel } from '../format.js';
 import { languageName } from '../languages.js';
 import { RerunDialog } from '../RerunDialog.js';
-import { ChevronIcon, ClockIcon, PlatformIcon } from '../icons.js';
+import { ChevronIcon, ClockIcon, ExternalIcon, PlatformIcon } from '../icons.js';
 import { Panel } from '../Panel.js';
 import { talkTime } from '../speakers.js';
 import { MinutesPanel } from '../MinutesPanel.js';
@@ -24,6 +24,7 @@ import { downloadItems, moreItems } from './meetingMenus.js';
 export function MeetingDetail({ id }: { id: string }) {
   const load = useCallback(() => api.meeting(id), [id]);
   const { data, error, refresh } = usePolling(load);
+  const [peopleKey, setPeopleKey] = useState(0);
   const [actionError, setActionError] = useState<string>();
   const [showChat, setShowChat] = useShowChat();
   const [chosenTab, setChosenTab] = useState<'transcript' | 'summary'>();
@@ -286,6 +287,9 @@ export function MeetingDetail({ id }: { id: string }) {
               options={summaryOptions}
               hasTranscript={segments.length > 0}
               onRequested={refresh}
+              onPeopleChanged={() => {
+                setPeopleKey((key) => key + 1);
+              }}
             />
           )}
         </section>
@@ -294,7 +298,17 @@ export function MeetingDetail({ id }: { id: string }) {
             <dl className="facts">
               <dt>Platform</dt>
               <dd>{platformLabels[meeting.platform]}</dd>
-              {meeting.platform !== 'recording' && (
+              {meeting.platform === 'imported' && (
+                <>
+                  <dt>Source</dt>
+                  <dd>
+                    <a href={meeting.joinUrl} target="_blank" rel="noreferrer">
+                      Fireflies <ExternalIcon />
+                    </a>
+                  </dd>
+                </>
+              )}
+              {meeting.platform !== 'recording' && meeting.platform !== 'imported' && (
                 <>
                   <dt>Link</dt>
                   <dd className="mono" title={meeting.joinUrl}>
@@ -336,6 +350,7 @@ export function MeetingDetail({ id }: { id: string }) {
             <PeopleCard
               meetingId={id}
               transcriptSize={segments.length}
+              reloadKey={peopleKey}
               hasSummary={summaries.length > 0}
               onChanged={refresh}
             />

@@ -1,14 +1,9 @@
-import { createWriteStream } from 'node:fs';
-import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
-import { dirname } from 'node:path';
-import { Transform } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 import { meetingFolder } from './audio-paths.js';
+import { ChunkStore } from './chunk-store.js';
 import type { LocalStorage } from './storage.js';
 
-export const MAX_CHUNK_BYTES = 8 * 1024 * 1024;
+export { ChunkLimitError, MAX_CHUNK_BYTES, missingChunks } from './chunk-store.js';
 export const MAX_CHUNK_INDEX = 20_000;
 export const MAX_RECORDING_BYTES = 2 * 1024 * 1024 * 1024;
 
@@ -49,48 +44,12 @@ export function matchesFormat(format: RecordingFormat, head: Uint8Array): boolea
   }
 }
 
-export async function readChunkHead(
-  storage: LocalStorage,
-  recordingId: string,
-  index: number,
-): Promise<Uint8Array> {
-  const parts: Buffer[] = [];
-  for await (const part of storage.read(chunkPath(recordingId, index), { start: 0, end: 15 })) {
-    parts.push(part as Buffer);
-  }
-  return Buffer.concat(parts);
-}
-
-export class ChunkLimitError extends Error {
-  constructor() {
-    super('The chunk or the recording is too large');
-  }
-}
-
 const chunksFolder = (recordingId: string) => `${meetingFolder(recordingId)}/chunks`;
-const chunkName = (index: number) => `${String(index).padStart(6, '0')}.part`;
-const chunkPath = (recordingId: string, index: number) =>
-  `${chunksFolder(recordingId)}/${chunkName(index)}`;
+const store = (storage: LocalStorage, recordingId: string) =>
+  new ChunkStore(storage, chunksFolder(recordingId), MAX_RECORDING_BYTES);
 const formatPath = (recordingId: string) => `${chunksFolder(recordingId)}/format`;
 const finalPath = (recordingId: string, format: RecordingFormat) =>
   `${meetingFolder(recordingId)}/recording.${format.extension}`;
-
-async function writeAtomically(
-  storage: LocalStorage,
-  path: string,
-  write: (temporary: string) => Promise<void>,
-): Promise<void> {
-  const target = storage.absolutePath(path);
-  await mkdir(dirname(target), { recursive: true });
-  const temporary = `${target}.${randomUUID()}.tmp`;
-  try {
-    await write(temporary);
-    await rename(temporary, target);
-  } catch (error) {
-    await rm(temporary, { force: true });
-    throw error;
-  }
-}
 
 export async function saveRecordingFormat(
   storage: LocalStorage,
@@ -116,58 +75,18 @@ async function readFirstLine(storage: LocalStorage, path: string): Promise<strin
   return Buffer.concat(chunks).toString().trim();
 }
 
-export async function receivedChunks(
-  storage: LocalStorage,
-  recordingId: string,
-): Promise<number[]> {
-  const names = await readdir(storage.absolutePath(chunksFolder(recordingId))).catch(() => []);
-  return names
-    .filter((name) => name.endsWith('.part'))
-    .map((name) => Number.parseInt(name, 10))
-    .sort((a, b) => a - b);
-}
+export const readChunkHead = (storage: LocalStorage, recordingId: string, index: number) =>
+  store(storage, recordingId).head(index);
 
-export function missingChunks(received: readonly number[], count: number): number[] {
-  const have = new Set(received);
-  return Array.from({ length: count }, (_, index) => index).filter((index) => !have.has(index));
-}
+export const receivedChunks = (storage: LocalStorage, recordingId: string) =>
+  store(storage, recordingId).received();
 
-async function storedBytes(
-  storage: LocalStorage,
-  recordingId: string,
-  except: number,
-): Promise<number> {
-  const received = await receivedChunks(storage, recordingId);
-  const sizes = await Promise.all(
-    received
-      .filter((index) => index !== except)
-      .map((index) => storage.size(chunkPath(recordingId, index))),
-  );
-  return sizes.reduce((sum, size) => sum + size, 0);
-}
-
-function limited(maxBytes: number): Transform {
-  let seen = 0;
-  return new Transform({
-    transform(chunk: Buffer, _encoding, done) {
-      seen += chunk.length;
-      done(seen > maxBytes ? new ChunkLimitError() : null, chunk);
-    },
-  });
-}
-
-export async function saveChunk(
+export const saveChunk = (
   storage: LocalStorage,
   recordingId: string,
   index: number,
   body: Readable,
-): Promise<void> {
-  const room = MAX_RECORDING_BYTES - (await storedBytes(storage, recordingId, index));
-  const limit = Math.min(MAX_CHUNK_BYTES, room);
-  await writeAtomically(storage, chunkPath(recordingId, index), (temporary) =>
-    pipeline(body, limited(limit), createWriteStream(temporary)),
-  );
-}
+) => store(storage, recordingId).save(index, body);
 
 export async function assembleChunks(
   storage: LocalStorage,
@@ -176,19 +95,11 @@ export async function assembleChunks(
   format: RecordingFormat,
 ): Promise<{ path: string; size: number }> {
   const path = finalPath(recordingId, format);
-  const parts = async function* () {
-    for (let index = 0; index < count; index++) {
-      yield* storage.read(chunkPath(recordingId, index));
-    }
-  };
-  await writeAtomically(storage, path, (temporary) =>
-    pipeline(parts, createWriteStream(temporary)),
-  );
-  return { path, size: (await stat(storage.absolutePath(path))).size };
+  return { path, size: await store(storage, recordingId).assemble(count, path) };
 }
 
 export const removeChunks = (storage: LocalStorage, recordingId: string) =>
-  storage.removeDirectory(chunksFolder(recordingId));
+  store(storage, recordingId).remove();
 
 export const removeRecordingFolder = (storage: LocalStorage, recordingId: string) =>
   storage.removeDirectory(meetingFolder(recordingId));

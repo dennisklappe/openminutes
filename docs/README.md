@@ -70,6 +70,7 @@ Calendar sync (or a pasted link) starts the bot a minute before the meeting. Aft
 - [Voices and speaker names](voices.md): Name voices in phone recordings and the optional voiceprint memory.
 - [Meeting chat](chat.md): How the bot captures the Meet and Teams chat and where it ends up.
 - [Phone recorder](phone-recorder.md): Record in person on your phone, also offline, with a speaker count and crash recovery.
+- [Import from Fireflies](import-fireflies.md): Bring your Fireflies meetings in recordings from your account data export, transcribed and summarised by your own setup.
 - [Archive and bin](archive-and-bin.md): Archive minutes, delete with 30 days to restore, the daily purge.
 
 ### Operate

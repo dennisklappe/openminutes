@@ -114,6 +114,11 @@
           "lead": "Record in person on your phone, also offline, with a speaker count and crash recovery."
         },
         {
+          "file": "import-fireflies",
+          "title": "Import from Fireflies",
+          "lead": "Bring your Fireflies meetings into OpenMinutes from your account data export."
+        },
+        {
           "file": "archive-and-bin",
           "title": "Archive and bin",
           "lead": "Archive minutes, delete with 30 days to restore, the daily purge."

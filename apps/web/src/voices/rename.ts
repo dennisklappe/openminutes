@@ -9,6 +9,7 @@ import {
   transcriptSegments,
   type Database,
 } from '@openminutes/db';
+import { personEmail } from '../participants/invitee-links.js';
 import { replaceName } from './names.js';
 
 type Participant = typeof participants.$inferSelect;
@@ -65,6 +66,8 @@ export async function nameVoice(
       .set({ displayName: name, nameConfirmed: true, voiceEmbedding: embedding })
       .where(eq(participants.id, survivor.id));
     await rewriteSummary(tx, voice.meetingId, voice.displayName, name);
-    if (remember && embedding) await rememberVoice(tx, name, embedding);
+    if (remember && embedding) {
+      await rememberVoice(tx, name, embedding, personEmail(survivor));
+    }
   });
 }
