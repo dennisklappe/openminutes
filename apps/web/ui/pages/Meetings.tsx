@@ -194,7 +194,9 @@ function Table(props: {
             <th>Date</th>
             <th className="num">Length</th>
             <th className="num">People</th>
-            <th aria-label="Actions" />
+            <th>
+              <span className="visually-hidden">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>

@@ -296,20 +296,9 @@ export function People() {
         >
           <option value="all">Everyone</option>
           <option value="joined">Was in a meeting</option>
-          <option value="invited">Invited only</option>
+          <option value="invited">Invited only ({data?.invitedOnly ?? 0})</option>
           <option value="unnamed">Unnamed voices</option>
         </select>
-        <button
-          type="button"
-          aria-pressed={source === 'invited'}
-          className={source === 'invited' ? 'primary' : undefined}
-          onClick={() => {
-            setSource(source === 'invited' ? 'joined' : 'invited');
-            setPage(1);
-          }}
-        >
-          Invited only ({data?.invitedOnly ?? 0})
-        </button>
         <select
           aria-label="Tracking"
           value={tracking}
