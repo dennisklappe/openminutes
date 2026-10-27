@@ -44,6 +44,7 @@ import { googleSessionRoutes } from './settings/google-session.js';
 import { limitsRoutes } from './settings/limits.js';
 import { timeZoneRoutes } from './settings/timezone.js';
 import { speakerSettingsRoutes } from './settings/speakers.js';
+import { sharedAccountsSettingsRoutes } from './settings/shared-accounts.js';
 import { summaryChatSettingsRoutes } from './settings/summary-chat.js';
 import { storageRoutes } from './settings/storage.js';
 import { wizardRoutes } from './settings/wizard.js';
@@ -168,6 +169,7 @@ export function createApp(deps: AppDeps): Hono {
   api.route('/settings/phone', phoneSettingsRoutes(deps));
   api.route('/settings/speakers', speakerSettingsRoutes(deps));
   api.route('/settings/summary-chat', summaryChatSettingsRoutes(deps));
+  api.route('/settings/shared-accounts', sharedAccountsSettingsRoutes(deps));
   api.route('/settings/voices', voiceSettingsRoutes(deps));
   api.route('/settings/participant-aliases', participantAliasRoutes(deps));
   api.route('/settings/wizard', wizardRoutes(deps));

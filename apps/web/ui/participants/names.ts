@@ -54,6 +54,16 @@ const firstWord = (value: string) =>
 const inviteeFirstWord = (invitee: InviteeDto) =>
   firstWord(invitee.name ?? invitee.email.slice(0, invitee.email.indexOf('@')));
 
+/** "bart.de-vries@example.com" becomes "Bart De Vries". */
+export function nameFromEmail(email: string): string {
+  const local = email.split('@')[0] ?? '';
+  const words = local
+    .replace(/\+.*$/, '')
+    .split(/[._\-\s]+/)
+    .filter(Boolean);
+  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || email;
+}
+
 export const inviteeLabel = (invitee: InviteeDto) =>
   invitee.name ? `${invitee.name} (${invitee.email})` : invitee.email;
 

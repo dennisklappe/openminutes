@@ -173,6 +173,24 @@ describe('the notice that speakers changed after the summary', () => {
     await call('POST', '/people/review/undo', { segmentId: line.id });
     expect(await notice(meeting.id)).toBe(true);
   });
+
+  it('shows after a person turns down the suggestion that made a line doubtful', async () => {
+    const { meeting, one, two, line } = await fixture();
+    const created = await call('POST', '/people', { name: `Rejector ${meeting.id.slice(0, 6)}` });
+    const person = ((await created.json()) as PersonDetailDto).person;
+    await test.db
+      .update(participants)
+      .set({ displayName: person.name, personId: person.id, nameConfirmed: true })
+      .where(eq(participants.id, two.id));
+    await test.db
+      .update(transcriptSegments)
+      .set({ suggestedParticipantId: two.id, speakerConfidence: 0.4 })
+      .where(eq(transcriptSegments.id, line.id));
+    expect(one.id).not.toBe(two.id);
+    expect(await notice(meeting.id)).toBe(false);
+    await call('POST', `/people/${person.id}/lines/${line.id}/reject`, {});
+    expect(await notice(meeting.id)).toBe(true);
+  });
 });
 
 const missing = () => '00000000-0000-4000-8000-000000000000';

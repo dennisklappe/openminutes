@@ -9,6 +9,7 @@ import type {
 import { api, errorMessage, meetingUrl } from '../api.js';
 import { useConfirm } from '../Confirm.js';
 import { MergeInto } from '../MergePeople.js';
+import { NameVoiceDialog } from '../NameVoice.js';
 import {
   coverageText,
   parseEmails,
@@ -207,6 +208,11 @@ function Line({
         )}
         <p className="muted line-meta">
           <a href={`#/meetings/${line.meetingId}`}>{line.meetingTitle}</a>
+          {line.sharedVia && (
+            <span className="shared-marker" title={`Heard in the shared account ${line.sharedVia}`}>
+              via shared account
+            </span>
+          )}
           {line.reason && <span> · {reasonLabel(line)}</span>}
           {line.verified && (
             <span>{line.inProfile ? ' · In the voice profile' : ' · Confirmed by you'}</span>
@@ -289,6 +295,7 @@ export function PersonDetail({ id }: { id: string }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [merging, setMerging] = useState(false);
+  const [naming, setNaming] = useState(false);
 
   useEffect(() => {
     setDetail(undefined);
@@ -407,6 +414,12 @@ export function PersonDetail({ id }: { id: string }) {
           <h1>
             {person.name}
             {untracked && <span className="status-chip">Not tracked</span>}
+            {person.unnamed && <span className="status-chip">Unnamed</span>}
+            {person.sharedAccount && (
+              <span className="status-chip" title="Heard in a shared account">
+                via shared account: {person.sharedAccount}
+              </span>
+            )}
           </h1>
           <p className="lede">
             {person.emails.length === 0 ? 'No email' : person.emails.join(', ')}
@@ -415,6 +428,17 @@ export function PersonDetail({ id }: { id: string }) {
           </p>
         </div>
         <div className="head-actions">
+          {person.unnamed && (
+            <button
+              type="button"
+              className="primary"
+              onClick={() => {
+                setNaming(true);
+              }}
+            >
+              Name
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -674,6 +698,19 @@ export function PersonDetail({ id }: { id: string }) {
           detail={detail}
           busy={busy}
           act={act}
+        />
+      )}
+      {naming && (
+        <NameVoiceDialog
+          person={person}
+          onClose={() => {
+            setNaming(false);
+          }}
+          onNamed={(personId) => {
+            setNaming(false);
+            if (personId === person.id) act(api.person(person.id));
+            else window.location.hash = `#/people/${personId}`;
+          }}
         />
       )}
       {merging && (

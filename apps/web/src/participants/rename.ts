@@ -1,4 +1,4 @@
-import { linkParticipant, rememberVoice } from '@openminutes/core';
+import { cleanEmails, isSharedTile, linkParticipant, rememberVoice } from '@openminutes/core';
 import {
   and,
   desc,
@@ -6,12 +6,14 @@ import {
   ne,
   participantAliases,
   participants,
+  people,
   sql,
   summaries,
   type Database,
 } from '@openminutes/db';
 import { addSummaryVersion } from '../minutes/summary-edit.js';
 import { personEmail } from './invitee-links.js';
+import { isSubSeat } from './shared-rules.js';
 import { renameInText } from './replace.js';
 
 type Participant = typeof participants.$inferSelect;
@@ -25,6 +27,26 @@ export interface RenameOutcome {
 export interface PersonLinks {
   inviteeEmails?: string[];
   email?: string | null;
+}
+
+/** Adds the addresses of a seat to its own person, unless another person has them. */
+async function addEmailsToOwn(tx: Tx, seat: Participant): Promise<void> {
+  if (!seat.personId) return;
+  const wanted = cleanEmails([seat.email ?? '', ...seat.inviteeEmails]);
+  if (wanted.length === 0) return;
+  const [own] = await tx.select().from(people).where(eq(people.id, seat.personId));
+  if (!own) return;
+  const free: string[] = [];
+  for (const email of wanted) {
+    const [owner] = await tx
+      .select({ id: people.id })
+      .from(people)
+      .where(and(sql`${people.emails} ? ${email}`, ne(people.id, own.id)));
+    if (!owner) free.push(email);
+  }
+  const emails = cleanEmails([...own.emails, ...free]);
+  if (emails.length === own.emails.length) return;
+  await tx.update(people).set({ emails, updatedAt: new Date() }).where(eq(people.id, own.id));
 }
 
 async function syncAlias(tx: Tx, original: string, name: string, person: Participant) {
@@ -96,8 +118,14 @@ export async function renameParticipant(
       })
       .where(eq(participants.id, person.id))
       .returning();
-    if (saved) await linkParticipant(tx, saved);
-    if (remember && saved) {
+    // A tile with several people is nobody: no person, alias or voice is made for it. A person of
+    // such a tile keeps the person made for the voice, whatever the name says; the addresses
+    // given on the seat are added to that person only.
+    const tile = saved ? await isSharedTile(tx, saved) : false;
+    const sub = saved && !tile ? await isSubSeat(tx, saved) : false;
+    if (saved && sub) await addEmailsToOwn(tx, saved);
+    else if (saved && !tile) await linkParticipant(tx, saved);
+    if (remember && saved && !tile && !sub) {
       await syncAlias(tx, original, name, saved);
       if (saved.voiceEmbedding) {
         await rememberVoice(tx, name, saved.voiceEmbedding, personEmail(saved), saved.meetingId);

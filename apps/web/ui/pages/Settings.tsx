@@ -13,6 +13,7 @@ import { MinutesSettings } from './MinutesSettings.js';
 import { PromptsSection } from './PromptsSection.js';
 import { ImportSettings } from './ImportSettings.js';
 import { PhoneSettings } from './PhoneSettings.js';
+import { SharedAccountsSettings } from './SharedAccountsSettings.js';
 import { SpeakerSettings } from './SpeakerSettings.js';
 import { SummaryChatSettings } from './SummaryChatSettings.js';
 import { ProviderSection } from './ProviderSection.js';
@@ -184,6 +185,7 @@ const sections: Section[] = [
       <>
         <ProviderSection client={api.summarySettings} />
         <SpeakerSettings />
+        <SharedAccountsSettings />
         <SummaryChatSettings />
         <PromptsSection />
       </>

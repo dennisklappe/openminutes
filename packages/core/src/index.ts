@@ -192,6 +192,7 @@ export {
 export * from './voice-anchors.js';
 export * from './voice-auto.js';
 export * from './voice-rooms.js';
+export * from './shared-accounts.js';
 export {
   isKnownLanguage,
   LANGUAGE_PENALTY,
@@ -233,7 +234,12 @@ export {
   type PhoneConfig,
 } from './phone.js';
 export { addDueDates, describeMeetingDate, type DateContext } from './due-dates.js';
-export { loadTranscriptText } from './transcript-text.js';
+export {
+  GUESSED_SPEAKER_RULE,
+  loadSummaryTranscript,
+  loadTranscriptText,
+  type SummaryTranscript,
+} from './transcript-text.js';
 export { cleanSummaryText } from './summary-text.js';
 export { MAX_SUMMARY_CHARS, sanitizeSummaryMarkdown } from './summary-markdown.js';
 export {
@@ -274,6 +280,7 @@ export {
   type WatchdogLimits,
 } from './watchdog.js';
 export {
+  isDoubtful,
   isUncertain,
   LOW_SPEAKER_CONFIDENCE,
   MIN_SUGGESTION_SCORE,

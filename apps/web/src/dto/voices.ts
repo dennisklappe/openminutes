@@ -1,3 +1,5 @@
+import type { RoomGroupDto } from './rooms.js';
+
 export interface VoiceSnippetDto {
   startMs: number;
   endMs: number;
@@ -27,9 +29,15 @@ export interface VoicesDto {
 export interface VoiceNameInput {
   name: string;
   remember?: boolean;
+  /** Take the addresses from the person of the same shared account who has them. */
+  move?: boolean;
 }
 
 export interface ParticipantDto {
+  /** Set when several people share this participant: the people under it. */
+  room?: RoomGroupDto;
+  /** A person can say this participant is several people and split it, there is audio to listen to. */
+  canSplit?: boolean;
   id: string;
   name: string;
   originalName: string | null;
@@ -70,6 +78,8 @@ export interface ParticipantNameInput {
 export interface InviteeLinkInput {
   /** Added to the invitees the person is, null removes all links. */
   email: string | null;
+  /** Take it from the person of the same shared account who has it. */
+  move?: boolean;
 }
 
 export interface DismissInviteeInput {

@@ -1,10 +1,18 @@
-import { eq, meetings, participants } from '@openminutes/db';
+import { and, eq, meetings, participants } from '@openminutes/db';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { ParticipantsDto } from '../dto.js';
 import { loadParticipants, type ParticipantDeps } from './load.js';
-import { dismissInvitee, invitedEmail, linkInvitee, resolveLinks } from './invitee-links.js';
+import {
+  dismissInvitee,
+  invitedEmail,
+  linkInvitee,
+  linkInviteeToPerson,
+  resolveLinks,
+} from './invitee-links.js';
+import { PeopleError } from '../people/edit.js';
 import { renameParticipant } from './rename.js';
+import { assertSharedLinksFree, isSubSeat } from './shared-rules.js';
 
 const uuid = z.uuid();
 const input = z.object({
@@ -15,6 +23,8 @@ const input = z.object({
     .max(80)
     .refine((name) => !/\p{Cc}/u.test(name)),
   remember: z.boolean().optional(),
+  /** Take the addresses from the person of the same shared account who has them. */
+  move: z.boolean().optional(),
   /** Every invitee this person is. Left out keeps the links, [] removes them. */
   inviteeEmails: z.array(z.string()).max(20).optional(),
   /** The address of someone who is not on the invitation, empty or null to clear it. */
@@ -23,7 +33,8 @@ const input = z.object({
     .nullable()
     .optional(),
 });
-const linkInput = z.object({ email: z.string().nullable() });
+const linkInput = z.object({ email: z.string().nullable(), move: z.boolean().optional() });
+const personLinkInput = z.object({ email: z.string(), move: z.boolean().optional() });
 const dismissInput = z.object({ email: z.string() });
 
 export function meetingParticipantRoutes(deps: ParticipantDeps): Hono {
@@ -62,6 +73,20 @@ export function meetingParticipantRoutes(deps: ParticipantDeps): Hono {
     if (!body.success) return c.json({ error: 'The name must be 1 to 80 characters' }, 400);
     const links = body.data.inviteeEmails && resolveLinks(meeting, body.data.inviteeEmails);
     if (links === false) return c.json({ error: 'That person was not invited' }, 400);
+    try {
+      if ((await isSubSeat(deps.db, person)) && body.data.name !== person.displayName) {
+        return c.json({ error: 'Use Name to give this voice a name' }, 409);
+      }
+      await assertSharedLinksFree(
+        deps.db,
+        person,
+        { inviteeEmails: links || undefined, email: body.data.email },
+        body.data.move === true,
+      );
+    } catch (error) {
+      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      throw error;
+    }
     const { summaryUpdated } = await renameParticipant(
       deps.db,
       person,
@@ -85,7 +110,49 @@ export function meetingParticipantRoutes(deps: ParticipantDeps): Hono {
     if (!body.success || link === false) {
       return c.json({ error: 'That person was not invited' }, 400);
     }
+    try {
+      await assertSharedLinksFree(
+        deps.db,
+        person,
+        { inviteeEmails: link },
+        body.data.move === true,
+      );
+    } catch (error) {
+      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      throw error;
+    }
     await linkInvitee(deps.db, person.id, link[0] ?? null);
+    return c.json<ParticipantsDto>(await read(meeting.id, false));
+  });
+
+  /** "They were there" for someone from People who has no seat in this meeting yet. */
+  routes.put('/:id/people/:personId/invitee', async (c) => {
+    const meeting = await findMeeting(c.req.param('id'));
+    const personId = uuid.safeParse(c.req.param('personId'));
+    if (!meeting || !personId.success) return c.json({ error: 'Meeting not found' }, 404);
+    const body = personLinkInput.safeParse(await c.req.json().catch(() => null));
+    const link = body.success ? resolveLinks(meeting, [body.data.email]) : false;
+    if (!body.success || link === false) {
+      return c.json({ error: 'That person was not invited' }, 400);
+    }
+    try {
+      const [seat] = await deps.db
+        .select()
+        .from(participants)
+        .where(
+          and(eq(participants.meetingId, meeting.id), eq(participants.personId, personId.data)),
+        );
+      await assertSharedLinksFree(
+        deps.db,
+        seat ?? { id: '', meetingId: meeting.id, personId: personId.data },
+        { inviteeEmails: link },
+        body.data.move === true,
+      );
+      await linkInviteeToPerson(deps.db, meeting.id, personId.data, link[0] ?? '');
+    } catch (error) {
+      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      throw error;
+    }
     return c.json<ParticipantsDto>(await read(meeting.id, false));
   });
 

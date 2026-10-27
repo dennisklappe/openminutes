@@ -7,7 +7,11 @@ import {
   participantAliases,
   participants,
   people,
+  roomVoices,
+  sharedAccountVoices,
+  speakerEvents,
   sql,
+  transcriptSegments,
   voiceSamples,
   type Database,
 } from '@openminutes/db';
@@ -73,6 +77,8 @@ export async function updatePerson(db: Database, id: string, input: PersonUpdate
       .update(people)
       .set({
         ...(input.name !== undefined && { name: input.name }),
+        // Giving a voice of a shared account a name of its own makes it a person like any other.
+        ...(renamed && current.unnamed && { unnamed: false }),
         ...(emails && { emails }),
         ...(input.notes !== undefined && { notes: input.notes }),
         updatedAt: new Date(),
@@ -94,6 +100,47 @@ async function renameEverywhere(tx: Tx, personId: string, from: string, to: stri
     .update(participantAliases)
     .set({ displayName: to })
     .where(sameName(participantAliases.displayName, from));
+}
+
+/**
+ * When both people have a seat in the same meeting the two seats become one: the lines, speaker
+ * events and addresses of the source seat move to the target seat, so a meeting never lists one
+ * person twice.
+ */
+async function foldSeats(tx: Tx, sourceId: string, targetId: string) {
+  const mine = await tx.select().from(participants).where(eq(participants.personId, sourceId));
+  for (const seat of mine) {
+    const [twin] = await tx
+      .select()
+      .from(participants)
+      .where(and(eq(participants.meetingId, seat.meetingId), eq(participants.personId, targetId)));
+    if (!twin) continue;
+    await tx
+      .update(transcriptSegments)
+      .set({ participantId: twin.id })
+      .where(eq(transcriptSegments.participantId, seat.id));
+    await tx
+      .update(transcriptSegments)
+      .set({ suggestedParticipantId: twin.id })
+      .where(eq(transcriptSegments.suggestedParticipantId, seat.id));
+    await tx
+      .update(transcriptSegments)
+      .set({ previousParticipantId: twin.id })
+      .where(eq(transcriptSegments.previousParticipantId, seat.id));
+    await tx
+      .update(speakerEvents)
+      .set({ participantId: twin.id })
+      .where(eq(speakerEvents.participantId, seat.id));
+    await tx
+      .update(participants)
+      .set({
+        email: twin.email ?? seat.email,
+        inviteeEmails: cleanEmails([...twin.inviteeEmails, ...seat.inviteeEmails]),
+        joinedAt: twin.joinedAt ?? seat.joinedAt,
+      })
+      .where(eq(participants.id, twin.id));
+    await tx.delete(participants).where(eq(participants.id, seat.id));
+  }
 }
 
 /**
@@ -145,6 +192,7 @@ export async function mergePeople(db: Database, targetId: string, sourceId: stri
       .where(
         and(eq(participants.personId, sourceId), sameName(participants.displayName, source.name)),
       );
+    await foldSeats(tx, sourceId, targetId);
     await tx
       .update(participants)
       .set({ personId: targetId })
@@ -153,6 +201,15 @@ export async function mergePeople(db: Database, targetId: string, sourceId: stri
       .update(participantAliases)
       .set({ displayName: target.name })
       .where(sameName(participantAliases.displayName, source.name));
+    // The voices of a shared tile that were this person are the target now.
+    await tx
+      .update(roomVoices)
+      .set({ personId: targetId })
+      .where(eq(roomVoices.personId, sourceId));
+    await tx
+      .update(sharedAccountVoices)
+      .set({ personId: targetId })
+      .where(eq(sharedAccountVoices.personId, sourceId));
     await tx.execute(sql`
       insert into meeting_invitees (meeting_id, person_id)
       select meeting_id, ${targetId}::uuid from meeting_invitees where person_id = ${sourceId}::uuid
@@ -165,6 +222,7 @@ export async function mergePeople(db: Database, targetId: string, sourceId: stri
         emails: cleanEmails([...target.emails, ...source.emails]),
         notes: notes.length > 0 ? notes.join('\n\n') : null,
         source: target.source === 'invited' ? source.source : target.source,
+        unnamed: target.unnamed && source.unnamed,
         updatedAt: new Date(),
       })
       .where(eq(people.id, targetId));

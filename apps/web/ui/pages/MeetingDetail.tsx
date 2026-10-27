@@ -195,7 +195,14 @@ export function MeetingDetail({ id }: { id: string }) {
             </p>
           )}
           {meeting.status === 'transcribed' && roomNotices.length > 0 && (
-            <RoomNotice meetingId={id} notices={roomNotices} onChanged={refresh} />
+            <RoomNotice
+              meetingId={id}
+              notices={roomNotices}
+              onChanged={() => {
+                refresh();
+                setPeopleKey((key) => key + 1);
+              }}
+            />
           )}
           {series?.skippedId && (
             <p className="banner">
@@ -366,10 +373,14 @@ export function MeetingDetail({ id }: { id: string }) {
           {segments.length > 0 && (
             <Panel title="Talk time">
               <ul className="talk">
-                {talkTime(segments).map(({ name, slot, share }) => (
-                  <li key={name} data-speaker-slot={slot}>
+                {talkTime(segments).map(({ key, name, slot, unassigned, percent, share }) => (
+                  <li
+                    key={key}
+                    className={unassigned ? 'talk-unassigned' : undefined}
+                    data-speaker-slot={slot ?? undefined}
+                  >
                     <span>{name}</span>
-                    <span className="mono muted">{Math.round(share * 100)}%</span>
+                    <span className="mono muted">{percent}%</span>
                     <i style={{ width: `${share * 100}%` }} />
                   </li>
                 ))}

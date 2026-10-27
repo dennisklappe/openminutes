@@ -214,4 +214,23 @@ describe('learnVoice', () => {
         .where(eq(voiceSamples.personId, dirk?.id ?? '')),
     ).toEqual([]);
   });
+
+  it('never stores the voice of a shared tile for one person', async () => {
+    const { meeting, person, ids } = await setup({
+      nameConfirmed: true,
+      displayName: 'Jo and Sam',
+      email: 'room@example.com',
+      roomCount: 2,
+    });
+    const embedEach = vi.fn(() => Promise.resolve(lines([0.5, 0.5], [0.5, 0.5])));
+    await learnVoice(deps(embedEach), {
+      meetingId: meeting.id,
+      participantId: person.id,
+      segmentIds: ids,
+    });
+    expect(embedEach).not.toHaveBeenCalled();
+    const [row] = await test.db.select().from(participants).where(eq(participants.id, person.id));
+    expect(row?.voiceEmbedding).toBeNull();
+    expect(await test.db.select().from(people).where(eq(people.name, 'Jo and Sam'))).toEqual([]);
+  });
 });

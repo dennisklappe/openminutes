@@ -16,6 +16,7 @@ import {
 } from '@openminutes/db';
 import { displayNameOf, matchInvitees, normalise } from '@openminutes/minutes';
 import { cleanEmails } from './people.js';
+import { isSharedTile } from './shared-accounts.js';
 
 type Person = typeof people.$inferSelect;
 
@@ -292,6 +293,11 @@ async function syncMeeting(
 
   const joined = new Set<string>();
   for (const [i, row] of present.entries()) {
+    // A tile with several people is nobody: its voices are the people, and its email is not theirs.
+    if (await isSharedTile(db, row)) {
+      stats.skipped++;
+      continue;
+    }
     const emails = cleanEmails(
       [row.email, ...row.inviteeEmails, matches[i]?.email].filter(
         (email): email is string => !!email && personalEmail(email),

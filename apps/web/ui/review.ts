@@ -175,6 +175,18 @@ export interface PickerOption {
   name: string;
   /** Marked do not track: shown only in the full list. */
   untracked?: boolean;
+  /** Set for an invitee of the meeting: this address goes to the picked person only. */
+  email?: string;
+}
+
+/** An invitee of the meeting offered as "Who is this?". */
+export interface InvitedOption {
+  email: string;
+  /** "Name (address)", with a name from the invite or derived from the address. */
+  label: string;
+  option: PickerOption;
+  /** The name of the one who has this address now. Picking then moves it. */
+  takenBy: string | null;
 }
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();

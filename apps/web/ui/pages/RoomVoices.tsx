@@ -1,175 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { RoomReviewDto, RoomVoiceDto } from '../../src/dto.js';
 import { api, errorMessage, meetingUrl } from '../api.js';
 import { formatDuration } from '../format.js';
-import { everyoneOptions, rosterOptions, type PickerOption } from '../review.js';
+import { Dialog } from '../Dialog.js';
+import { VoiceFlow } from '../participants/VoiceFlow.js';
 import { SnippetPlayer } from '../SnippetPlayer.js';
 import '../people.css';
-
-type Mode = 'roster' | 'other' | 'new';
-
-const SHOWN = 50;
-
-function WhoIsThis({
-  review,
-  voice,
-  busy,
-  onPick,
-}: {
-  review: RoomReviewDto;
-  voice: RoomVoiceDto;
-  busy: boolean;
-  onPick: (option: PickerOption) => void;
-}) {
-  const [mode, setMode] = useState<Mode>('roster');
-  const [query, setQuery] = useState('');
-  const [name, setName] = useState('');
-  const roster = useMemo(() => rosterOptions(review.roster, review.people, ''), [review]);
-  const everyone = useMemo(() => everyoneOptions(review.people, '', query), [review, query]);
-  const first = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (mode !== 'roster') first.current?.focus();
-  }, [mode]);
-
-  const create = (event: SubmitEvent) => {
-    event.preventDefault();
-    const trimmed = name.trim();
-    if (trimmed) onPick({ personId: null, name: trimmed });
-  };
-
-  return (
-    <div className="review-picker" role="group" aria-label={`Who is voice ${String(voice.number)}`}>
-      <h3>Who is this?</h3>
-      {mode === 'roster' && (
-        <>
-          {roster.length === 0 ? (
-            <p className="muted">Nobody else is listed for this meeting.</p>
-          ) : (
-            <ul className="review-options">
-              {roster.slice(0, 9).map((option) => (
-                <li key={option.personId ?? option.name}>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      onPick(option);
-                    }}
-                  >
-                    {option.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="review-picker-more">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setMode('other');
-              }}
-            >
-              People...
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setMode('new');
-              }}
-            >
-              New person
-            </button>
-          </div>
-        </>
-      )}
-      {mode === 'other' && (
-        <>
-          <label className="field">
-            <span>Search people</span>
-            <input
-              type="search"
-              ref={first as React.RefObject<HTMLInputElement>}
-              value={query}
-              autoComplete="off"
-              placeholder="Name"
-              onChange={(e) => {
-                setQuery(e.target.value);
-              }}
-            />
-          </label>
-          {everyone.length === 0 ? (
-            <p className="muted">Nobody matches.</p>
-          ) : (
-            <ul className="review-options scroll">
-              {everyone.slice(0, SHOWN).map((option) => (
-                <li key={option.personId}>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      onPick(option);
-                    }}
-                  >
-                    {option.name}
-                    {option.untracked && <span className="muted"> · not tracked</span>}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-      {mode === 'new' && (
-        <form onSubmit={create}>
-          <label className="field">
-            <span>Name of the new person</span>
-            <input
-              ref={first as React.RefObject<HTMLInputElement>}
-              value={name}
-              maxLength={80}
-              autoComplete="off"
-              onChange={(e) => {
-                setName(e.target.value);
-              }}
-            />
-          </label>
-          <div className="review-picker-more">
-            <button className="primary" type="submit" disabled={busy || name.trim() === ''}>
-              Add and name the voice
-            </button>
-          </div>
-        </form>
-      )}
-      {mode !== 'roster' && (
-        <div className="review-picker-more">
-          <button
-            type="button"
-            className="link"
-            onClick={() => {
-              setMode('roster');
-            }}
-          >
-            Back
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function VoiceCard({
   review,
   voice,
-  busy,
-  onPick,
+  onChanged,
 }: {
   review: RoomReviewDto;
   voice: RoomVoiceDto;
-  busy: boolean;
-  onPick: (voice: RoomVoiceDto, option: PickerOption) => void;
+  onChanged: (message: string) => void;
 }) {
-  const named = voice.personId !== null;
+  const named = !voice.unnamed;
+  const [changing, setChanging] = useState(false);
+  const label = `Voice ${String(voice.number)}`;
   return (
     <section
       className="panel review-card room-voice"
@@ -200,14 +49,53 @@ function VoiceCard({
           </ul>
         )}
         {!named && (
-          <WhoIsThis
-            review={review}
-            voice={voice}
-            busy={busy}
-            onPick={(option) => {
-              onPick(voice, option);
+          <VoiceFlow
+            meetingId={review.meetingId}
+            tileId={review.participant.id}
+            voiceId={voice.id}
+            label={label}
+            onDone={() => {
+              onChanged(`${label} is named.`);
             }}
           />
+        )}
+        {named && voice.personId && voice.personName && (
+          <div className="review-picker-more">
+            <button
+              type="button"
+              onClick={() => {
+                setChanging(true);
+              }}
+            >
+              Change who this is
+            </button>
+          </div>
+        )}
+        {changing && voice.personId && voice.personName && (
+          <Dialog
+            title={`Change who ${label} is`}
+            onClose={() => {
+              setChanging(false);
+            }}
+          >
+            <p className="muted">
+              Use this when the voice was given to the wrong person. This voice is named already.
+            </p>
+            <VoiceFlow
+              meetingId={review.meetingId}
+              tileId={review.participant.id}
+              voiceId={voice.id}
+              label={label}
+              from={{ personId: voice.personId, name: voice.personName }}
+              onCancel={() => {
+                setChanging(false);
+              }}
+              onDone={() => {
+                setChanging(false);
+                onChanged(`${label} was changed.`);
+              }}
+            />
+          </Dialog>
         )}
       </div>
     </section>
@@ -238,27 +126,9 @@ export function RoomVoices({
   }, [meetingId, participantId]);
   useEffect(load, [load]);
 
-  const name = (voice: RoomVoiceDto, option: PickerOption) => {
-    setBusy(true);
-    setError(undefined);
-    api
-      .nameRoomVoice(
-        meetingId,
-        voice.id,
-        option.personId ? { personId: option.personId } : { newName: option.name },
-      )
-      .then(
-        () => {
-          setMessage(`Voice ${String(voice.number)} is now ${option.name}.`);
-          load();
-        },
-        (failure: unknown) => {
-          setError(errorMessage(failure));
-        },
-      )
-      .finally(() => {
-        setBusy(false);
-      });
+  const changed = (text: string) => {
+    setMessage(text);
+    load();
   };
 
   const onePerson = () => {
@@ -275,8 +145,8 @@ export function RoomVoices({
     );
   };
 
-  const open = review?.voices.filter((voice) => voice.personId === null) ?? [];
-  const anyNamed = review?.voices.some((voice) => voice.personId !== null) ?? false;
+  const open = review?.voices.filter((voice) => voice.unnamed) ?? [];
+  const anyNamed = review?.voices.some((voice) => !voice.unnamed) ?? false;
   return (
     <>
       <a className="back-link" href={back}>
@@ -287,8 +157,8 @@ export function RoomVoices({
           <h1>{review ? `Who is in ${review.participant.name}?` : 'Voices'}</h1>
           <p className="lede">
             This participant has several voices, probably several people in front of one screen.
-            Listen to a few lines of each and say who it is. Nothing in the transcript changes until
-            you name a voice.
+            Each voice is already its own person in the meeting. Listen to a few lines of each and
+            say who it is, or leave it as it is and name it later from the People card.
             {review &&
               !review.learning &&
               ' Voice learning is off, so naming a voice only labels its lines.'}
@@ -315,7 +185,7 @@ export function RoomVoices({
         </div>
       )}
       {review?.voices.map((voice) => (
-        <VoiceCard key={voice.id} review={review} voice={voice} busy={busy} onPick={name} />
+        <VoiceCard key={voice.id} review={review} voice={voice} onChanged={changed} />
       ))}
       {review && (
         <div className="review-end">

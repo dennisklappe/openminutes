@@ -481,3 +481,21 @@ button.link.quiet {
 .room-quotes li + li {
   margin-top: 4px;
 }
+
+/* ---------- Tags for people of a shared account ---------- */
+
+.shared-marker,
+.unnamed-tag {
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.unnamed-tag {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  color: var(--accent);
+}

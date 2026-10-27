@@ -48,6 +48,24 @@ export const isUncertain = (line: {
   line.speakerConfidence !== null &&
   line.speakerConfidence < LOW_SPEAKER_CONFIDENCE;
 
+/**
+ * A line whose speaker the summary should not rely on: low confidence, a pending suggestion, a
+ * failed voice check, a label from elimination or a plain guess. A person's choice is never doubtful.
+ */
+export const isDoubtful = (line: {
+  speakerConfidence: number | null;
+  speakerSource: SpeakerSource | null;
+  suggestedParticipantId: string | null;
+  voiceDoubt: boolean;
+  byElimination: boolean;
+}): boolean =>
+  line.speakerSource !== 'user' &&
+  (isUncertain(line) ||
+    line.speakerSource === 'guess' ||
+    line.suggestedParticipantId !== null ||
+    line.voiceDoubt ||
+    line.byElimination);
+
 export interface SpeakerScore {
   confidence: number | null;
   candidates: SpeakerCandidate[] | null;

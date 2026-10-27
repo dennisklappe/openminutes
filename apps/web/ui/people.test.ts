@@ -24,6 +24,8 @@ const person = (name: string, extra: Partial<PersonDto> = {}): PersonDto => ({
   tracking: 'on',
   duplicates: [],
   languages: [],
+  unnamed: false,
+  sharedAccount: null,
   ...extra,
 });
 

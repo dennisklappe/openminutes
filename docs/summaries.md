@@ -26,6 +26,16 @@ flowchart LR
 - Regenerate asks first. After AI edits you can pick **Regenerate and re-apply my edits**: your earlier AI instructions are replayed on the fresh summary, one version each. Manual edits cannot be replayed and stay in History. **Undo** restores the previous version.
 - Editing and restoring pause while a summary generates.
 
+## Uncertain speakers
+
+A wrong speaker label can give an action item to the wrong person. When the summary model reads the transcript, a line whose speaker is doubtful is written as `Name?:`. Doubtful means: no person confirmed it and it has a low confidence, a pending suggestion from the review, a failed voice check, a label from elimination or a plain guess. Lines you set or verified, and confident lines, stay `Name:`.
+
+- Only when at least one line is marked, one rule is added to the prompt: a name followed by a question mark is a guess, so no action items, decisions or quotes go to that person; the item is written without an owner or the owner is unclear. Clean meetings get exactly the same prompt as before.
+- The cost is one character per doubtful line. Long meetings that are condensed in parts keep the marker in the notes.
+- Order after a recording: transcription, speaker labels, corrections, voice check, speaker review (all saved in one step), the meeting is set to transcribed, then the summary is requested. The summary never starts before the review is saved. There is no shared-room wait step in the pipeline. The review you start by hand (`meeting.review-speakers`) does not start a summary.
+- Fixing a doubtful line (assign, verify, or turn down its suggestion) shows the notice "Speakers changed since this summary" so you can regenerate, see [speakers](speakers.md).
+- The minutes table of action items is text from the summary, without a stored owner source, so the minutes templates cannot tell a guessed owner from a sure one. They show what the summary says.
+
 ## Edit with AI
 
 The Summary tab has a collapsed **Edit with AI** bar under the summary. Type an instruction ("remove all open questions, they were clear") or pick a chip, and the AI rewrites the active summary. The same box can also fix the people: "remove Dennis from unable to attend, he was there as Dennis K" dismisses that invitee or marks them as present under the matching attendee.

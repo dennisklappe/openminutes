@@ -27,6 +27,10 @@ export interface PersonDto {
   duplicates: PersonChoiceDto[];
   /** One voice profile per language, the most speech first. */
   languages: LanguageCoverageDto[];
+  /** Nobody gave this voice of a shared account a name yet. */
+  unnamed: boolean;
+  /** The shared account this person was heard in, such as "Ann and Sam". */
+  sharedAccount: string | null;
 }
 
 /** How far one voice profile, a person in one language, is. */
@@ -50,7 +54,7 @@ export interface LanguageCoverageDto {
 }
 
 export type PeopleSort = 'name' | 'meetings' | 'lastSeen';
-export type PeopleFilter = 'all' | 'joined' | 'invited';
+export type PeopleFilter = 'all' | 'joined' | 'invited' | 'unnamed';
 /** tracked: the default, without people marked do not track. */
 export type TrackingFilter = 'tracked' | 'all' | 'untracked';
 
@@ -106,6 +110,8 @@ export interface PersonLineDto {
   /** The language spoken, a two letter code or 'und'. */
   language: string;
   hasAudio: boolean;
+  /** The shared account the line was heard in, such as "Ann and Sam". */
+  sharedVia?: string | null;
 }
 
 export interface PersonChoiceDto {
@@ -113,6 +119,8 @@ export interface PersonChoiceDto {
   name: string;
   /** False for a person marked do not track. */
   tracked?: boolean;
+  /** Their addresses, where the list is used to name a voice. */
+  emails?: string[];
 }
 
 export interface PersonTrackingInput {

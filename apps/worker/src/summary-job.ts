@@ -5,9 +5,15 @@ import {
   describeMeetingDate,
   type DateContext,
   findPrompt,
+  GUESSED_SPEAKER_RULE,
   loadChatLines,
-  loadTranscriptText,
+  loadSummaryTranscript,
+  openRoomQuestions,
   parseReplay,
+  settleRoomQuestions,
+  SHARED_WAIT_POLL_SECONDS,
+  summaryWait,
+  waitMinutes,
   type JobSender,
   type SettingsStore,
 } from '@openminutes/core';
@@ -31,12 +37,45 @@ const dateInstructions = (context: DateContext) =>
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+/**
+ * Holds the summary back while someone can still say how many people sit in a shared account.
+ * The job is sent again with a delay (pg-boss), so nothing waits in a loop and the worker is free
+ * meanwhile. Once the time is up, or the wait is switched off (0), the detected counts are used
+ * so the summary already names the split speakers. Returns true when the job was put off.
+ */
+async function waitForSharedAccounts(
+  deps: SummaryDeps,
+  summaryId: string,
+  meetingId: string,
+): Promise<boolean> {
+  const questions = await openRoomQuestions(deps.db, meetingId);
+  if (questions.length === 0) return false;
+  const minutes = waitMinutes(await deps.settings.get('summary.shared_wait_minutes'));
+  const now = new Date();
+  const wait = deps.queue ? summaryWait(questions, minutes, now) : undefined;
+  if (wait && deps.queue) {
+    const poll = new Date(now.getTime() + SHARED_WAIT_POLL_SECONDS * 1000);
+    await deps.queue.send(
+      'meeting.summarize',
+      { summaryId },
+      { startAfter: wait.until < poll ? wait.until : poll },
+    );
+    return true;
+  }
+  await settleRoomQuestions(deps.db, meetingId);
+  return false;
+}
+
 export async function runSummary(deps: SummaryDeps, summaryId: string): Promise<void> {
   const [summary] = await deps.db.select().from(summaries).where(eq(summaries.id, summaryId));
   if (summary?.status !== 'pending') return;
 
   try {
-    const lines = await loadTranscriptText(deps.db, summary.meetingId);
+    if (await waitForSharedAccounts(deps, summaryId, summary.meetingId)) return;
+    const { text: lines, hasGuessedSpeakers } = await loadSummaryTranscript(
+      deps.db,
+      summary.meetingId,
+    );
     if (!lines) throw new Error('The transcript is empty');
 
     const prompt = await findPrompt(deps.settings, summary.promptId ?? undefined);
@@ -62,7 +101,14 @@ export async function runSummary(deps: SummaryDeps, summaryId: string): Promise<
         await summarizeTranscript(
           provider,
           lines,
-          [prompt.content, dateInstructions(context), names].filter(Boolean).join('\n\n'),
+          [
+            prompt.content,
+            dateInstructions(context),
+            names,
+            hasGuessedSpeakers && GUESSED_SPEAKER_RULE,
+          ]
+            .filter(Boolean)
+            .join('\n\n'),
           formatChat(chat),
         ),
       ),

@@ -1,5 +1,6 @@
 import {
   addVoiceSamples,
+  isSharedTile,
   linkParticipant,
   mergeEmbeddings,
   mergedAudioPath,
@@ -43,6 +44,8 @@ export async function learnVoice(
       .from(participants)
       .where(and(eq(participants.id, participantId), eq(participants.meetingId, meetingId)));
     if (person && (await untrackedPerson(deps.db, person))) return;
+    // A shared tile mixes several voices: its voice is never stored for one person.
+    if (person && (await isSharedTile(deps.db, person))) return;
     const lines = await deps.db
       .select()
       .from(transcriptSegments)

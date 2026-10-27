@@ -23,6 +23,7 @@ import { deleteProfile } from './profiles.js';
 import { loadReviewCounts, loadReviewQueue } from './review.js';
 import { loadPersonDetail, type PeopleDeps } from './load.js';
 import { loadPeoplePage } from './page.js';
+import { nameVoicePerson } from './name-voice.js';
 
 export interface PeopleRouteDeps extends PeopleDeps {
   queue: JobSender;
@@ -50,11 +51,12 @@ const updateInput = z
   .strictObject({ name: name.optional(), emails: emails.optional(), notes: notes.optional() })
   .refine((body) => Object.keys(body).length > 0);
 const mergeInput = z.strictObject({ sourceId: uuid });
+const nameVoiceInput = z.union([z.strictObject({ name }), z.strictObject({ personId: uuid })]);
 const listQuery = z.object({
   q: z.string().max(200).optional(),
   sort: z.enum(['name', 'meetings', 'lastSeen']).optional(),
   dir: z.enum(['asc', 'desc']).optional(),
-  source: z.enum(['all', 'joined', 'invited']).optional(),
+  source: z.enum(['all', 'joined', 'invited', 'unnamed']).optional(),
   tracking: z.enum(['tracked', 'all', 'untracked']).optional(),
   page: z.coerce.number().int().min(1).max(100_000).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
@@ -178,6 +180,18 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     return guard(c, async () => {
       await mergePeople(deps.db, id.data, body.data.sourceId);
       return c.json<PersonDetailDto | undefined>(await detail(id.data));
+    });
+  });
+
+  /** Names a voice of a shared account: renames its person, or folds it into an existing one. */
+  routes.post('/:id/name-voice', async (c) => {
+    const id = uuid.safeParse(c.req.param('id'));
+    if (!id.success) return c.json({ error: 'Person not found' }, 404);
+    const body = nameVoiceInput.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: 'Pick a person or type a name' }, 400);
+    return guard(c, async () => {
+      const personId = await nameVoicePerson(deps.db, id.data, body.data);
+      return c.json({ ok: true, personId });
     });
   });
 
