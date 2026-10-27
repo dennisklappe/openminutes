@@ -6,6 +6,7 @@ import {
   parseEmails,
   profileLevel,
   reasonLabel,
+  reviewLabel,
   validEmail,
 } from './people.js';
 
@@ -99,5 +100,14 @@ describe('mergePreview', () => {
   it('says the merged person is not tracked and has no samples when either one is not', () => {
     const preview = mergePreview(person('A', { samples: 4 }), person('B', { tracking: 'off' }));
     expect(preview).toMatchObject({ untracked: true, samples: 0 });
+  });
+});
+
+describe('reviewLabel', () => {
+  it('shows the session size against the total when capped', () => {
+    expect(reviewLabel(1)).toBe('1 line');
+    expect(reviewLabel(12)).toBe('12 lines');
+    expect(reviewLabel(25)).toBe('25 lines');
+    expect(reviewLabel(140)).toBe('25 of 140 lines');
   });
 });

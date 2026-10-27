@@ -13,6 +13,7 @@ import {
   coverageText,
   parseEmails,
   profileLabels,
+  reviewLabel,
   profileBreakdown,
   profileLevel,
   reasonLabel,
@@ -554,11 +555,11 @@ export function PersonDetail({ id }: { id: string }) {
             <p className="muted">
               {person.needsReview === 0
                 ? 'No lines need a look.'
-                : 'Go through the uncertain lines one at a time, least sure first.'}
+                : `About ${String(person.needsReview)} ${person.needsReview === 1 ? 'line' : 'lines'} to review, then the profile is good enough.`}
             </p>
             {person.needsReview > 0 && (
               <a className="button primary" href={`#/people/${person.id}/review`}>
-                Review {person.needsReview} {person.needsReview === 1 ? 'line' : 'lines'}
+                Review {reviewLabel(person.needsReview)}
               </a>
             )}
           </div>

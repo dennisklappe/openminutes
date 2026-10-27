@@ -1,9 +1,10 @@
 import { inArray, people, sql } from '@openminutes/db';
 import type { PeopleDto, PeopleQuery } from '../dto.js';
 import { checkEnabled, rememberEnabled } from '../voices/load.js';
-import { loadDuplicates, reviewCounts, toDto, type PeopleDeps } from './load.js';
+import { loadDuplicates, toDto, type PeopleDeps } from './load.js';
 import { loadProfileRows } from './profiles.js';
-import { loadReviewQueue } from './review.js';
+import { loadReviewCounts } from './review.js';
+import { SESSION_CAP } from './useful.js';
 import { loadMeetingStats, seenStats } from './stats.js';
 
 export const DEFAULT_PAGE_SIZE = 50;
@@ -59,13 +60,12 @@ export async function loadPeoplePage(
   const { rows: invited } = await db.execute<{ n: number }>(
     sql`select count(*)::int as n from people where source = 'invited' and tracking = 'on'`,
   );
-  const allReview = await reviewCounts(db);
+  const review = await loadReviewCounts(deps);
   const ids = found.map((row) => row.id);
-  const [rows, samples, seen, review, dupes] = await Promise.all([
+  const [rows, samples, seen, dupes] = await Promise.all([
     ids.length === 0 ? [] : db.select().from(people).where(inArray(people.id, ids)),
     loadProfileRows(db, ids),
     loadMeetingStats(db, ids),
-    reviewCounts(db, ids),
     loadDuplicates(db),
   ]);
   const byId = new Map(rows.map((row) => [row.id, row]));
@@ -78,15 +78,15 @@ export async function loadPeoplePage(
               person,
               samples.filter((sample) => sample.personId === id),
               seen,
-              review,
+              review.byPerson,
               dupes,
             ),
           ]
         : [];
     }),
     total,
-    needsReview: [...allReview.values()].reduce((sum, n) => sum + n, 0),
-    reviewable: (await loadReviewQueue(deps))?.lines.length ?? 0,
+    needsReview: review.total,
+    reviewable: Math.min(review.total, SESSION_CAP),
     invitedOnly: invited[0]?.n ?? 0,
     page,
     pageSize,

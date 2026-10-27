@@ -10,7 +10,10 @@ export interface PersonDto {
   samples: number;
   /** Seconds of clean speech those samples cover. */
   voiceSeconds: number;
-  /** Lines that need a look: uncertain ones and ones the voice check doubts. */
+  /**
+   * Lines worth a look, as the review queue counts them: doubtful lines plus as many training
+   * lines as the voice profile still needs to be good enough. Not every unsure line.
+   */
   needsReview: number;
   /** Meetings they were in or were invited to. */
   meetings: number;
@@ -66,9 +69,9 @@ export interface PeopleDto {
   people: PersonDto[];
   /** Everyone matching the search and filter, across all pages. */
   total: number;
-  /** Lines that need a look across everyone, not only this page. */
+  /** The same count across everyone, not only this page. */
   needsReview: number;
-  /** The useful part of those for one review session, at most 25. */
+  /** The part of those one review session asks, at most 25. */
   reviewable: number;
   /** Tracked people who were only ever invited, whatever the filter. */
   invitedOnly: number;

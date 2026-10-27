@@ -110,3 +110,14 @@ export const profileBreakdown = (profile: Pick<LanguageCoverageDto, 'seconds' | 
   profile.autoSeconds > 0
     ? `${speechText(profile.seconds)} verified, ${speechText(profile.autoSeconds)} auto`
     : `${speechText(profile.seconds)} verified`;
+
+/** Lines in one review session, the same cap the server asks. */
+const SESSION_LINES = 25;
+
+/** What the review button says: "12 lines", or "25 of 140 lines" when a session is capped. */
+export function reviewLabel(total: number): string {
+  const noun = total === 1 ? 'line' : 'lines';
+  return total > SESSION_LINES
+    ? `${String(SESSION_LINES)} of ${String(total)} lines`
+    : `${String(total)} ${noun}`;
+}
