@@ -1,4 +1,4 @@
-import { speakerSources } from '@openminutes/db';
+import { mixedStates, speakerSources } from '@openminutes/db';
 import { z } from 'zod';
 import type { SpeakerEditInput } from '../dto.js';
 
@@ -35,6 +35,7 @@ const snapshot = z.strictObject({
   previousSpeakerId: uuid.nullable(),
   suggestedSpeakerId: uuid.nullable(),
   rejectedSuggestions: z.array(uuid).max(50),
+  mixed: z.enum(mixedStates).nullable().optional(),
 });
 
 export const speakerEditInput = z.discriminatedUnion('kind', [
@@ -47,6 +48,7 @@ export const speakerEditInput = z.discriminatedUnion('kind', [
   }),
   z.strictObject({ kind: z.literal('merge'), segmentIds: z.array(uuid).min(2).max(MAX_IDS) }),
   z.strictObject({ kind: z.literal('revert'), segmentIds: ids }),
+  z.strictObject({ kind: z.literal('clear-mixed'), segmentIds: ids }),
   z.strictObject({ kind: z.literal('reject-suggestion'), segmentIds: ids }),
   z.strictObject({
     kind: z.literal('restore'),

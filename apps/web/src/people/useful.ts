@@ -93,6 +93,8 @@ export interface Candidate {
   confidence: number | null;
   /** The speaker review proposes this person for a line labelled as someone else. */
   suggested?: boolean;
+  /** The voice guard thinks the line holds two speakers, so it is asked whatever else it is. */
+  mixed?: boolean;
 }
 
 /**
@@ -103,18 +105,19 @@ export interface Candidate {
 export type Why = 'doubt' | 'training';
 
 export const whyOf = (
-  c: Pick<Candidate, 'voiceDoubt' | 'rival' | 'confidence' | 'suggested'>,
+  c: Pick<Candidate, 'voiceDoubt' | 'rival' | 'confidence' | 'suggested' | 'mixed'>,
 ): Why =>
   c.voiceDoubt ||
+  c.mixed === true ||
   c.suggested === true ||
   c.rival >= DOUBT_RIVAL_SCORE ||
   (c.confidence ?? 0) < DOUBT_CONFIDENCE
     ? 'doubt'
     : 'training';
 
-/** Whether the line can teach a profile anything at all. */
+/** Whether the line can teach a profile anything at all. A probably mixed line is asked about to be split. */
 export const isUsable = (c: Candidate) =>
-  c.endMs - c.startMs >= MIN_LINE_MS && !c.overlapped && !isFiller(c.text);
+  c.mixed === true || (c.endMs - c.startMs >= MIN_LINE_MS && !c.overlapped && !isFiller(c.text));
 
 export interface Selection {
   /** In the order they should be asked, most useful first. */
@@ -128,7 +131,11 @@ function score(c: Candidate, have: number, taken: readonly Candidate[]): number 
   const length = c.endMs - c.startMs;
   let value =
     whyOf(c) === 'doubt'
-      ? 100 + c.rival * 30 + (c.voiceDoubt ? 20 : 0) + (1 - (c.confidence ?? 0)) * 10
+      ? 100 +
+        c.rival * 30 +
+        (c.voiceDoubt ? 20 : 0) +
+        (c.mixed === true ? 40 : 0) +
+        (1 - (c.confidence ?? 0)) * 10
       : need * 80;
   if (length > PREFERRED_MAX_MS) value -= Math.min(15, (length - PREFERRED_MAX_MS) / 2000);
   else value += 5;

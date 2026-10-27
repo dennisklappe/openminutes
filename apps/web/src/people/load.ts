@@ -67,8 +67,9 @@ export async function reviewCounts(
       join meetings m on m.id = s.meeting_id
       join people pe on pe.id = p.person_id and pe.tracking = 'on'
       where m.deleted_at is null and p.person_id is not null ${scope}
-        and coalesce(s.speaker_source, '') <> 'user'
-        and ${via === 'participant_id' ? sql`(s.speaker_confidence < ${LOW_SPEAKER_CONFIDENCE} or s.voice_doubt or s.by_elimination)` : sql`true`}
+        and s.mixed is distinct from 'marked'
+        and (coalesce(s.speaker_source, '') <> 'user' or ${via === 'participant_id' ? sql`s.mixed = 'probable'` : sql`false`})
+        and ${via === 'participant_id' ? sql`(s.speaker_confidence < ${LOW_SPEAKER_CONFIDENCE} or s.voice_doubt or s.by_elimination or s.mixed = 'probable')` : sql`true`}
         and not exists (
           select 1 from voice_samples v
           where v.person_id = p.person_id and v.segment_id = s.id and v.rejected
@@ -188,22 +189,28 @@ export async function personLines(
     isNull(transcriptSegments.speakerSource),
     ne(transcriptSegments.speakerSource, 'user'),
   );
+  // A line a person marked as mixed is out of every list. One the voice guard thinks is mixed is
+  // asked about for the person it is labelled or proposed as, also when a person had verified it.
+  const probable = and(eq(transcriptSegments.mixed, 'probable'), or(own, proposed));
   const condition =
     kind === 'verified'
       ? and(own, eq(transcriptSegments.speakerSource, 'user'))
-      : and(
-          notUser,
-          or(
-            and(
-              own,
-              or(
-                sql`${transcriptSegments.speakerConfidence} < ${LOW_SPEAKER_CONFIDENCE}`,
-                eq(transcriptSegments.voiceDoubt, true),
-                eq(transcriptSegments.byElimination, true),
+      : or(
+          and(
+            notUser,
+            or(
+              and(
+                own,
+                or(
+                  sql`${transcriptSegments.speakerConfidence} < ${LOW_SPEAKER_CONFIDENCE}`,
+                  eq(transcriptSegments.voiceDoubt, true),
+                  eq(transcriptSegments.byElimination, true),
+                ),
               ),
+              proposed,
             ),
-            proposed,
           ),
+          probable,
         );
   const rows = await db
     .select({
@@ -216,6 +223,7 @@ export async function personLines(
       speakerConfidence: transcriptSegments.speakerConfidence,
       suggestedId: transcriptSegments.suggestedParticipantId,
       doubt: transcriptSegments.voiceDoubt,
+      mixed: transcriptSegments.mixed,
       elimination: transcriptSegments.byElimination,
       scores: transcriptSegments.voiceScores,
       participantId: transcriptSegments.participantId,
@@ -237,6 +245,7 @@ export async function personLines(
     .where(
       and(
         isNull(meetings.deletedAt),
+        or(isNull(transcriptSegments.mixed), ne(transcriptSegments.mixed, 'marked')),
         condition,
         meetingId ? eq(transcriptSegments.meetingId, meetingId) : undefined,
       ),
@@ -269,15 +278,17 @@ export async function personLines(
         reason:
           kind === 'verified'
             ? null
-            : row.doubt && !proposedHere
-              ? 'voice'
-              : proposedHere
-                ? row.elimination
-                  ? 'elimination'
-                  : 'suggested'
-                : row.elimination
-                  ? 'elimination'
-                  : 'uncertain',
+            : row.mixed === 'probable'
+              ? 'mixed'
+              : row.doubt && !proposedHere
+                ? 'voice'
+                : proposedHere
+                  ? row.elimination
+                    ? 'elimination'
+                    : 'suggested'
+                  : row.elimination
+                    ? 'elimination'
+                    : 'uncertain',
         verified: kind === 'verified',
         inProfile: row.sampleId !== null && row.sampleEmbedded && !row.rejected,
         language: normalizeLanguage(row.language),
@@ -320,6 +331,7 @@ export async function trainingLines(
         inArray(transcriptSegments.participantId, mine),
         or(isNull(transcriptSegments.speakerSource), ne(transcriptSegments.speakerSource, 'user')),
         eq(transcriptSegments.voiceDoubt, false),
+        isNull(transcriptSegments.mixed),
         sql`${transcriptSegments.speakerConfidence} >= ${LOW_SPEAKER_CONFIDENCE}`,
         sql`${transcriptSegments.endMs} - ${transcriptSegments.startMs} >= 3000`,
         skipLanguages.length > 0

@@ -138,6 +138,29 @@ export function SegmentLine(props: Props) {
             />
           )}
         </div>
+        {segment.mixed && !splitting && (
+          <div className="mixed-marker" role="group" aria-label="Mixed line">
+            <span
+              className="mixed-badge"
+              title={
+                segment.mixed === 'marked'
+                  ? 'Two speakers in one line. It never trains a voice.'
+                  : 'The voice check thinks two people speak in this line. It never trains a voice.'
+              }
+            >
+              {segment.mixed === 'marked' ? 'mixed' : 'probably mixed'}
+            </span>
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                onEdit({ kind: 'clear-mixed', segmentIds: [segment.id] });
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        )}
         {segment.suggestedSpeakerId && segment.suggestedSpeaker && !splitting && (
           <div className="suggestion" role="group" aria-label="Suggested speaker">
             <span className="suggestion-text">

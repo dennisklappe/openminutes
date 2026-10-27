@@ -431,7 +431,14 @@ export const transcriptSegments = pgTable('transcript_segments', {
   mixed: text('mixed', { enum: mixedStates }),
 });
 
-export const reviewDecisionKinds = ['skip', 'approve', 'reject', 'move', 'mixed'] as const;
+export const reviewDecisionKinds = [
+  'skip',
+  'approve',
+  'reject',
+  'move',
+  'mixed',
+  'split',
+] as const;
 export type ReviewDecisionKind = (typeof reviewDecisionKinds)[number];
 
 /** What a line looked like before a review decision, so Undo can put it back. */
@@ -444,6 +451,13 @@ export interface SegmentSnapshot {
   byElimination?: boolean;
   previousParticipantId: string | null;
   rejectedSuggestions: string[];
+  /** Missing in snapshots taken before mixed lines existed. */
+  mixed?: MixedState | null;
+  /** A split changed the line itself: the text and end it had. */
+  text?: string;
+  endMs?: number;
+  /** The lines a split added next to it, removed again by Undo. */
+  parts?: string[];
 }
 
 /**

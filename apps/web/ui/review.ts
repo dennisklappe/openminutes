@@ -22,7 +22,11 @@ export type Decision =
   | { kind: 'move'; personId: string; name: string }
   | { kind: 'create'; name: string }
   /** Not the proposed person and nobody in particular. */
-  | { kind: 'reject' };
+  | { kind: 'reject' }
+  /** The line holds two or three speakers: cut before the words at `cuts`, one person per part. */
+  | { kind: 'split'; cuts: number[]; people: PickerOption[] }
+  /** The line holds two speakers and must not train a voice. It keeps its label. */
+  | { kind: 'mixed' };
 
 export interface Entry {
   line: ReviewLineDto;
@@ -108,8 +112,10 @@ export function reviewSkipped(state: ReviewState): ReviewState {
 
 export const counts = (state: ReviewState) => ({
   approved: state.history.filter((e) => e.decision.kind === 'approve').length,
-  changed: state.history.filter((e) => ['move', 'create', 'reject'].includes(e.decision.kind))
-    .length,
+  changed: state.history.filter((e) =>
+    ['move', 'create', 'reject', 'split'].includes(e.decision.kind),
+  ).length,
+  mixed: state.history.filter((e) => e.decision.kind === 'mixed').length,
   skipped: state.skipped.length,
 });
 
@@ -126,6 +132,10 @@ export function describeDecision({ line, decision }: Entry): string {
       return `Not ${line.proposed.name}.`;
     case 'skip':
       return 'Skipped.';
+    case 'split':
+      return `Split into ${String(decision.cuts.length + 1)} lines.`;
+    case 'mixed':
+      return 'Marked as mixed, kept out of voice training.';
   }
 }
 
@@ -136,6 +146,12 @@ export interface ReviewApi {
   rejectLine: (personId: string, segmentId: string) => Promise<unknown>;
   moveLine: (personId: string, segmentId: string, target: string) => Promise<unknown>;
   createPerson: (body: { name: string }) => Promise<{ person: { id: string } }>;
+  splitLine: (
+    personId: string,
+    segmentId: string,
+    body: { cuts: number[]; personIds: string[] },
+  ) => Promise<unknown>;
+  markMixed: (personId: string, segmentId: string) => Promise<unknown>;
 }
 
 /**
@@ -160,6 +176,29 @@ export async function commit(api: ReviewApi, { line, decision }: Entry): Promise
     case 'create': {
       const { person } = await api.createPerson({ name: decision.name });
       await api.moveLine(from, line.id, person.id);
+      return;
+    }
+    case 'mixed':
+      await api.markMixed(from, line.id);
+      return;
+    case 'split': {
+      // Someone who is only a name in this meeting is made a person once, however many parts they get.
+      const made = new Map<string, string>();
+      const personIds: string[] = [];
+      for (const option of decision.people) {
+        if (option.personId) {
+          personIds.push(option.personId);
+          continue;
+        }
+        const key = option.name.toLowerCase();
+        let id = made.get(key);
+        if (!id) {
+          id = (await api.createPerson({ name: option.name })).person.id;
+          made.set(key, id);
+        }
+        personIds.push(id);
+      }
+      await api.splitLine(from, line.id, { cuts: decision.cuts, personIds });
     }
   }
 }
@@ -238,12 +277,13 @@ export const pick = (option: PickerOption): Decision =>
     ? { kind: 'create', name: option.name }
     : { kind: 'move', personId: option.personId, name: option.name };
 
-export type ReviewKey = 'approve' | 'disapprove' | 'skip' | 'undo' | 'exit' | { pick: number };
+export type ReviewKey =
+  'approve' | 'disapprove' | 'skip' | 'split' | 'mixed' | 'undo' | 'exit' | { pick: number };
 
 /** What a key does. While the picker is open only Escape and the numbers act. */
 export function keyAction(
   key: string,
-  picker: 'closed' | 'roster' | 'other',
+  picker: 'closed' | 'roster' | 'other' | 'split',
 ): ReviewKey | undefined {
   const lower = key.length === 1 ? key.toLowerCase() : key;
   if (lower === 'Escape') return 'exit';
@@ -252,6 +292,8 @@ export function keyAction(
   if (lower === 'ArrowRight' || lower === 'a') return 'approve';
   if (lower === 'ArrowLeft' || lower === 'd') return 'disapprove';
   if (lower === 'ArrowDown' || lower === 's') return 'skip';
+  if (lower === 'x') return 'split';
+  if (lower === 'm') return 'mixed';
   if (lower === 'u') return 'undo';
   return undefined;
 }
@@ -276,3 +318,44 @@ export const coverageLabel = (
   >,
 ) =>
   `${line.proposed.name}: ${String(line.profileSeconds)} s of ${String(line.profileTargetSeconds)} s, ${line.languageName}`;
+
+/** The words of a line split into its parts, before the words at `cuts`. */
+export function splitIntoParts(words: readonly string[], cuts: readonly number[]): string[][] {
+  const edges = [0, ...cuts, words.length];
+  return edges.slice(0, -1).map((from, i) => words.slice(from, edges[i + 1]));
+}
+
+/**
+ * The cuts after a word is clicked. A click moves the nearest cut, or adds one when `again` is
+ * set (at most two cuts). Word 0 cannot be a cut, nothing would be left before it.
+ */
+export function clickWord(cuts: readonly number[], word: number, again: boolean): number[] {
+  if (word < 1) return [...cuts];
+  if (cuts.includes(word)) return cuts.filter((cut) => cut !== word);
+  if (cuts.length === 0 || (again && cuts.length < 2)) return [...cuts, word].sort((a, b) => a - b);
+  const nearest = cuts.reduce((best, cut) =>
+    Math.abs(cut - word) < Math.abs(best - word) ? cut : best,
+  );
+  return cuts.map((cut) => (cut === nearest ? word : cut)).sort((a, b) => a - b);
+}
+
+/**
+ * Who says each part to begin with: the proposed person for the first, the first other person of
+ * the meeting for the second, and for a third part the person of the first again.
+ */
+export function defaultPeople(
+  proposed: PickerOption,
+  roster: readonly PickerOption[],
+  parts: number,
+): PickerOption[] {
+  const other = roster[0] ?? proposed;
+  return Array.from({ length: parts }, (_, i) => (i === 1 ? other : proposed));
+}
+
+/** Everyone a part can go to: the proposed person first, then the others of the meeting. */
+export const splitOptions = (
+  proposed: PickerOption,
+  roster: readonly PickerOption[],
+): PickerOption[] => [proposed, ...roster];
+
+export const optionKey = (option: PickerOption) => option.personId ?? `name:${option.name}`;

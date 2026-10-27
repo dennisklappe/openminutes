@@ -99,6 +99,8 @@ export interface SegmentDto {
   suggestedSpeakerId: string | null;
   /** The shared tile this line was heard in, when a person named its voice. */
   viaSpeaker: string | null;
+  /** The line holds two speakers: marked by a person, or probably so by the voice guard. */
+  mixed: 'marked' | 'probable' | null;
 }
 
 export interface SpeakerChoiceDto {
@@ -126,6 +128,8 @@ export interface SpeakerSnapshotDto {
   previousSpeakerId: string | null;
   suggestedSpeakerId: string | null;
   rejectedSuggestions: string[];
+  /** Absent in snapshots from before mixed lines existed. */
+  mixed?: 'marked' | 'probable' | null | undefined;
 }
 
 export type SpeakerTargetInput = { id: string } | { name: string } | { create: true };
@@ -140,6 +144,7 @@ export type SpeakerEditInput =
     }
   | { kind: 'merge'; segmentIds: string[] }
   | { kind: 'revert'; segmentIds: string[] }
+  | { kind: 'clear-mixed'; segmentIds: string[] }
   | { kind: 'reject-suggestion'; segmentIds: string[] }
   | {
       kind: 'restore';

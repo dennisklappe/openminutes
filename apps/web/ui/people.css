@@ -522,4 +522,73 @@ button.link.quiet {
     min-width: 0;
     overflow-wrap: anywhere;
   }
+.review-split-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.split-chip {
+  min-width: 0;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-bottom-width: 3px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.split-chip:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.split-chip.part-0 {
+  border-bottom-color: var(--line-strong);
+}
+
+.split-chip.part-1 {
+  background: var(--accent-soft);
+  border-bottom-color: var(--accent);
+}
+
+.split-chip.part-2 {
+  background: var(--accent-soft);
+  border-bottom-style: dashed;
+  border-bottom-color: var(--accent);
+}
+
+.split-chip[data-cut] {
+  border-left: 3px solid var(--accent);
+}
+
+.review-parts {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.review-parts li {
+  display: grid;
+  gap: 4px;
+}
+
+.review-parts select {
+  width: 100%;
+  min-height: 44px;
+}
+
+.review-part-text {
+  font-size: 13px;
+}
+
+.review-actions .span-2 {
+  grid-column: span 2;
 }

@@ -63,6 +63,8 @@ export function reasonLabel(
         : `Speaker uncertain: ${percent(line.speakerConfidence)}`;
     case 'elimination':
       return 'By elimination: the voice fits nobody else in the meeting, and this person is the one left';
+    case 'mixed':
+      return 'Probably two speakers';
     case 'training':
       return 'The label looks right, a confirmed line adds to the voice profile';
     default:

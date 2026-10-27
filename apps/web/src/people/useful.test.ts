@@ -37,6 +37,14 @@ describe('useful lines', () => {
     expect(isFiller('ja ja dat klopt helemaal met de planning')).toBe(false);
   });
 
+  it('always asks about a line that is probably two speakers, even a short sure one', () => {
+    const mixed = cand('m', { mixed: true, endMs: 1500, confidence: 0.99 });
+    expect(whyOf(mixed)).toBe('doubt');
+    expect(isUsable(mixed)).toBe(true);
+    const done = new Map([['p1', TARGET_MS]]);
+    expect(selectUseful([mixed, cand('t')], done).picked.map((c) => c.id)).toEqual(['m']);
+  });
+
   it('asks about people with little verified speech first', () => {
     const picked = selectUseful(
       [
