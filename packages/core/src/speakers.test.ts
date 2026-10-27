@@ -348,3 +348,21 @@ describe('assignSpeakers', () => {
     });
   });
 });
+
+describe('segment length', () => {
+  const sentence = (from: number, text: string[]) =>
+    text.map((t, i) => ({ text: t, startMs: from + i * 400, endMs: from + i * 400 + 350 }));
+
+  it('cuts after a sentence once about three and a half seconds have been said', () => {
+    const words = [
+      ...sentence(0, ['One', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine.']),
+      ...sentence(3700, ['Ten', 'eleven', 'twelve.']),
+    ];
+    const line = { startMs: 0, endMs: 4900, text: words.map((w) => w.text).join(' '), words };
+    const result = assignSpeakers([line], [span('alice', 0, 5000)]);
+    expect(result.map((r) => r.text)).toEqual([
+      'One two three four five six seven eight nine.',
+      'Ten eleven twelve.',
+    ]);
+  });
+});
