@@ -15,8 +15,8 @@ export const GUARD_MIN_HALF_MS = 1500;
  * Halves of one line that score under this cosine are probably two speakers. Measured on real
  * recorded Dutch calls with the default ERes2Net prints (single-speaker lines of 4 to 9 s against
  * lines across a handover, halves cut at the middle): same-speaker halves have a median cosine of
- * 0.57, so the guard is weak. At 0.45 it flags 23% of single-speaker lines to catch 45% of mixed
- * ones, at 0.30 it flags about 10% to catch about 28%. A flagged line costs one skipped sample and
+ * 0.59, so the guard is weak. At 0.45 it flags 18% of single-speaker lines to catch 60% of mixed
+ * ones, at 0.30 it flags about 8% to catch about 39%. A flagged line costs one skipped sample and
  * one review card, so the bar is set low: a tripwire for the clear cases, not a detector. Other
  * embedders and window layouts (thirds, sliding windows) scored no better. Splitting at the source
  * (see `assignSpeakers`) does the real work.
