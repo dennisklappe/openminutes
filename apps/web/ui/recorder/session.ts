@@ -1,3 +1,4 @@
+import { uuid } from '../uuid.js';
 import { RecordingClock, missingChunks } from './clock.js';
 import { createRecordingsClient } from './client.js';
 import { prepareCapture, type Capture } from './capture.js';
@@ -116,7 +117,7 @@ class RecorderSession {
       stream = await openMicrophone();
       const store = await this.store();
       const runner = await this.uploads();
-      const id = crypto.randomUUID();
+      const id = uuid();
       this.clock = new RecordingClock();
       const capture = prepareCapture({
         stream,

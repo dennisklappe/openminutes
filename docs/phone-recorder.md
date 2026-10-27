@@ -18,7 +18,7 @@ flowchart LR
 
 ## Requirements
 
-- HTTPS (microphone, service workers and install need a secure origin). `http://localhost` works, a plain `http://` network address does not.
+- HTTPS (microphone, service workers and install need a secure origin). `http://localhost` works, a plain `http://` network address does not. Importing a file, browsing and editing work over plain `http://` too.
 - A browser with `MediaRecorder`: Chrome and Edge on Android, Safari 14.5 or newer on iOS, current desktop browsers.
 - Phone recording on (default). When off, Record disappears and `#/record` shows a notice.
 
