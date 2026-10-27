@@ -14,8 +14,9 @@ describe('uuid', () => {
   });
 
   it('gives different ids with the real crypto without randomUUID', () => {
-    const { getRandomValues } = crypto;
-    const bare = { getRandomValues: getRandomValues.bind(crypto) };
+    const bare = {
+      getRandomValues: <T extends ArrayBufferView>(array: T) => crypto.getRandomValues(array),
+    };
     expect(uuid(bare)).not.toBe(uuid(bare));
   });
 
