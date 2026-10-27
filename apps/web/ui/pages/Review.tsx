@@ -511,6 +511,7 @@ function Card({
           <button
             type="button"
             ref={splitButton}
+            className="split-action"
             onClick={() => {
               setPicker('split');
             }}
