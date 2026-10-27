@@ -8,6 +8,7 @@ import type {
 } from '../src/dto.js';
 import { formatLength } from './format.js';
 import type { InvitedOption, PickerOption } from './review.js';
+import { SPEAKER_COLORS } from './speakers.js';
 import { nameFromEmail } from './participants/names.js';
 
 /** The counts offered by the "how many people?" question. 1 means "it is one person". */
@@ -295,3 +296,19 @@ export function invitedOptions(
     ];
   });
 }
+
+/**
+ * The colour slot of a voice: the one the transcript legend and Talk time give its name, so the
+ * dots agree everywhere. Without a transcript match it falls back to the voice number.
+ */
+export const voiceSlot = (
+  sub: Pick<SubPersonDto, 'name' | 'number'>,
+  slots?: ReadonlyMap<string, number>,
+): number => slots?.get(sub.name) ?? (sub.number - 1) % SPEAKER_COLORS;
+
+/**
+ * What the People card calls a voice. A voice nobody named is "Voice 1": the tile it joined from
+ * is in the "via" tag next to it, not repeated in the name.
+ */
+export const voiceLabel = (sub: Pick<SubPersonDto, 'name' | 'number' | 'unnamed'>): string =>
+  sub.unnamed ? `Voice ${String(sub.number)}` : sub.name;

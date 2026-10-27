@@ -22,6 +22,8 @@ import {
   waitSettingText,
   waitText,
   SPLIT_GIVE_UP_MS,
+  voiceLabel,
+  voiceSlot,
 } from './sharedRoom.js';
 
 const sub = (over: Partial<SubPersonDto> = {}): SubPersonDto => ({
@@ -327,5 +329,21 @@ describe('the flat People list', () => {
     expect(
       rows.map((row) => (row.kind === 'voice' ? `voice ${row.sub.name}` : row.person.name)),
     ).toEqual(['voice Bart', 'Pieter', 'voice Pieter']);
+  });
+});
+
+describe('voice dots and labels', () => {
+  it('takes the colour slot of the transcript, not the voice number', () => {
+    const sub = { name: 'Lena de Vries', number: 2 };
+    expect(voiceSlot(sub, new Map([['Lena de Vries', 5]]))).toBe(5);
+    expect(voiceSlot(sub, new Map())).toBe(1);
+    expect(voiceSlot({ name: 'x', number: 9 })).toBe(0);
+  });
+
+  it('leaves the tile out of the name of an unnamed voice', () => {
+    expect(voiceLabel({ name: 'Voice 1 (Rotterdam / Boardroom)', number: 1, unnamed: true })).toBe(
+      'Voice 1',
+    );
+    expect(voiceLabel({ name: 'Lena de Vries', number: 1, unnamed: false })).toBe('Lena de Vries');
   });
 });

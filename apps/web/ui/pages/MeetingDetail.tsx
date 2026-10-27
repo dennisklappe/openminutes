@@ -365,6 +365,7 @@ export function MeetingDetail({ id }: { id: string }) {
             <PeopleCard
               meetingId={id}
               transcriptSize={segments.length}
+              segments={segments}
               reloadKey={peopleKey}
               hasSummary={summaries.length > 0}
               onChanged={refresh}
