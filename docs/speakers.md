@@ -27,6 +27,17 @@ The bot reads the page about four times a second: who is in the call and who has
 
 Provider labels (Deepgram, AssemblyAI) only break ties. They never override the indicator.
 
+### Lines with two speakers
+
+A transcript line should hold one speaker. The words are cut at every change of speaker, not only when a segment "spans" one:
+
+- **Word level, for every provider with word times** (the local whisper service always has them). Whisper's own segments are only a source of words. They are cut again at each speaker change, at a pause of 2 seconds, and after a sentence once the line is 3.5 seconds long (it used to be 6, see the measurements below). Nothing merges lines afterwards, so two speakers never end up in one line again.
+- **Short interjections** of 1 to 3 words ("Waarvoor?", "Ja, oké") become a line of their own when the indicator or diarization shows them apart from the sentence around them.
+- **Providers without word times.** A segment is cut by the indicator or diarization intervals alone: only where one speaker is lit by themselves for at least 0.6 s, and each part must hold at least 2 words. The words are placed by characters, so the cut is an estimate. Overlap and flicker never split a line (`splitAtChanges` in `packages/core/src/speaker-split.ts`, constants `SPLIT_MIN_PART_MS`, `SPLIT_MIN_PART_WORDS`, `SPLIT_LAG_TOLERANCE_MS`).
+- Existing meetings are not changed. For a line that is already saved, use **Split line** in the [review](voices.md#lines-with-two-speakers).
+
+The whisper service uses faster-whisper with its default voice activity detection (chunks cut at 2 s of silence, 0.4 s padding). Shorter chunks (500 ms silence, 200 ms padding) were measured and gave no gain in single-speaker lines, so they were not adopted.
+
 ## Second pass: the context AI
 
 With a summary provider set, uncertain lines are checked once more. Turn it off under Settings, Summaries, Speaker names (`speakers.refine`, on by default).
@@ -97,6 +108,8 @@ flowchart TD
 | Five real AMI meetings        | 17.2%              |
 
 Synthetic voices are cleaner than phone audio, so expect worse on real calls. The indicator alignment scores 98.8% of sentences on a synthetic late-indicator meeting and 19 of 19 on a recorded Teams meeting (`e2e/transcripts/run.sh`).
+
+MEASURE_PLACEHOLDER
 
 </details>
 

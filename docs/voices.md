@@ -37,7 +37,16 @@ A line enters the queue for one of two reasons, and the card says which:
 
 Only lines that can teach a voice are asked: at least 3 seconds, nobody talking over them and not mostly filler ("yeah", "okay"). Within the queue, doubtful lines come first, then the people with the least verified speech, and the picks are spread over different meetings, moments far apart and sources instead of near duplicates. A session holds 25 cards. At the end, **Keep going** loads the next 25. The card shows a coverage meter such as "Dennis: 45 s of 90 s, Dutch", and the end screen lists the profiles that are good enough. The order switch (**Newest meetings first** or **Least sure first**) sorts the cards inside the session.
 
-**Skip** is remembered: a skipped line does not come back after a refresh or in another session. It returns when you press **Review N skipped** at the end, or when the line is proposed for someone else. Approve, Disapprove and Skip are saved the moment you press them, and **Undo** takes the last one back on the server too (the old label, the voice sample and the skip).
+**Skip** is remembered: a skipped line does not come back after a refresh or in another session. It returns when you press **Review N skipped** at the end, or when the line is proposed for someone else. Approve, Disapprove, Skip, Split and Mixed are saved the moment you press them, and **Undo** takes the last one back on the server too (the old label, the voice sample, the skip, the split or the mixed mark).
+
+### Lines with two speakers
+
+A line sometimes holds two people, for example "Waarvoor?" by one and the answer by another. Approving it would teach a voice with someone else's speech, and skipping it leaves a wrong label that comes back. Two actions on the card deal with it (keys on the buttons: **S** skip, **D** disapprove, **A** approve, **X** split, **M** mixed, **U** undo):
+
+- **Split line** (**X**): the words of the line show as chips. Click the word where the second speaker starts, **Split again** adds a second cut for three parts, and each part gets a person: the proposed person for the first part, and for the others a picker with the other people of that meeting (the same list as Disapprove). Times are estimated from the characters, since lines store no word times. The parts become decided lines, verified for their person, and the ones of 3 seconds or more feed the profiles through the normal guarded path. Shorter parts are only labelled. **Undo** puts the original line back, but cannot bring back a voice sample the original line had.
+- **Mixed, skip for training** (**M**): the line keeps its label, is never used for a voice sample (a sample it already has is removed), and never shows up in a review queue or count again. In the transcript it carries a small **mixed** marker with a **Clear** button, and **Undo** takes it back.
+
+A third source is automatic. Before a line of 4 seconds or more becomes a voice sample, by verifying it or as an automatic sample, its first and second half are embedded and compared. When they sound clearly unlike each other (cosine under 0.3) the line is marked **probably mixed**: it trains nothing, and it is asked about with the reason **Probably two speakers** and the split already open. Approving or moving such a line yourself clears the mark, and then it does train. The guard is a tripwire, not a detector: on real recorded Dutch calls with the default embedding model, two halves of one speaker had a median cosine of only 0.57, so at 0.3 about 10% of single speaker lines are flagged and about 28% of lines across a speaker change are caught. A guard that cannot run (no voice service) lets learning go on as before. Cost: two voice prints per long candidate line, none for shorter lines, and automatic samples only check lines that already passed every other test.
 
 Every card has its own address, `#/people/review/<line>` or `#/people/<person>/review/<line>`, with the scope and order in the address. A refresh opens the same card and the link can be bookmarked or shared. The address replaces the previous one as you move on, so Back leaves the review instead of walking through decided lines. If the line is no longer in the queue, a notice says so and the next card opens.
 
@@ -95,7 +104,7 @@ The check also builds a temporary voice per participant from the meeting itself,
 - a line of 2.5 seconds or more whose label wins clearly (60% or more and 15 points ahead of the runner-up) is raised to 85% confidence, never to certainty. No label is changed by this check
 - meeting voices exist only while the meeting is checked. They are not saved, not shown, and never added to a person's profile. Profiles still learn only from lines you verify and from the guarded [automatic samples](#automatic-samples), which only count the saved voices
 
-The labels are never changed by the check. Lines you set yourself are skipped. The check runs when a meeting is transcribed, not when only the speaker check is rerun.
+The labels are never changed by the check. Lines you set yourself are skipped. Lines marked mixed are never anchors and never learned from. The check runs when a meeting is transcribed, not when only the speaker check is rerun.
 
 ## Several people in one tile
 
@@ -172,6 +181,7 @@ With **Learn voices** on, lines that are near certain are added to a profile wit
 - the line must be 3 seconds or more with nobody talking over it, its label must come from the call's speaking indicator or diarization with at least 90% confidence, its voice score must be 80% or more and 25 points ahead of every other voice in the meeting. Lines set by you, changed by an AI review, doubted by the voice check or labelled by elimination never qualify
 - automatic samples are stored as `auto`, counted apart on the profile card ("42 s verified, 3 min auto"), weigh 0.4 of a verified sample when the profile is built, may add up to 3 times the verified seconds and at most 60 seconds per person per meeting
 - **Remove auto samples** on a profile card, or **Remove** per meeting in its list, deletes them and builds the profile again from the verified ones
+- a line marked mixed never qualifies, and a long candidate whose two halves sound unlike each other is marked [probably mixed](#lines-with-two-speakers) instead of being learned
 - if you reject such a line it is removed, and that person needs 2 points more margin from then on (up to 15)
 
 Automatic samples are never offered for review as a training need, and a line you confirm becomes a verified sample.
