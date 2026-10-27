@@ -107,6 +107,10 @@ export const meetings = pgTable(
     companySource: text('company_source', { enum: companySources }),
     folderId: uuid('folder_id').references(() => minuteFolders.id, { onDelete: 'set null' }),
     speakersRefined: boolean('speakers_refined').notNull().default(false),
+    /** The last time a person changed who said a line. Automatic and AI changes do not set it. */
+    speakersChangedAt: timestamptz('speakers_changed_at'),
+    /** When the owner dismissed the notice that the summary is older than the speakers. */
+    speakersNoticeDismissedAt: timestamptz('speakers_notice_dismissed_at'),
     speakerCheckRequestedAt: timestamptz('speaker_check_requested_at'),
     speakerCheckedAt: timestamptz('speaker_checked_at'),
     speakerCheckError: text('speaker_check_error'),
@@ -146,6 +150,8 @@ export interface VoicePrototype {
   vector: number[];
   /** How many samples this vector stands for. */
   samples: number;
+  /** The language of the samples, a person keeps up to 5 vectors per language. Missing: 'und'. */
+  language?: string;
 }
 
 /** How a person came to be known: added by hand, was in a meeting, or only on an invitation. */
@@ -155,6 +161,10 @@ export type PersonTracking = 'on' | 'off';
 
 export const voiceSampleKinds = ['line', 'meeting', 'imported'] as const;
 export type VoiceSampleKind = (typeof voiceSampleKinds)[number];
+
+/** verified: a person confirmed the line. auto: added by itself from a near-certain line. */
+export const voiceSampleSources = ['verified', 'auto'] as const;
+export type VoiceSampleSource = (typeof voiceSampleSources)[number];
 
 /** Someone the owner knows: a name, any number of emails and, when allowed, a voice profile. */
 export const people = pgTable(
@@ -166,6 +176,8 @@ export const people = pgTable(
     source: text('source').$type<PersonSource>().notNull().default('manual'),
     /** 'off' means do not track: no voice is learned or suggested, the name stays in transcripts. */
     tracking: text('tracking').$type<PersonTracking>().notNull().default('on'),
+    /** Added to the margin a line needs to be learned by itself, raised when an auto sample is rejected. */
+    autoMargin: real('auto_margin').notNull().default(0),
     /** Lower case. A person may have none, one or several. */
     emails: jsonb('emails').$type<string[]>().notNull().default([]),
     /** Up to 5 vectors built from the voice samples, matched by the highest cosine. */
@@ -264,6 +276,9 @@ export const voiceSamples = pgTable(
     durationMs: integer('duration_ms').notNull().default(0),
     /** How many earlier samples an imported vector stands for. */
     weight: integer('weight').notNull().default(1),
+    /** The language of the speech, so a person gets one voice profile per language. 'und': unknown. */
+    language: text('language').notNull().default('und'),
+    source: text('source', { enum: voiceSampleSources }).notNull().default('verified'),
     /** A line the owner said is not this person, kept so it is not offered again. */
     rejected: boolean('rejected').notNull().default(false),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
@@ -318,10 +333,53 @@ export const transcriptSegments = pgTable('transcript_segments', {
   ),
   /** The voice check found the line closer to another saved voice than to the label. */
   voiceDoubt: boolean('voice_doubt').notNull().default(false),
+  /**
+   * The label or the suggestion comes from elimination: the voice matches none of the people with
+   * a saved voice and one participant is left. Only reviewed, never learned from by itself.
+   */
+  byElimination: boolean('by_elimination').notNull().default(false),
   /** How well each meeting participant's saved voice fits the line, best first. */
   voiceScores: jsonb('voice_scores').$type<SpeakerCandidate[]>(),
+  /**
+   * The language spoken in this line, a two letter code. The transcription gives one language per
+   * meeting, so this is that language unless a provider names one per line. Null: not known.
+   */
+  language: text('language'),
   /** Speakers a person turned down for this line, so the review does not suggest them again. */
   rejectedSuggestions: jsonb('rejected_suggestions').$type<string[]>().notNull().default([]),
+});
+
+export const reviewDecisionKinds = ['skip', 'approve', 'reject', 'move'] as const;
+export type ReviewDecisionKind = (typeof reviewDecisionKinds)[number];
+
+/** What a line looked like before a review decision, so Undo can put it back. */
+export interface SegmentSnapshot {
+  participantId: string | null;
+  speakerSource: SpeakerSource | null;
+  suggestedParticipantId: string | null;
+  voiceDoubt: boolean;
+  /** Missing in snapshots taken before elimination existed. */
+  byElimination?: boolean;
+  previousParticipantId: string | null;
+  rejectedSuggestions: string[];
+}
+
+/**
+ * The last review decision per line. A skip hides the line from the review queue for the person
+ * it was proposed for, until the user asks for the skipped lines or the proposal changes to
+ * someone else. The other kinds keep the earlier state of the line for Undo.
+ */
+export const reviewDecisions = pgTable('review_decisions', {
+  segmentId: uuid('segment_id')
+    .primaryKey()
+    .references(() => transcriptSegments.id, { onDelete: 'cascade' }),
+  /** The person the line was proposed for (skip) or the person it was verified or rejected for. */
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: reviewDecisionKinds }).notNull(),
+  before: jsonb('before').$type<SegmentSnapshot>(),
+  createdAt: timestamptz('created_at').notNull().defaultNow(),
 });
 
 export const summaries = pgTable('summaries', {

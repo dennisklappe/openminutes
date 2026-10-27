@@ -239,6 +239,41 @@
       "when": 1793023524660,
       "tag": "0033_people_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793031514093,
+      "tag": "0034_review_decisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793032620222,
+      "tag": "0035_voice_languages",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793033216440,
+      "tag": "0036_voice_auto_samples",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793033600806,
+      "tag": "0037_by_elimination",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793033877225,
+      "tag": "0038_speakers_changed",
+      "breakpoints": true
     }
   ]
 }

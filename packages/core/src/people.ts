@@ -3,14 +3,19 @@ import {
   asc,
   eq,
   inArray,
+  meetings,
   ne,
   participants,
   people,
   sql,
+  transcriptSegments,
   voiceSamples,
   type Database,
   type VoiceSampleKind,
+  type VoiceSampleSource,
 } from '@openminutes/db';
+import { AUTO_MARGIN_MAX, AUTO_MARGIN_STEP, AUTO_SAMPLE_WEIGHT } from './voice-auto.js';
+import { normalizeLanguage } from './voice-language.js';
 import { buildPrototypes } from './voice-profile.js';
 
 type Writer = Pick<Database, 'select' | 'insert' | 'update' | 'delete'>;
@@ -126,12 +131,20 @@ export async function resumeTracking(db: Writer, personId: string): Promise<void
 /** Builds the voice profile of a person again from their samples. */
 export async function rebuildProfile(db: Writer, personId: string): Promise<void> {
   const samples = await db
-    .select({ embedding: voiceSamples.embedding, weight: voiceSamples.weight })
+    .select({
+      embedding: voiceSamples.embedding,
+      weight: voiceSamples.weight,
+      language: voiceSamples.language,
+      source: voiceSamples.source,
+    })
     .from(voiceSamples)
     .where(and(eq(voiceSamples.personId, personId), eq(voiceSamples.rejected, false)))
     .orderBy(asc(voiceSamples.createdAt), asc(voiceSamples.id));
-  const usable = samples.flatMap(({ embedding, weight }) =>
-    embedding ? [{ embedding, weight }] : [],
+  // A sample added by itself counts less than one a person confirmed.
+  const usable = samples.flatMap(({ embedding, weight, language, source }) =>
+    embedding
+      ? [{ embedding, weight: source === 'auto' ? weight * AUTO_SAMPLE_WEIGHT : weight, language }]
+      : [],
   );
   await db
     .update(people)
@@ -147,6 +160,33 @@ export interface NewSample {
   meetingId?: string | null | undefined;
   segmentId?: string | null | undefined;
   durationMs?: number | undefined;
+  /** verified (default): a person confirmed the line. auto: added by itself from a near-certain line. */
+  source?: VoiceSampleSource | undefined;
+  /** The language spoken. Left out, it is taken from the line, then from the meeting. */
+  language?: string | null | undefined;
+}
+
+/** The language of a sample: the one given, else that of its line, else that of its meeting. */
+async function languageOf(db: Writer, sample: NewSample): Promise<string> {
+  if (sample.language !== undefined && sample.language !== null) {
+    return normalizeLanguage(sample.language);
+  }
+  if (sample.segmentId) {
+    const [line] = await db
+      .select({ language: transcriptSegments.language, meeting: meetings.language })
+      .from(transcriptSegments)
+      .innerJoin(meetings, eq(meetings.id, transcriptSegments.meetingId))
+      .where(eq(transcriptSegments.id, sample.segmentId));
+    if (line) return normalizeLanguage(line.language ?? line.meeting);
+  }
+  if (sample.meetingId) {
+    const [meeting] = await db
+      .select({ language: meetings.language })
+      .from(meetings)
+      .where(eq(meetings.id, sample.meetingId));
+    return normalizeLanguage(meeting?.language);
+  }
+  return normalizeLanguage(undefined);
 }
 
 async function upsertSample(db: Writer, sample: NewSample): Promise<void> {
@@ -158,6 +198,8 @@ async function upsertSample(db: Writer, sample: NewSample): Promise<void> {
     meetingId: sample.meetingId ?? null,
     segmentId: sample.segmentId ?? null,
     durationMs: sample.durationMs ?? 0,
+    language: await languageOf(db, sample),
+    source: sample.source ?? 'verified',
     rejected: false,
   };
   const same = sample.segmentId
@@ -219,13 +261,17 @@ export async function rememberVoice(
 /** Every saved voice vector of a tracked person with the name it belongs to, for matching a new voice by name. */
 export async function savedVoices(
   db: Pick<Database, 'select'>,
-): Promise<{ name: string; embedding: number[] }[]> {
+): Promise<{ name: string; embedding: number[]; language: string }[]> {
   const rows = await db
     .select({ name: people.name, prototypes: people.voicePrototypes })
     .from(people)
     .where(eq(people.tracking, 'on'));
   return rows.flatMap(({ name, prototypes }) =>
-    prototypes.map((prototype) => ({ name, embedding: prototype.vector })),
+    prototypes.map((prototype) => ({
+      name,
+      embedding: prototype.vector,
+      language: normalizeLanguage(prototype.language),
+    })),
   );
 }
 
@@ -270,4 +316,40 @@ export async function forgetVoices(db: Writer, personIds?: readonly string[]): P
     .update(people)
     .set({ voicePrototypes: [], updatedAt: new Date() })
     .where(personIds ? inArray(people.id, [...personIds]) : undefined);
+}
+
+/**
+ * Takes the samples that were added by themselves out of the voice profiles and builds those
+ * profiles again. Narrow it to one person, one language or one meeting. Verified samples stay.
+ */
+export async function removeAutoSamples(
+  db: Writer,
+  scope: { personId?: string; language?: string; meetingId?: string },
+): Promise<number> {
+  const removed = await db
+    .delete(voiceSamples)
+    .where(
+      and(
+        eq(voiceSamples.source, 'auto'),
+        scope.personId ? eq(voiceSamples.personId, scope.personId) : undefined,
+        scope.language ? eq(voiceSamples.language, normalizeLanguage(scope.language)) : undefined,
+        scope.meetingId ? eq(voiceSamples.meetingId, scope.meetingId) : undefined,
+      ),
+    )
+    .returning({ personId: voiceSamples.personId });
+  for (const personId of new Set(removed.map((row) => row.personId))) {
+    await rebuildProfile(db, personId);
+  }
+  return removed.length;
+}
+
+/**
+ * A sample added by itself was rejected by a person: the line is not theirs. That is a signal
+ * the near-certain test was too loose for this person, so they need a little more margin.
+ */
+export async function penalizeAutoMargin(db: Writer, personId: string): Promise<void> {
+  await db
+    .update(people)
+    .set({ autoMargin: sql`least(${people.autoMargin} + ${AUTO_MARGIN_STEP}, ${AUTO_MARGIN_MAX})` })
+    .where(eq(people.id, personId));
 }

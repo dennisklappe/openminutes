@@ -4,7 +4,7 @@ import { createTestDatabase } from '@openminutes/db/testing';
 import type { Diarizer, EmbeddedLines } from '@openminutes/providers';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { TranscriptRow } from '../transcript-store.js';
-import { checkVoices, judgeLine } from './voice-check.js';
+import { CONFLICT_SCORE, checkVoices, eliminate, judgeLine, RAISE_CAP } from './voice-check.js';
 
 const scores = (own: number, other: number) =>
   new Map([
@@ -20,7 +20,8 @@ const line = {
 describe('judgeLine', () => {
   it('keeps a long line whose own voice fits best', () => {
     const verdict = judgeLine(line, 6000, scores(0.8, 0.2));
-    expect(verdict).toMatchObject({ confidence: 0.9, doubt: false, better: null });
+    // A clear lead for the label raises the timing score a little.
+    expect(verdict).toMatchObject({ confidence: 0.95, doubt: false, better: null });
   });
 
   it('doubts a long line that sounds like someone else and suggests them', () => {
@@ -57,6 +58,65 @@ describe('judgeLine', () => {
 
   it('doubts a line that fits its own saved voice very badly', () => {
     expect(judgeLine(line, 6000, scores(0.1, 0.1))).toMatchObject({ doubt: true, better: null });
+  });
+});
+
+describe('relative scoring across the meeting', () => {
+  it('raises the confidence when the label leads clearly, a little and never to certainty', () => {
+    const low = { ...line, speakerConfidence: 0.8 };
+    const raised = judgeLine(low, 6000, scores(0.9, 0.2));
+    expect(raised.confidence).toBeCloseTo(0.85);
+    expect(judgeLine({ ...line, speakerConfidence: 1 }, 6000, scores(0.95, 0.1)).confidence).toBe(
+      1,
+    );
+    expect(judgeLine({ ...line, speakerConfidence: 0.94 }, 6000, scores(0.9, 0.1)).confidence).toBe(
+      RAISE_CAP,
+    );
+    // A short line is a weak witness, a thin lead raises nothing.
+    expect(judgeLine(low, 600, scores(0.9, 0.2)).confidence).toBeCloseTo(0.8, 1);
+    expect(judgeLine(low, 6000, scores(0.9, 0.7)).confidence).toBe(0.8);
+  });
+
+  it('lowers both sides when a sure voice conflicts with the label', () => {
+    const verdict = judgeLine(
+      { ...line, speakerCandidates: [{ participantId: 'a', score: 0.8 }] },
+      6000,
+      new Map([
+        ['a', 0.1],
+        ['b', CONFLICT_SCORE + 0.1],
+      ]),
+    );
+    expect(verdict).toMatchObject({ doubt: true, better: 'b' });
+    expect(verdict.confidence).toBeLessThan(0.7);
+    expect(verdict.candidates).toContainEqual({ participantId: 'a', score: 0.4 });
+    expect(verdict.candidates).toContainEqual({ participantId: 'b', score: 0.2 });
+  });
+});
+
+describe('eliminate', () => {
+  const nobody = new Map([
+    ['a', 0.1],
+    ['b', 0.15],
+  ]);
+  const verdict = { confidence: 0.6, candidates: [{ participantId: 'c', score: 0.5 }] };
+  const long = { participantId: 'c', speakerCandidates: [], startMs: 0, endMs: 4000 };
+
+  it('raises a line of the one participant without a saved voice when it fits nobody else', () => {
+    const left = eliminate(long, verdict, nobody, 'c');
+    expect(left?.confidence).toBeCloseTo(0.7);
+    expect(left?.suggest).toBeUndefined();
+  });
+
+  it('suggests that participant for a line labelled as someone else that fits nobody', () => {
+    const left = eliminate({ ...long, participantId: 'a' }, verdict, nobody, 'c');
+    expect(left?.suggest).toBe('c');
+    expect(left?.candidates).toContainEqual({ participantId: 'c', score: 0.5 });
+  });
+
+  it('does nothing when a voice fits, the line is short, or more than one person is left', () => {
+    expect(eliminate(long, verdict, new Map([['a', 0.5]]), 'c')).toBeUndefined();
+    expect(eliminate({ ...long, endMs: 1000 }, verdict, nobody, 'c')).toBeUndefined();
+    expect(eliminate(long, verdict, nobody, undefined)).toBeUndefined();
   });
 });
 
@@ -184,5 +244,108 @@ describe('checkVoices', () => {
     expect(out[0]?.suggestedParticipantId).toBeUndefined();
     expect(out[0]?.voiceScores?.map((s) => s.participantId)).toEqual([anna.id]);
     expect(out[0]?.speakerCandidates?.some((c) => c.participantId === bram.id)).toBe(false);
+  });
+
+  it('compares a line with the voice profile in its own language first', async () => {
+    const { meeting, anna, bram, row } = await setup(false);
+    const a = await ensurePerson(test.db, anna.displayName);
+    const b = await ensurePerson(test.db, bram.displayName);
+    // Anna sounds like [1,0] in Dutch and like [0,1] in English, Bram like [0,1] in Dutch.
+    await addVoiceSamples(test.db, a.id, [
+      { kind: 'imported', embedding: [1, 0], language: 'nl' },
+      { kind: 'imported', embedding: [0, 1], language: 'en' },
+    ]);
+    await addVoiceSamples(test.db, b.id, [{ kind: 'imported', embedding: [0, 1], language: 'nl' }]);
+    const rows = [row(0, anna.id, { language: 'nl' }), row(1, anna.id, { language: 'en' })];
+    const out = await checkVoices(
+      deps(
+        diarizer([
+          [1, 0],
+          [0, 1],
+        ]).client,
+      ),
+      meeting.id,
+      rows,
+      '/a',
+      null,
+    );
+    // Dutch Anna fits her Dutch voice, English Anna her English voice: neither is doubted.
+    expect(out[0]).toMatchObject({ voiceDoubt: false });
+    expect(out[1]).toMatchObject({ voiceDoubt: false });
+    expect(out[0]?.voiceScores?.[0]).toEqual({ participantId: anna.id, score: 1 });
+    // Bram has no English voice: his Dutch voice counts there with the small penalty.
+    expect(out[1]?.voiceScores?.find((s) => s.participantId === bram.id)?.score).toBe(0.95);
+  });
+
+  it('rules out by elimination: the unmatched voice is the one participant without a saved voice', async () => {
+    const { meeting, anna, bram, row } = await setup(true);
+    const [carla] = await test.db
+      .insert(participants)
+      .values({ meetingId: meeting.id, displayName: `Carla ${meeting.id.slice(0, 4)}` })
+      .returning();
+    if (!carla) throw new Error('insert failed');
+    const rows = [
+      row(0, carla.id, { speakerConfidence: 0.6 }),
+      row(1, anna.id, { speakerConfidence: 0.9 }),
+      row(2, bram.id, { endMs: 2 * 5000 + 1000 }),
+    ];
+    const d = diarizer([
+      [0.7, 0.7],
+      [0.7, -0.7],
+      [0.7, 0.7],
+    ]);
+    const out = await checkVoices(deps(d.client), meeting.id, rows, '/a', null);
+    // Fits Anna and Bram a bit (0.7), so only the clearly unmatched voice counts.
+    expect(out.every((r) => !r.byElimination)).toBe(true);
+
+    const none = diarizer([
+      [-1, -1],
+      [-1, -1],
+      [-1, -1],
+    ]);
+    const left = await checkVoices(deps(none.client), meeting.id, rows, '/a', null);
+    expect(left[0]).toMatchObject({ byElimination: true });
+    expect(left[0]?.speakerConfidence).toBeCloseTo(0.7);
+    expect(left[0]?.suggestedParticipantId).toBeUndefined();
+    expect(left[1]).toMatchObject({ byElimination: true, suggestedParticipantId: carla.id });
+    // The short line of Bram is only a weak witness.
+    expect(left[2]?.byElimination).toBeUndefined();
+  });
+
+  it('does not rule out by elimination when two people lack a saved voice or someone is not tracked', async () => {
+    const two = await setup(true);
+    await test.db.insert(participants).values([
+      { meetingId: two.meeting.id, displayName: `Carla ${two.meeting.id.slice(0, 4)}` },
+      { meetingId: two.meeting.id, displayName: `Dirk ${two.meeting.id.slice(0, 4)}` },
+    ]);
+    const rows = [two.row(0, two.anna.id)];
+    const out = await checkVoices(
+      deps(diarizer([[-1, -1]]).client),
+      two.meeting.id,
+      rows,
+      '/a',
+      null,
+    );
+    expect(out[0]?.byElimination).toBeUndefined();
+
+    const off = await setup(true);
+    const [eve] = await test.db
+      .insert(participants)
+      .values({ meetingId: off.meeting.id, displayName: `Eve ${off.meeting.id.slice(0, 4)}` })
+      .returning();
+    const [frank] = await test.db
+      .insert(participants)
+      .values({ meetingId: off.meeting.id, displayName: `Frank ${off.meeting.id.slice(0, 4)}` })
+      .returning();
+    await ensurePerson(test.db, frank?.displayName ?? '').then((p) => stopTracking(test.db, p.id));
+    const lines = [off.row(0, eve?.id ?? '')];
+    const kept = await checkVoices(
+      deps(diarizer([[-1, -1]]).client),
+      off.meeting.id,
+      lines,
+      '/a',
+      null,
+    );
+    expect(kept[0]?.byElimination).toBeUndefined();
   });
 });

@@ -51,6 +51,7 @@ import type {
   SummaryOptionsDto,
 } from '../dto.js';
 import { iso, toMeetingDto } from './meeting-dto.js';
+import { dismissSpeakersNotice, speakersChangedSinceSummary } from './speakers-notice.js';
 import { listRoutes } from './list-routes.js';
 import { loadSegments, loadSpeakerChoices } from './segments.js';
 import { loadSpeakerCheck } from './speaker-check.js';
@@ -237,6 +238,8 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
   routes.get('/:id', async (c) => {
     const meeting = await findMeeting(c.req.param('id'));
     if (!meeting) return c.json({ error: 'Meeting not found' }, 404);
+    const summaries = await loadSummaries(meeting.id);
+    const activeSummary = summaries.find((s) => s.active);
     return c.json<MeetingDetailDto>({
       meeting: toMeetingDto(meeting),
       company: {
@@ -259,7 +262,11 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
       speakerChoices: await loadSpeakerChoices(deps.db, meeting.id),
       speakerCheck: await loadSpeakerCheck(deps.settings, meeting),
       chat: await loadChat(meeting.id),
-      summaries: await loadSummaries(meeting.id),
+      summaries,
+      speakersChangedSinceSummary: speakersChangedSinceSummary(
+        meeting,
+        activeSummary && new Date(activeSummary.createdAt),
+      ),
       summaryOptions: await loadSummaryOptions(meeting.id),
     });
   });
@@ -378,6 +385,13 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
     return c.json({ ok: true });
   });
 
+  routes.post('/:id/speakers-notice/dismiss', async (c) => {
+    const meeting = await findMeeting(c.req.param('id'));
+    if (!meeting) return c.json({ error: 'Meeting not found' }, 404);
+    await dismissSpeakersNotice(deps.db, meeting.id);
+    return c.json({ ok: true });
+  });
+
   routes.post('/:id/summaries', async (c) => {
     const meeting = await findMeeting(c.req.param('id'));
     if (!meeting) return c.json({ error: 'Meeting not found' }, 404);
@@ -395,6 +409,8 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
       if (error instanceof PromptNotFoundError) return c.json({ error: error.message }, 400);
       throw error;
     }
+    // A new summary is the answer to the notice that the speakers changed.
+    await dismissSpeakersNotice(deps.db, meeting.id);
     return c.json({ ok: true }, 202);
   });
 

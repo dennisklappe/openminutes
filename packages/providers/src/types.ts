@@ -10,6 +10,8 @@ export interface Segment {
   text: string;
   confidence?: number;
   speaker?: string;
+  /** The language of this segment, when the provider names one per segment. */
+  language?: string;
   words?: SegmentWord[];
 }
 

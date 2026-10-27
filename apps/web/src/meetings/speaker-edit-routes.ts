@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { SpeakerEditResultDto } from '../dto.js';
 import { rememberEnabled } from '../voices/load.js';
 import { loadSegments, loadSpeakerChoices } from './segments.js';
+import { markSpeakersChanged } from './speakers-notice.js';
 import { applySpeakerEdit, SpeakerEditError } from './speaker-edit.js';
 import { speakerEditInput } from './speaker-edit-schema.js';
 
@@ -38,6 +39,7 @@ export function speakerEditRoutes(deps: SpeakerEditDeps): Hono {
       if (error instanceof SpeakerEditError) return c.json({ error: error.message }, 400);
       throw error;
     }
+    await markSpeakersChanged(deps.db, meeting.id);
     if (body.data.kind === 'assign' && applied.learned && (await rememberEnabled(deps.settings))) {
       await deps.queue.send('meeting.learn-voice', { meetingId: meeting.id, ...applied.learned });
     }

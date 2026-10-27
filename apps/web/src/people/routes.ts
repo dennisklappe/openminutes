@@ -1,5 +1,11 @@
 import type { JobSender } from '@openminutes/core';
-import { backfillPeople, forgetVoices, isTracked, type SyncStats } from '@openminutes/core';
+import {
+  backfillPeople,
+  forgetVoices,
+  isTracked,
+  removeAutoSamples,
+  type SyncStats,
+} from '@openminutes/core';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { PeopleDto, PersonDetailDto, ReviewQueueDto } from '../dto.js';
@@ -12,7 +18,8 @@ import {
   setTracking,
   updatePerson,
 } from './edit.js';
-import { rejectLine, removeFromProfile, verifyLine } from './lines.js';
+import { rejectLine, removeFromProfile, skipLine, undoDecision, verifyLine } from './lines.js';
+import { deleteProfile } from './profiles.js';
 import { loadReviewQueue } from './review.js';
 import { loadPersonDetail, type PeopleDeps } from './load.js';
 import { loadPeoplePage } from './page.js';
@@ -58,7 +65,10 @@ const reviewQuery = z.object({
   personId: uuid.optional(),
   meetingId: uuid.optional(),
   order: z.enum(['newest', 'uncertain']).optional(),
+  skipped: z.enum(['0', '1']).optional(),
 });
+const skipInput = z.strictObject({ personId: uuid, segmentId: uuid });
+const undoInput = z.strictObject({ segmentId: uuid });
 
 export function peopleRoutes(deps: PeopleRouteDeps): Hono {
   const routes = new Hono();
@@ -99,8 +109,26 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
         404,
       );
     }
-    const queue = await loadReviewQueue(deps, query.data);
+    const { skipped, ...scope } = query.data;
+    const queue = await loadReviewQueue(deps, { ...scope, skipped: skipped === '1' });
     return queue ? c.json<ReviewQueueDto>(queue) : c.json({ error: 'Meeting not found' }, 404);
+  });
+
+  /** Hides a line from the review queue in every session. */
+  routes.post('/review/skip', async (c) => {
+    const body = skipInput.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: 'Line not found' }, 404);
+    return guard(c, async () => {
+      await skipLine(deps.db, body.data.personId, body.data.segmentId);
+      return c.json({ ok: true });
+    });
+  });
+
+  /** Takes back the last review decision on a line: a skip, a verify or a rejection. */
+  routes.post('/review/undo', async (c) => {
+    const body = undoInput.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: 'Line not found' }, 404);
+    return c.json({ undone: (await undoDecision(deps.db, body.data.segmentId)) ?? null });
   });
 
   routes.post('/', async (c) => {
@@ -174,6 +202,42 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     if (!id.success || !found) return c.json({ error: 'Person not found' }, 404);
     await forgetVoices(deps.db, [id.data]);
     return c.json<PersonDetailDto | undefined>(await detail(id.data));
+  });
+
+  /** Forgets one language profile of a person, the other languages stay. */
+  routes.delete('/:id/voice/:language', async (c) => {
+    const id = uuid.safeParse(c.req.param('id'));
+    const language = z
+      .string()
+      .regex(/^[a-z]{2,3}$/)
+      .safeParse(c.req.param('language'));
+    if (!id.success || !language.success) return c.json({ error: 'Person not found' }, 404);
+    return guard(c, async () => {
+      if (!(await detail(id.data))) return c.json({ error: 'Person not found' }, 404);
+      await deleteProfile(deps.db, id.data, language.data);
+      return c.json<PersonDetailDto | undefined>(await detail(id.data));
+    });
+  });
+
+  /** Takes the samples the voice added by itself out of one language profile. */
+  routes.delete('/:id/voice/:language/auto', async (c) => {
+    const id = uuid.safeParse(c.req.param('id'));
+    const language = z
+      .string()
+      .regex(/^[a-z]{2,3}$/)
+      .safeParse(c.req.param('language'));
+    if (!id.success || !language.success || !(await detail(id.data))) {
+      return c.json({ error: 'Person not found' }, 404);
+    }
+    await removeAutoSamples(deps.db, { personId: id.data, language: language.data });
+    return c.json<PersonDetailDto | undefined>(await detail(id.data));
+  });
+
+  /** Takes the samples the voice added by itself in one meeting out of everyone's profile. */
+  routes.delete('/auto-voices/:meetingId', async (c) => {
+    const meetingId = uuid.safeParse(c.req.param('meetingId'));
+    if (!meetingId.success) return c.json({ error: 'Meeting not found' }, 404);
+    return c.json({ removed: await removeAutoSamples(deps.db, { meetingId: meetingId.data }) });
   });
 
   const lineRoute = (

@@ -22,6 +22,7 @@ const person = (name: string, extra: Partial<PersonDto> = {}): PersonDto => ({
   source: 'joined',
   tracking: 'on',
   duplicates: [],
+  languages: [],
   ...extra,
 });
 

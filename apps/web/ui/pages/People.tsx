@@ -12,7 +12,14 @@ import { Dialog } from '../Dialog.js';
 import { MoreIcon, PlusIcon, SearchIcon } from '../icons.js';
 import { Menu } from '../Menu.js';
 import { MergeDialog } from '../MergePeople.js';
-import { parseEmails, profileLabels, profileLevel, trackingLabels, validEmail } from '../people.js';
+import {
+  coverageText,
+  parseEmails,
+  profileLabels,
+  profileLevel,
+  trackingLabels,
+  validEmail,
+} from '../people.js';
 import '../people.css';
 
 const NAME_MAX = 80;
@@ -244,9 +251,9 @@ export function People() {
           </p>
         </div>
         <div className="head-actions">
-          {data && data.needsReview > 0 && (
+          {data && data.reviewable > 0 && (
             <a className="button" href="#/people/review">
-              Review {data.needsReview} {data.needsReview === 1 ? 'line' : 'lines'}
+              Review {data.reviewable} {data.reviewable === 1 ? 'line' : 'lines'}
             </a>
           )}
           <button disabled={scanning} onClick={scan}>
@@ -441,6 +448,19 @@ export function People() {
                         </span>
                       ) : (
                         'Learning is off'
+                      )}
+                      {person.languages.length > 0 && (
+                        <span className="language-chips">
+                          {person.languages.map((profile) => (
+                            <span
+                              key={profile.language}
+                              className="language-chip"
+                              title={`${profile.languageName}: ${coverageText(profile.effectiveSeconds, profile.targetSeconds)}`}
+                            >
+                              {profile.language === 'und' ? '?' : profile.language}
+                            </span>
+                          ))}
+                        </span>
                       )}
                     </td>
                     <td className="num">{person.needsReview || ''}</td>

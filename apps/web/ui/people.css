@@ -433,3 +433,26 @@ button.link.quiet {
   font-size: 14px;
   overflow-wrap: anywhere;
 }
+
+.language-chips {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.language-chip {
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 18px;
+  text-transform: uppercase;
+}
+
+.auto-meetings {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}

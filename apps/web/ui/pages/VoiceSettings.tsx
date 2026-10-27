@@ -78,10 +78,12 @@ function VoiceForm({
           }}
         />
         <span>
-          Learn voices from lines I verify{' '}
+          Learn voices{' '}
           <span className="muted">
             When you name a speaker, assign a line or verify it under People, the voice of that line
-            is saved to the person. Nothing is learned from lines you did not confirm.
+            is saved to the person. Once someone has 30 seconds of verified speech in a language,
+            lines in that language that are near certain are added to their voice by themselves,
+            counted less than verified ones and kept to a limit. You can remove those under People.
           </span>
         </span>
       </label>

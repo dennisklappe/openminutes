@@ -22,6 +22,28 @@ export interface PersonDto {
   tracking: 'on' | 'off';
   /** Other people who are probably the same person. Never merged on its own. */
   duplicates: PersonChoiceDto[];
+  /** One voice profile per language, the most speech first. */
+  languages: LanguageCoverageDto[];
+}
+
+/** How far one voice profile, a person in one language, is. */
+export interface LanguageCoverageDto {
+  /** Two letter code, 'und' when the language is not known. */
+  language: string;
+  languageName: string;
+  /** Samples a person confirmed. */
+  samples: number;
+  /** Seconds of clean verified speech. */
+  seconds: number;
+  /** Samples the voice added by itself from near-certain lines, and their seconds. */
+  autoSamples: number;
+  autoSeconds: number;
+  /** Verified seconds plus the part of the auto seconds that counts, what the target is held against. */
+  effectiveSeconds: number;
+  /** The seconds after which the profile is good enough. */
+  targetSeconds: number;
+  /** Where the auto samples come from, to remove them per meeting. */
+  autoMeetings: { meetingId: string; title: string; seconds: number }[];
 }
 
 export type PeopleSort = 'name' | 'meetings' | 'lastSeen';
@@ -46,6 +68,8 @@ export interface PeopleDto {
   total: number;
   /** Lines that need a look across everyone, not only this page. */
   needsReview: number;
+  /** The useful part of those for one review session, at most 25. */
+  reviewable: number;
   /** Tracked people who were only ever invited, whatever the filter. */
   invitedOnly: number;
   page: number;
@@ -56,7 +80,8 @@ export interface PeopleDto {
   checking: boolean;
 }
 
-export type PersonLineReason = 'uncertain' | 'suggested' | 'voice';
+/** elimination: the voice fits nobody with a saved voice and this person is the one left. */
+export type PersonLineReason = 'uncertain' | 'suggested' | 'voice' | 'training' | 'elimination';
 
 export interface PersonLineDto {
   id: string;
@@ -75,6 +100,8 @@ export interface PersonLineDto {
   verified: boolean;
   /** The line is part of the voice profile. */
   inProfile: boolean;
+  /** The language spoken, a two letter code or 'und'. */
+  language: string;
   hasAudio: boolean;
 }
 
@@ -91,8 +118,10 @@ export interface PersonTrackingInput {
 
 export interface PersonDetailDto {
   person: PersonDto;
-  /** Vectors in the profile, up to 5. */
+  /** Vectors in the profile, up to 5 per language. */
   prototypes: number;
+  /** One card per language this person has a voice or a verified line in. */
+  profiles: LanguageCoverageDto[];
   verified: PersonLineDto[];
   review: PersonLineDto[];
   /** Everyone a line can be moved to. */
@@ -128,6 +157,12 @@ export interface ReviewRosterDto {
   name: string;
 }
 
+/** A voice profile that is good enough, so its lines are only asked about when in doubt. */
+export interface ReviewCompleteDto extends PersonChoiceDto {
+  language: string;
+  languageName: string;
+}
+
 export interface ReviewConsideredDto {
   name: string;
   /** 0 to 1. */
@@ -146,8 +181,17 @@ export interface ReviewLineDto {
   speakerConfidence: number | null;
   voiceScore: number | null;
   reason: PersonLineReason;
+  /** doubt: not sure who this is. training: sure, but the voice profile still needs samples. */
+  why: 'doubt' | 'training';
   /** The person the system thinks said it. */
   proposed: PersonChoiceDto;
+  /** The language of this line. */
+  language: string;
+  languageName: string;
+  /** Verified seconds already in their voice profile in this language. */
+  profileSeconds: number;
+  /** The seconds after which the profile is good enough. */
+  profileTargetSeconds: number;
   /** Others the system weighed, best first. */
   considered: ReviewConsideredDto[];
   /** The other people of this meeting, without the proposed person and bots. */
@@ -168,5 +212,11 @@ export interface ReviewQueueDto {
   scope: ReviewScopeDto;
   /** Everyone a line can be moved to. */
   people: PersonChoiceDto[];
+  /** Useful lines beyond this session's cap, for Keep going. */
+  more: number;
+  /** People whose profile is good enough, so their lines were left out. */
+  complete: ReviewCompleteDto[];
+  /** Lines skipped earlier, hidden from this queue until asked for. */
+  skippedCount: number;
   learning: boolean;
 }

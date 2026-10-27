@@ -14,8 +14,16 @@ import { startRealServer } from '../phone/real-server.mjs';
 const root = new URL('../../', import.meta.url);
 const requireFrom = createRequire(new URL('apps/web/package.json', root));
 const { chromium } = createRequire(new URL('apps/bot/package.json', root))('playwright-core');
-const { audioFiles, eq, meetings, participants, people, transcriptSegments, voiceSamples } =
-  await import(pathToFileURL(requireFrom.resolve('@openminutes/db')).href);
+const {
+  audioFiles,
+  eq,
+  meetings,
+  participants,
+  people,
+  summaries,
+  transcriptSegments,
+  voiceSamples,
+} = await import(pathToFileURL(requireFrom.resolve('@openminutes/db')).href);
 const out = process.env.OUT ?? join(process.env.TMPDIR ?? '.', 'review-shots');
 mkdirSync(out, { recursive: true });
 const step = (name) => console.log(`== ${name}`);
@@ -118,6 +126,9 @@ step('People page shows the count and opens Review');
   await page.keyboard.press('s');
   assert.match(await card(page).innerText(), /keep the current plan/);
   await page.keyboard.press('u');
+  await card(page)
+    .getByText(/update the budget sheet/)
+    .waitFor();
   assert.match(await card(page).innerText(), /update the budget sheet/);
   await page.keyboard.press('s');
 
@@ -164,8 +175,6 @@ step('a new person, then the empty state');
   await page.getByLabel('Name of the new person').fill('Eva Newcomer');
   await page.getByRole('button', { name: 'Add and move the line' }).click();
   await page.waitForTimeout(200);
-  await page.keyboard.press('d');
-  await page.keyboard.press('1');
   const empty = page.locator('.empty-state');
   await empty.waitFor();
   assert.match(await empty.innerText(), /All done/);
@@ -175,8 +184,9 @@ step('a new person, then the empty state');
 }
 const [eva] = await db.select().from(people).where(eq(people.name, 'Eva Newcomer'));
 assert.ok(eva, 'the new person exists');
-assert.equal((await owner(texts[1])).who, 'Eva Newcomer');
-assert.equal((await owner(texts[3])).who, bram.name);
+// The budget line was skipped earlier and stays skipped, so the vendor line was the only one left.
+assert.equal((await owner(texts[3])).who, 'Eva Newcomer');
+assert.equal((await owner(texts[1])).source, 'diarization', 'the skipped line stays untouched');
 
 step('screenshots of the card');
 await db
@@ -404,6 +414,162 @@ for (const [size, width, height] of [
         `${size} ${scheme} ${name}: horizontal overflow ${String(overflow)}`,
       );
       await page.screenshot({ path: join(out, `${size}-${scheme}-${name}.png`), fullPage: true });
+    }
+    await context.close();
+  }
+}
+
+step('skip persists, deep link, gone line notice');
+const [sven] = await db.insert(people).values({ name: 'Sven Skip' }).returning();
+const [skipMeeting] = await db
+  .insert(meetings)
+  .values({
+    title: 'Skip check',
+    platform: 'meet',
+    joinUrl: 'https://meet.google.com/ggg-hhhh-iii',
+    status: 'transcribed',
+    startedAt: new Date('2026-10-25T09:00:00Z'),
+  })
+  .returning();
+const [svenSeat] = await db
+  .insert(participants)
+  .values({ meetingId: skipMeeting.id, displayName: sven.name, personId: sven.id })
+  .returning();
+const skipRows = await db
+  .insert(transcriptSegments)
+  .values(
+    ['First skip line about the budget.', 'Second skip line about hiring.'].map((text, index) => ({
+      meetingId: skipMeeting.id,
+      participantId: svenSeat.id,
+      startMs: index * 8000,
+      endMs: index * 8000 + 6000,
+      text,
+      speakerConfidence: 0.1 + index * 0.1,
+      speakerSource: 'diarization',
+      speakerCandidates: [],
+      language: 'en',
+    })),
+  )
+  .returning();
+{
+  const { context, page } = await newPage(1440, 900, 'light');
+  await page.goto(`${server.url}/#/meetings/${skipMeeting.id}/review`);
+  await card(page).waitFor();
+  assert.match(await card(page).innerText(), /First skip line/);
+  await page.keyboard.press('s');
+  assert.match(await card(page).innerText(), /Second skip line/);
+  await page.waitForTimeout(400);
+  await page.reload();
+  await card(page).waitFor();
+  const afterReload = await card(page).innerText();
+  assert.ok(!afterReload.includes('First skip line'), 'a skipped line does not return on reload');
+  assert.match(afterReload, /Second skip line/);
+
+  step('deep link opens that card, a gone line shows the notice');
+  const second = skipRows[1];
+  await page.goto(`${server.url}/#/meetings/${skipMeeting.id}/review/${second.id}`);
+  await page.reload();
+  await card(page).waitFor();
+  assert.match(await card(page).innerText(), /Second skip line/);
+  assert.equal(
+    await page.getByText(/no longer in the queue/).count(),
+    0,
+    'no notice for a live line',
+  );
+  await page.goto(`${server.url}/#/meetings/${skipMeeting.id}/review/${skipRows[0].id}`);
+  await page.reload();
+  await page.getByText(/no longer in the queue/).waitFor();
+  await page.screenshot({ path: join(out, 'desktop-light-gone-notice.png') });
+  await context.close();
+}
+
+step('coverage meter and per-language profile cards');
+await db.insert(voiceSamples).values([
+  {
+    personId: sven.id,
+    kind: 'imported',
+    embedding: [1, 0],
+    weight: 3,
+    durationMs: 45000,
+    language: 'en',
+  },
+  {
+    personId: sven.id,
+    kind: 'meeting',
+    meetingId: skipMeeting.id,
+    embedding: [0, 1],
+    durationMs: 20000,
+    language: 'nl',
+    source: 'auto',
+  },
+]);
+for (const [size, width, height] of [
+  ['desktop', 1440, 900],
+  ['phone', 390, 844],
+]) {
+  for (const scheme of ['light', 'dark']) {
+    const { context, page } = await newPage(width, height, scheme);
+    await page.goto(`${server.url}/#/people/${sven.id}`);
+    await page.locator('.language-profile').first().waitFor();
+    assert.equal(await page.locator('.language-profile').count(), 2, 'one card per language');
+    assert.equal(await page.locator('.language-profile [role="progressbar"]').count(), 2);
+    const text = await page.locator('.person-grid').innerText();
+    assert.match(text, /English/);
+    assert.match(await page.locator('.language-profile').nth(1).innerText(), /Added by itself/);
+    const overflow = await page.evaluate(
+      () => globalThis.document.documentElement.scrollWidth - globalThis.innerWidth,
+    );
+    assert.ok(overflow <= 0, `${size} ${scheme} profiles: overflow ${String(overflow)}`);
+    await page.screenshot({ path: join(out, `${size}-${scheme}-profiles.png`), fullPage: true });
+    await page.goto(`${server.url}/#/meetings/${skipMeeting.id}/review`);
+    await card(page).waitFor();
+    assert.ok(
+      (await card(page).locator('[role="progressbar"]').count()) === 1,
+      'coverage meter on the card',
+    );
+    await page.screenshot({ path: join(out, `${size}-${scheme}-meter.png`), fullPage: true });
+    await context.close();
+  }
+}
+
+step('speaker change notice with Dismiss');
+await db.insert(summaries).values({
+  meetingId: skipMeeting.id,
+  provider: 'fake',
+  model: 'fake',
+  status: 'done',
+  content: '## Summary\n\nThey talked about the budget.',
+  createdAt: new Date(Date.now() - 60000),
+});
+await db
+  .update(meetings)
+  .set({ speakersChangedAt: new Date() })
+  .where(eq(meetings.id, skipMeeting.id));
+for (const [size, width, height] of [
+  ['desktop', 1440, 900],
+  ['phone', 390, 844],
+]) {
+  for (const scheme of ['light', 'dark']) {
+    const { context, page } = await newPage(width, height, scheme);
+    await db
+      .update(meetings)
+      .set({ speakersChangedAt: new Date(), speakersNoticeDismissedAt: null })
+      .where(eq(meetings.id, skipMeeting.id));
+    await page.goto(`${server.url}/#/meetings/${skipMeeting.id}`);
+    await page.getByRole('tab', { name: 'Summary' }).first().click();
+    const banner = page.getByText(/Speakers changed in the transcript/);
+    await banner.waitFor();
+    await page.screenshot({
+      path: join(out, `${size}-${scheme}-speakers-notice.png`),
+      fullPage: true,
+    });
+    if (size === 'desktop' && scheme === 'light') {
+      await page.getByRole('button', { name: 'Dismiss' }).click();
+      await banner.waitFor({ state: 'detached' });
+      await page.reload();
+      await page.getByRole('tab', { name: 'Summary' }).first().click();
+      await page.getByText('They talked about the budget').waitFor();
+      assert.equal(await banner.count(), 0, 'dismissed notice stays away after reload');
     }
     await context.close();
   }

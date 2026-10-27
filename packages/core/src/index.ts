@@ -179,6 +179,8 @@ export {
   isTracked,
   linkParticipant,
   normalizeEmail,
+  penalizeAutoMargin,
+  removeAutoSamples,
   rebuildProfile,
   rememberVoice,
   resumeTracking,
@@ -187,8 +189,16 @@ export {
   type NewSample,
   type Person,
 } from './people.js';
+export * from './voice-auto.js';
+export {
+  isKnownLanguage,
+  LANGUAGE_PENALTY,
+  normalizeLanguage,
+  UNKNOWN_LANGUAGE,
+} from './voice-language.js';
 export {
   buildPrototypes,
+  prototypesIn,
   MAX_PROTOTYPES,
   profileScore,
   PROTOTYPE_JOIN_SIMILARITY,

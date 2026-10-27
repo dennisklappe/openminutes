@@ -84,10 +84,11 @@ export const errorMessage = (error: unknown) =>
 
 async function request<T>(
   path: string,
-  init?: { method: string; body?: unknown; file?: Blob },
+  init?: { method: string; body?: unknown; file?: Blob; keepalive?: boolean },
 ): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method: init?.method ?? 'GET',
+    ...(init?.keepalive && { keepalive: true }),
     ...(init?.body !== undefined && {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(init.body),
@@ -231,9 +232,18 @@ export const api = {
       method: 'POST',
     }),
   person: (id: string) => request<PersonDetailDto>(`/people/${id}`),
-  reviewQueue: (scope: { personId?: string; meetingId?: string; order?: ReviewOrder } = {}) => {
+  reviewQueue: (
+    scope: {
+      personId?: string;
+      meetingId?: string;
+      order?: ReviewOrder;
+      skipped?: boolean;
+    } = {},
+  ) => {
     const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(scope)) if (value) params.set(key, value);
+    for (const [key, value] of Object.entries(scope)) {
+      if (value) params.set(key, value === true ? '1' : value);
+    }
     const text = params.toString();
     return request<ReviewQueueDto>(text ? `/people/review?${text}` : '/people/review');
   },
@@ -252,19 +262,39 @@ export const api = {
     request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/verify`, {
       method: 'POST',
       body: {},
+      keepalive: true,
     }),
   rejectLine: (id: string, segmentId: string) =>
     request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/reject`, {
       method: 'POST',
       body: {},
+      keepalive: true,
     }),
   moveLine: (id: string, segmentId: string, personId: string) =>
     request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/move`, {
       method: 'POST',
       body: { personId },
+      keepalive: true,
+    }),
+  skipLine: (personId: string, segmentId: string) =>
+    request<{ ok: true }>('/people/review/skip', {
+      method: 'POST',
+      body: { personId, segmentId },
+      keepalive: true,
+    }),
+  undoReviewDecision: (segmentId: string) =>
+    request<{ undone: string | null }>('/people/review/undo', {
+      method: 'POST',
+      body: { segmentId },
     }),
   removeLineFromProfile: (id: string, segmentId: string) =>
     request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/profile`, { method: 'DELETE' }),
+  removeAutoSamples: (id: string, language: string) =>
+    request<PersonDetailDto>(`/people/${id}/voice/${language}/auto`, { method: 'DELETE' }),
+  removeMeetingAutoSamples: (meetingId: string) =>
+    request<{ removed: number }>(`/people/auto-voices/${meetingId}`, { method: 'DELETE' }),
+  forgetPersonProfile: (id: string, language: string) =>
+    request<PersonDetailDto>(`/people/${id}/voice/${language}`, { method: 'DELETE' }),
   forgetVoice: (id: string) =>
     request<VoiceSettingsDto>(`/settings/voices/${id}`, { method: 'DELETE' }),
   forgetAllVoices: () => request<VoiceSettingsDto>('/settings/voices', { method: 'DELETE' }),
@@ -292,6 +322,8 @@ export const api = {
     request<ShareEmailPreviewDto>(`/meetings/${id}/share-email/preview`, { method: 'POST', body }),
   sendShareEmail: (id: string, body: ShareEmailInput) =>
     request<ShareEmailResultDto>(`/meetings/${id}/share-email`, { method: 'POST', body }),
+  dismissSpeakersNotice: (id: string) =>
+    request(`/meetings/${id}/speakers-notice/dismiss`, { method: 'POST' }),
   summarize: (id: string, body: SummaryRequestInput) =>
     request(`/meetings/${id}/summaries`, { method: 'POST', body }),
   prompts: () => request<PromptsDto>('/settings/prompts'),

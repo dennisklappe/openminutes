@@ -35,6 +35,8 @@ import { applyCorrections, captureCorrections } from './speaker-review/correctio
 import { reviewTranscript } from './speaker-review/transcript-review.js';
 import { checkVoices } from './speaker-review/voice-check.js';
 import type { TrimAudio } from './trim-audio.js';
+import { autoLearn } from './auto-learn.js';
+import type { ScoredLine } from './speaker-review/voice-check.js';
 import { saveTranscript, toTranscriptRows } from './transcript-store.js';
 
 export interface ProcessDeps {
@@ -253,6 +255,7 @@ export async function processMeeting(
       spans,
       range,
       labels ? 'diarization' : 'indicator',
+      language,
     );
     const staleIds = labels?.staleIds ?? [];
     const corrected = await applyCorrections(
@@ -263,6 +266,7 @@ export async function processMeeting(
       range,
       staleIds,
     );
+    const scored: ScoredLine[] = [];
     const checked =
       labels || !deps.recording
         ? corrected
@@ -271,6 +275,9 @@ export async function processMeeting(
               db: deps.db,
               createDiarizer: deps.recording.createDiarizer,
               enabled: deps.recording.voicesChecked,
+              onScored: (lines) => {
+                scored.push(...lines);
+              },
             },
             meetingId,
             corrected,
@@ -287,6 +294,12 @@ export async function processMeeting(
     await run.finish();
     await setStatus('transcribed');
     await linkPeople(deps.db, meetingId);
+    await autoLearn(
+      deps.db,
+      meetingId,
+      scored,
+      (await deps.recording?.voicesRemembered()) ?? false,
+    );
     await archive(deps.db, storage, meetingId);
     if (segments.length > 0) await startSummary(deps, meetingId);
   } catch (error) {

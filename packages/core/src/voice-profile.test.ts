@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LANGUAGE_PENALTY } from './voice-language.js';
 import { buildPrototypes, MAX_PROTOTYPES, profileScore } from './voice-profile.js';
 
 const angle = (degrees: number): number[] => [
@@ -57,5 +58,55 @@ describe('profileScore', () => {
 
   it('is zero for an empty profile', () => {
     expect(profileScore([1, 0], [])).toBe(0);
+  });
+});
+
+describe('voice profiles per language', () => {
+  const dutch = (degrees: number, weight = 1) => ({ ...sample(degrees, weight), language: 'nl' });
+  const english = (degrees: number, weight = 1) => ({ ...sample(degrees, weight), language: 'en' });
+
+  it('builds separate vectors for each language, up to five each', () => {
+    const many = [0, 72, 144, 216, 288, 36, 108, 180];
+    const prototypes = buildPrototypes([
+      ...many.map((d) => dutch(d)),
+      ...many.map((d) => english(d)),
+    ]);
+    expect(prototypes.filter((p) => p.language === 'nl')).toHaveLength(MAX_PROTOTYPES);
+    expect(prototypes.filter((p) => p.language === 'en')).toHaveLength(MAX_PROTOTYPES);
+  });
+
+  it('does not mix a Dutch and an English sample of the same direction', () => {
+    const prototypes = buildPrototypes([dutch(0), english(0), sample(0)]);
+    expect(prototypes.map((p) => [p.language, p.samples])).toEqual([
+      ['en', 1],
+      ['nl', 1],
+      ['und', 1],
+    ]);
+  });
+
+  it('scores against the same language first', () => {
+    const prototypes = buildPrototypes([dutch(0), english(90)]);
+    // The voice sounds like the English vector, but this line is Dutch: only Dutch counts.
+    expect(profileScore(angle(90), prototypes, 'nl')).toBeCloseTo(0);
+    expect(profileScore(angle(0), prototypes, 'nl')).toBeCloseTo(1);
+    expect(profileScore(angle(90), prototypes, 'en')).toBeCloseTo(1);
+  });
+
+  it('falls back to the other languages with a small penalty', () => {
+    const prototypes = buildPrototypes([dutch(0)]);
+    expect(profileScore(angle(0), prototypes, 'en')).toBeCloseTo(1 - LANGUAGE_PENALTY);
+    expect(profileScore(angle(0), prototypes, 'en-GB')).toBeCloseTo(1 - LANGUAGE_PENALTY);
+  });
+
+  it('compares with everything when the language is not known', () => {
+    const prototypes = buildPrototypes([dutch(0), english(90)]);
+    expect(profileScore(angle(90), prototypes)).toBeCloseTo(1);
+    expect(profileScore(angle(90), prototypes, 'und')).toBeCloseTo(1);
+  });
+
+  it('treats a profile saved before languages as unknown language', () => {
+    const old = [{ vector: angle(0), samples: 3 }];
+    expect(profileScore(angle(0), old, 'nl')).toBeCloseTo(1 - LANGUAGE_PENALTY);
+    expect(profileScore(angle(0), old)).toBeCloseTo(1);
   });
 });
