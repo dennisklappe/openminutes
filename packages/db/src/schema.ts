@@ -43,10 +43,13 @@ export const calendarLinkStatuses = [
 ] as const;
 export const companySources = ['calendar', 'ai', 'manual'] as const;
 export const speakerSources = ['indicator', 'diarization', 'user', 'ai', 'guess'] as const;
+/** marked: a person said the line has two speakers. probable: the voice guard thinks so. */
+export const mixedStates = ['marked', 'probable'] as const;
 export const shareEmailStatuses = ['sent', 'failed'] as const;
 
 export type CompanySource = (typeof companySources)[number];
 export type SpeakerSource = (typeof speakerSources)[number];
+export type MixedState = (typeof mixedStates)[number];
 export type SummaryOrigin = (typeof summaryOrigins)[number];
 export type MeetingPlatform = (typeof meetingPlatforms)[number];
 export type MeetingStatus = (typeof meetingStatuses)[number];
@@ -421,9 +424,14 @@ export const transcriptSegments = pgTable('transcript_segments', {
   }),
   /** Speakers a person turned down for this line, so the review does not suggest them again. */
   rejectedSuggestions: jsonb('rejected_suggestions').$type<string[]>().notNull().default([]),
+  /**
+   * The line holds two speakers. Either way it never trains a voice. `marked` also keeps it out of
+   * the review queues, `probable` is asked about with a split offered.
+   */
+  mixed: text('mixed', { enum: mixedStates }),
 });
 
-export const reviewDecisionKinds = ['skip', 'approve', 'reject', 'move'] as const;
+export const reviewDecisionKinds = ['skip', 'approve', 'reject', 'move', 'mixed'] as const;
 export type ReviewDecisionKind = (typeof reviewDecisionKinds)[number];
 
 /** What a line looked like before a review decision, so Undo can put it back. */
