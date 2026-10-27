@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises';
+import { access, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
@@ -31,6 +31,12 @@ import type {
 } from '@openminutes/providers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { processMeeting, type ProcessDeps } from './process.js';
+
+const exists = (path: string) =>
+  access(path).then(
+    () => true,
+    () => false,
+  );
 
 describe('processMeeting', () => {
   let test: Awaited<ReturnType<typeof createTestDatabase>>;
@@ -281,10 +287,14 @@ describe('processMeeting', () => {
         embed: () => Promise.resolve(undefined),
         embedEach: () => Promise.resolve({ embeddings, model: 'test' }),
       });
-      const withRecording = (checked: boolean, embeddings: number[][]): ProcessDeps => ({
+      const withRecording = (
+        checked: boolean,
+        embeddings: number[][],
+        createDiarizer = () => Promise.resolve<Diarizer | undefined>(diarizer(embeddings)),
+      ): ProcessDeps => ({
         ...deps(),
         recording: {
-          createDiarizer: () => Promise.resolve(diarizer(embeddings)),
+          createDiarizer,
           voicesRemembered: () => Promise.resolve(false),
           voicesChecked: () => Promise.resolve(checked),
           createSuggester: () => Promise.resolve(undefined),
@@ -329,6 +339,45 @@ describe('processMeeting', () => {
           suggestedParticipantId: bob.id,
         });
         expect(flagged?.speakerConfidence).toBeLessThan(0.7);
+      });
+
+      it('opens the real original audio for the voice check, then publishes it', async () => {
+        const { id } = await twoSpeakers();
+        await saveVoices('Alice', 'Bob');
+        const original = storage.absolutePath(originalAudioPath(id));
+        const merged = storage.absolutePath(mergedAudioPath(id));
+        const seen: { path: string; exists: boolean }[] = [];
+        const opening = (): Promise<Diarizer> =>
+          Promise.resolve({
+            diarize: () => Promise.resolve(undefined),
+            embed: () => Promise.resolve(undefined),
+            embedEach: async (audio) => {
+              seen.push({ path: audio.path, exists: await exists(audio.path) });
+              return {
+                embeddings: [
+                  [1, 0],
+                  [0, 1],
+                ],
+                model: 'test',
+              };
+            },
+          });
+        await processMeeting(withRecording(true, [], opening), id);
+        expect(seen).toEqual([{ path: original, exists: true }]);
+        expect(await exists(merged)).toBe(true);
+        expect(await exists(original)).toBe(false);
+      });
+
+      it('still publishes the audio when the voice check fails', async () => {
+        const { id } = await twoSpeakers();
+        await saveVoices('Alice', 'Bob');
+        await processMeeting(
+          withRecording(true, [], () => Promise.reject(new Error('no model'))),
+          id,
+        );
+        expect(await exists(storage.absolutePath(mergedAudioPath(id)))).toBe(true);
+        expect(await exists(storage.absolutePath(originalAudioPath(id)))).toBe(false);
+        expect((await load(id)).meeting.status).toBe('transcribed');
       });
 
       it('changes nothing when the check is off', async () => {

@@ -37,7 +37,7 @@ import { checkVoices } from './speaker-review/voice-check.js';
 import type { TrimAudio } from './trim-audio.js';
 import { autoLearn } from './auto-learn.js';
 import type { ScoredLine } from './speaker-review/voice-check.js';
-import { saveTranscript, toTranscriptRows } from './transcript-store.js';
+import { saveTranscript, toTranscriptRows, type TranscriptRow } from './transcript-store.js';
 
 export interface ProcessDeps {
   db: Database;
@@ -246,44 +246,49 @@ export async function processMeeting(
         )
       : undefined;
     const spans = labels?.spans ?? events;
-    await publishAudio(deps, storage, meetingId, original.path, range);
     await run.step('saving');
-    const corrections = await captureCorrections(deps.db, meetingId, meeting.trimStartMs);
-    const aligned = toTranscriptRows(
-      meetingId,
-      segments,
-      spans,
-      range,
-      labels ? 'diarization' : 'indicator',
-      language,
-    );
-    const staleIds = labels?.staleIds ?? [];
-    const corrected = await applyCorrections(
-      deps.db,
-      meetingId,
-      aligned,
-      corrections,
-      range,
-      staleIds,
-    );
+    // Everything that reads the original audio runs first: publishing moves or removes it.
+    let checked: TranscriptRow[];
     const scored: ScoredLine[] = [];
-    const checked =
-      labels || !deps.recording
-        ? corrected
-        : await checkVoices(
-            {
-              db: deps.db,
-              createDiarizer: deps.recording.createDiarizer,
-              enabled: deps.recording.voicesChecked,
-              onScored: (lines) => {
-                scored.push(...lines);
+    const staleIds = labels?.staleIds ?? [];
+    try {
+      const corrections = await captureCorrections(deps.db, meetingId, meeting.trimStartMs);
+      const aligned = toTranscriptRows(
+        meetingId,
+        segments,
+        spans,
+        range,
+        labels ? 'diarization' : 'indicator',
+        language,
+      );
+      const corrected = await applyCorrections(
+        deps.db,
+        meetingId,
+        aligned,
+        corrections,
+        range,
+        staleIds,
+      );
+      checked =
+        labels || !deps.recording
+          ? corrected
+          : await checkVoices(
+              {
+                db: deps.db,
+                createDiarizer: deps.recording.createDiarizer,
+                enabled: deps.recording.voicesChecked,
+                onScored: (lines) => {
+                  scored.push(...lines);
+                },
               },
-            },
-            meetingId,
-            corrected,
-            original.path,
-            range,
-          );
+              meetingId,
+              corrected,
+              original.path,
+              range,
+            );
+    } finally {
+      await publishAudio(deps, storage, meetingId, original.path, range);
+    }
     const { rows, check } = await reviewTranscript(deps, meetingId, checked, staleIds);
     await saveTranscript(deps.db, meetingId, rows, range);
     if (labels) await finishRecording(deps.db, deps.recording, meetingId, labels, rows);
