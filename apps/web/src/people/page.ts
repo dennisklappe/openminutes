@@ -1,7 +1,7 @@
 import { and, eq, inArray, people, sql, voiceSamples } from '@openminutes/db';
 import type { PeopleDto, PeopleQuery } from '../dto.js';
 import { checkEnabled, rememberEnabled } from '../voices/load.js';
-import { reviewCounts, toDto, type PeopleDeps } from './load.js';
+import { loadDuplicates, reviewCounts, toDto, type PeopleDeps } from './load.js';
 import { loadMeetingStats, seenStats } from './stats.js';
 
 export const DEFAULT_PAGE_SIZE = 50;
@@ -27,6 +27,8 @@ export async function loadPeoplePage(
       : sql`(p.name ilike ${likePattern(needle)} or p.emails::text ilike ${likePattern(needle)} or coalesce(p.notes, '') ilike ${likePattern(needle)})`,
     query.source === 'joined' ? sql`p.source <> 'invited'` : undefined,
     query.source === 'invited' ? sql`p.source = 'invited'` : undefined,
+    query.tracking === 'untracked' ? sql`p.tracking = 'off'` : undefined,
+    query.tracking === 'all' || query.tracking === 'untracked' ? undefined : sql`p.tracking = 'on'`,
   ].filter((filter) => filter !== undefined);
   const where = filters.length > 0 ? sql`where ${sql.join(filters, sql` and `)}` : sql``;
   const direction = query.dir === 'desc' ? sql`desc` : sql`asc`;
@@ -54,7 +56,7 @@ export async function loadPeoplePage(
 
   const allReview = await reviewCounts(db);
   const ids = found.map((row) => row.id);
-  const [rows, samples, seen, review] = await Promise.all([
+  const [rows, samples, seen, review, dupes] = await Promise.all([
     ids.length === 0 ? [] : db.select().from(people).where(inArray(people.id, ids)),
     ids.length === 0
       ? []
@@ -75,13 +77,14 @@ export async function loadPeoplePage(
           .groupBy(voiceSamples.personId),
     loadMeetingStats(db, ids),
     reviewCounts(db, ids),
+    loadDuplicates(db),
   ]);
   const byId = new Map(rows.map((row) => [row.id, row]));
   const sampleOf = new Map(samples.map((sample) => [sample.personId, sample]));
   return {
     people: ids.flatMap((id) => {
       const person = byId.get(id);
-      return person ? [toDto(person, sampleOf.get(id), seen, review)] : [];
+      return person ? [toDto(person, sampleOf.get(id), seen, review, dupes)] : [];
     }),
     total,
     needsReview: [...allReview.values()].reduce((sum, n) => sum + n, 0),

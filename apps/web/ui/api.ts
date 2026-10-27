@@ -59,6 +59,7 @@ import type {
   PeopleDto,
   PeopleQuery,
   PersonDetailDto,
+  ReviewOrder,
   ReviewQueueDto,
   PersonInput,
   PersonUpdateInput,
@@ -230,8 +231,14 @@ export const api = {
       method: 'POST',
     }),
   person: (id: string) => request<PersonDetailDto>(`/people/${id}`),
-  reviewQueue: (personId?: string) =>
-    request<ReviewQueueDto>(`/people/review${personId ? `?personId=${personId}` : ''}`),
+  reviewQueue: (scope: { personId?: string; meetingId?: string; order?: ReviewOrder } = {}) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(scope)) if (value) params.set(key, value);
+    const text = params.toString();
+    return request<ReviewQueueDto>(text ? `/people/review?${text}` : '/people/review');
+  },
+  setTracking: (id: string, tracking: 'on' | 'off') =>
+    request<PersonDetailDto>(`/people/${id}/tracking`, { method: 'POST', body: { tracking } }),
   createPerson: (body: PersonInput) =>
     request<PersonDetailDto>('/people', { method: 'POST', body }),
   updatePerson: (id: string, body: PersonUpdateInput) =>

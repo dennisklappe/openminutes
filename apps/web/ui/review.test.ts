@@ -5,6 +5,7 @@ import {
   counts,
   currentLine,
   decide,
+  dropPerson,
   describeDecision,
   everyoneOptions,
   keyAction,
@@ -179,5 +180,32 @@ describe('keyAction', () => {
     expect(keyAction('a', 'roster')).toBeUndefined();
     expect(keyAction('ArrowRight', 'other')).toBeUndefined();
     expect(keyAction('Escape', 'other')).toBe('exit');
+  });
+});
+
+describe('do not track in the queue', () => {
+  const mine = (id: string, who: string) => line(id, { proposed: { id: who, name: who } });
+
+  it('drops every line proposed for that person, counting the total down', () => {
+    let state = startReview([mine('a', 'p1'), mine('b', 'p2'), mine('c', 'p1'), mine('d', 'p3')]);
+    state = decide(state, { kind: 'skip' });
+    const after = dropPerson(state, 'p1');
+    expect([...after.rest, ...after.skipped].map((l) => l.id)).toEqual(['b', 'd']);
+    expect(after.total).toBe(2);
+    expect(currentLine(after)?.id).toBe('b');
+  });
+
+  it('offers a person who is not tracked only in the full list, marked', () => {
+    const people = [
+      { id: 'p1', name: 'Anna' },
+      { id: 'p2', name: 'Mute', tracked: false },
+    ];
+    expect(everyoneOptions(people, 'p1', 'mu')).toEqual([
+      { personId: 'p2', name: 'Mute', untracked: true },
+    ]);
+    // A meeting participant with the name of an untracked person is not matched to them.
+    expect(rosterOptions([{ personId: null, name: 'Mute' }], people, 'p1')).toEqual([
+      { personId: null, name: 'Mute' },
+    ]);
   });
 });

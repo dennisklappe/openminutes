@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type SubmitEvent } from 'react';
 import type { PersonChoiceDto, PersonDetailDto, PersonLineDto } from '../../src/dto.js';
 import { api, errorMessage, meetingUrl } from '../api.js';
 import { useConfirm } from '../Confirm.js';
-import { Dialog } from '../Dialog.js';
+import { MergeInto } from '../MergePeople.js';
 import { parseEmails, profileLabels, profileLevel, reasonLabel, validEmail } from '../people.js';
 import { SnippetPlayer } from '../SnippetPlayer.js';
 import '../people.css';
@@ -122,71 +122,6 @@ function Details({
         </div>
       </footer>
     </form>
-  );
-}
-
-function MergeDialog({
-  detail,
-  onClose,
-  onMerged,
-}: {
-  detail: PersonDetailDto;
-  onClose: () => void;
-  onMerged: (next: PersonDetailDto) => void;
-}) {
-  const [sourceId, setSourceId] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-  const source = detail.choices.find((choice) => choice.id === sourceId);
-
-  const submit = (event: SubmitEvent) => {
-    event.preventDefault();
-    if (!source || busy) return;
-    setBusy(true);
-    api.mergePerson(detail.person.id, source.id).then(onMerged, (failure: unknown) => {
-      setBusy(false);
-      setError(errorMessage(failure));
-    });
-  };
-
-  return (
-    <Dialog title={`Merge into ${detail.person.name}`} onClose={onClose}>
-      <form onSubmit={submit}>
-        <p className="muted">
-          Their emails, voice samples and meetings move to {detail.person.name}. The other person is
-          then removed. This cannot be undone.
-        </p>
-        <label className="field">
-          <span>Person to merge in</span>
-          <select
-            value={sourceId}
-            onChange={(e) => {
-              setSourceId(e.target.value);
-            }}
-          >
-            <option value="">Choose a person</option>
-            {detail.choices.map((choice) => (
-              <option key={choice.id} value={choice.id}>
-                {choice.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {error && (
-          <p className="feedback error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="primary" type="submit" disabled={!source || busy}>
-            Merge
-          </button>
-        </div>
-      </form>
-    </Dialog>
   );
 }
 
@@ -389,6 +324,25 @@ export function PersonDetail({ id }: { id: string }) {
     if (confirmed) act(api.forgetPersonVoice(person.id));
   };
 
+  const untracked = person.tracking === 'off';
+
+  const stopTracking = async () => {
+    const confirmed = await confirm({
+      title: `Stop tracking ${person.name}?`,
+      body: (
+        <p>
+          Their saved voice samples and voice profile are deleted, and no voice is learned or
+          suggested for them again. Their lines are no longer offered for review. {person.name}{' '}
+          stays by name in every transcript and in the minutes. You can track them again later, the
+          voice then starts from nothing.
+        </p>
+      ),
+      confirmLabel: 'Stop tracking',
+      destructive: true,
+    });
+    if (confirmed) act(api.setTracking(person.id, 'off'));
+  };
+
   const remove = async () => {
     const confirmed = await confirm({
       title: `Delete ${person.name}?`,
@@ -419,7 +373,10 @@ export function PersonDetail({ id }: { id: string }) {
       </a>
       <header className="page-head">
         <div>
-          <h1>{person.name}</h1>
+          <h1>
+            {person.name}
+            {untracked && <span className="status-chip">Not tracked</span>}
+          </h1>
           <p className="lede">
             {person.emails.length === 0 ? 'No email' : person.emails.join(', ')}
             {' · '}
@@ -434,8 +391,29 @@ export function PersonDetail({ id }: { id: string }) {
             }}
             disabled={detail.choices.length === 0}
           >
-            Merge another person
+            Merge into another person
           </button>
+          {untracked ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                act(api.setTracking(person.id, 'on'));
+              }}
+            >
+              Track again
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                void stopTracking();
+              }}
+            >
+              Do not track
+            </button>
+          )}
           <button
             type="button"
             className="danger"
@@ -454,72 +432,102 @@ export function PersonDetail({ id }: { id: string }) {
       )}
       <div className="person-grid">
         <Details detail={detail} onSaved={setDetail} />
-        <section className="panel voice-profile" aria-label="Voice profile">
+        {untracked ? (
+          <section className="panel voice-profile" aria-label="Voice profile">
+            <header className="card-head">
+              <div className="card-title">
+                <h3>Not tracked</h3>
+              </div>
+            </header>
+            <div className="card-body">
+              <p className="muted">
+                No voice is learned or suggested for {person.name}, and their lines are not offered
+                for review. Their name stays in transcripts and minutes.
+              </p>
+            </div>
+            <footer className="card-foot">
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={() => {
+                  act(api.setTracking(person.id, 'on'));
+                }}
+              >
+                Track again
+              </button>
+            </footer>
+          </section>
+        ) : (
+          <section className="panel voice-profile" aria-label="Voice profile">
+            <header className="card-head">
+              <div className="card-title">
+                <h3>Voice profile</h3>
+              </div>
+            </header>
+            <div className="card-body">
+              <p>
+                <span className={`profile-dot ${level}`}>{profileLabels[level]}</span>
+              </p>
+              <dl className="facts">
+                <dt>Verified samples</dt>
+                <dd>{person.samples}</dd>
+                <dt>Clean speech</dt>
+                <dd>{person.voiceSeconds} s</dd>
+                <dt>Ways of sounding</dt>
+                <dd>{detail.prototypes} of 5</dd>
+              </dl>
+              {!detail.learning && (
+                <p className="privacy-note">
+                  Learning is off, so verifying a line only confirms who said it. Turn it on in
+                  Settings, Summaries, Voices, to build a voice profile from verified lines.
+                </p>
+              )}
+              {!detail.checking && detail.learning && person.samples > 0 && (
+                <p className="privacy-note">
+                  Checking lines against saved voices is off. Turn it on in Settings, Summaries,
+                  Voices.
+                </p>
+              )}
+            </div>
+            <footer className="card-foot">
+              <button
+                type="button"
+                className="danger"
+                disabled={person.samples === 0 && detail.prototypes === 0}
+                onClick={() => {
+                  void forget();
+                }}
+              >
+                Forget voice
+              </button>
+            </footer>
+          </section>
+        )}
+      </div>
+      {!untracked && (
+        <section className="panel review-entry">
           <header className="card-head">
             <div className="card-title">
-              <h3>Voice profile</h3>
+              <h3>
+                Needs review <span className="muted">{person.needsReview}</span>
+              </h3>
             </div>
           </header>
-          <div className="card-body">
-            <p>
-              <span className={`profile-dot ${level}`}>{profileLabels[level]}</span>
+          <div className="card-body review-entry-body">
+            <p className="muted">
+              {person.needsReview === 0
+                ? 'No lines need a look.'
+                : 'Go through the uncertain lines one at a time, least sure first.'}
             </p>
-            <dl className="facts">
-              <dt>Verified samples</dt>
-              <dd>{person.samples}</dd>
-              <dt>Clean speech</dt>
-              <dd>{person.voiceSeconds} s</dd>
-              <dt>Ways of sounding</dt>
-              <dd>{detail.prototypes} of 5</dd>
-            </dl>
-            {!detail.learning && (
-              <p className="privacy-note">
-                Learning is off, so verifying a line only confirms who said it. Turn it on in
-                Settings, Summaries, Voices, to build a voice profile from verified lines.
-              </p>
-            )}
-            {!detail.checking && detail.learning && person.samples > 0 && (
-              <p className="privacy-note">
-                Checking lines against saved voices is off. Turn it on in Settings, Summaries,
-                Voices.
-              </p>
+            {person.needsReview > 0 && (
+              <a className="button primary" href={`#/people/${person.id}/review`}>
+                Review {person.needsReview} {person.needsReview === 1 ? 'line' : 'lines'}
+              </a>
             )}
           </div>
-          <footer className="card-foot">
-            <button
-              type="button"
-              className="danger"
-              disabled={person.samples === 0 && detail.prototypes === 0}
-              onClick={() => {
-                void forget();
-              }}
-            >
-              Forget voice
-            </button>
-          </footer>
         </section>
-      </div>
-      <section className="panel review-entry">
-        <header className="card-head">
-          <div className="card-title">
-            <h3>
-              Needs review <span className="muted">{person.needsReview}</span>
-            </h3>
-          </div>
-        </header>
-        <div className="card-body review-entry-body">
-          <p className="muted">
-            {person.needsReview === 0
-              ? 'No lines need a look.'
-              : 'Go through the uncertain lines one at a time, least sure first.'}
-          </p>
-          {person.needsReview > 0 && (
-            <a className="button primary" href={`#/people/${person.id}/review`}>
-              Review {person.needsReview} {person.needsReview === 1 ? 'line' : 'lines'}
-            </a>
-          )}
-        </div>
-      </section>
+      )}
       <LineList
         title="Verified lines"
         empty="Verify a line to confirm it is this person."
@@ -529,14 +537,16 @@ export function PersonDetail({ id }: { id: string }) {
         act={act}
       />
       {merging && (
-        <MergeDialog
-          detail={detail}
+        <MergeInto
+          person={person}
+          choices={detail.choices}
           onClose={() => {
             setMerging(false);
           }}
-          onMerged={(next) => {
+          onMerged={(keepId) => {
             setMerging(false);
-            setDetail(next);
+            if (keepId === person.id) act(api.person(person.id));
+            else window.location.hash = `#/people/${keepId}`;
           }}
         />
       )}

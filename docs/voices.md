@@ -15,7 +15,7 @@ Giving two voices the same name merges them, which fixes one person split in two
 
 ## People
 
-Everyone you name, invite or add by hand is listed under **People**. A person has a name, none, one or several emails, and optional notes. People appear when you name a speaker, rename a participant or add one yourself. You can edit a person, merge two people (emails, voice samples and meetings move to the one you keep) and delete one. Renaming a person also renames their label in every meeting. The text of summaries and minutes is not rewritten.
+Everyone you name, invite or add by hand is listed under **People**. A person has a name, none, one or several emails, and optional notes. People appear when you name a speaker, rename a participant or add one yourself. You can edit a person, merge two people and delete one. To merge, use **Merge into another person** on the person page, or tick two people in the list and choose **Merge 2 selected**. You pick which name to keep and the dialog lists what moves over (emails, voice samples, meetings, rename rules and invitations) before anything happens. The person you do not keep is removed. People who look like doubles, for example the same email, or "Dennis" and "Dennis Klappe" on the same company domain, show a **Possible duplicate** hint with a Merge button. Nobody is merged automatically. Renaming a person also renames their label in every meeting. The text of summaries and minutes is not rewritten.
 
 Open a person to see:
 
@@ -24,6 +24,21 @@ Open a person to see:
 - **Verified lines**: lines you confirmed as this person
 
 Each line can be played. **Verify** says the line is this person, sets the label as a correction of yours and, when learning is on, adds its voice to the profile. **Not this person** takes the line away and gives it to the next best speaker, and it is not offered to this person again. **Move to...** gives it to someone else. **Remove from profile** keeps the label but forgets the voice sample.
+
+## Reviewing speakers
+
+**Review** on the People page goes through every line that needs a look, all people mixed, from the newest meeting to the oldest and within a meeting in the order spoken. The order switch changes it to the least sure line first. Each card shows the meeting and date. Scope the same flow to one person (**Review** on their page) or one meeting (**Review speakers** in the meeting menu, also in the row menu of the meetings list). A chip shows the scope, its cross goes back to everyone.
+
+## Do not track
+
+Choose **Do not track** on the person page, the People row menu or the review card for someone whose voice must never be kept. After you confirm:
+
+- their voice samples, voice profile and the voice saved on their meeting participants are deleted
+- no voice is learned for them, also not from lines you verify or move to them, and not from the **Not X, unsure who** answer
+- they are not suggested anywhere: not as the proposed speaker on a review card, in the lists of other lines, in the speaker review, in the voice check, in name suggestions for unknown voices, or as a person created by the scan of your meetings
+- their lines are never offered for review
+
+They stay by name in transcripts and minutes. **Someone else...** in the review lists them as not tracked, and the People list can show them with the Tracking filter. **Track again** on their page undoes it, the voice then starts from nothing. Merging a person who is not tracked into someone keeps the result not tracked and without voice samples.
 
 ## Voice settings
 
@@ -56,7 +71,7 @@ The labels are never changed by the check. Lines you set yourself are skipped. T
 
 ## Deleting
 
-Delete the voice data of one person on their page, or of everyone under Settings, Summaries, Voices. People, names and emails stay. Turning an option off stops learning or checking and keeps what is saved.
+Delete the voice data of one person on their page, mark them Do not track to stop it for good, or delete everyone's under Settings, Summaries, Voices. People, names and emails stay. Turning an option off stops learning or checking and keeps what is saved.
 
 > [!NOTE]
 > Deleting a meeting removes its speakers' voiceprints from the meeting, not the saved voices. Delete those separately.

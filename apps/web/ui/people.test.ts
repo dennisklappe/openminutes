@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { PersonDto } from '../src/dto.js';
-import { filterPeople, parseEmails, profileLevel, reasonLabel, validEmail } from './people.js';
+import {
+  filterPeople,
+  mergePreview,
+  parseEmails,
+  profileLevel,
+  reasonLabel,
+  validEmail,
+} from './people.js';
 
 const person = (name: string, extra: Partial<PersonDto> = {}): PersonDto => ({
   id: name,
@@ -13,6 +20,8 @@ const person = (name: string, extra: Partial<PersonDto> = {}): PersonDto => ({
   meetings: 0,
   lastSeenAt: null,
   source: 'joined',
+  tracking: 'on',
+  duplicates: [],
   ...extra,
 });
 
@@ -71,5 +80,23 @@ describe('reasonLabel', () => {
       '31%',
     );
     expect(reasonLabel({ reason: null, speakerConfidence: null, voiceScore: null })).toBe('');
+  });
+});
+
+describe('mergePreview', () => {
+  it('keeps the chosen name and adds up emails and samples without doubles', () => {
+    const keep = person('Dennis Klappe', { emails: ['d@x.com'], samples: 3 });
+    const drop = person('Dennis', { emails: ['D@x.com', 'dennis@y.com'], samples: 2 });
+    expect(mergePreview(keep, drop)).toEqual({
+      name: 'Dennis Klappe',
+      emails: ['d@x.com', 'dennis@y.com'],
+      samples: 5,
+      untracked: false,
+    });
+  });
+
+  it('says the merged person is not tracked and has no samples when either one is not', () => {
+    const preview = mergePreview(person('A', { samples: 4 }), person('B', { tracking: 'off' }));
+    expect(preview).toMatchObject({ untracked: true, samples: 0 });
   });
 });

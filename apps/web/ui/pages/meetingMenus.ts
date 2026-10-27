@@ -75,10 +75,15 @@ export function moreItems(input: {
   chooseLanguage: () => void;
   toggleArchive: () => void;
   remove: () => void;
+  /** Where the speaker review of this meeting lives, when there is a transcript. */
+  reviewHref?: string | undefined;
 }): MenuItem[] {
   const { canTranscribe, canDelete, archived, hasTranscript } = input;
   const { speakerCount, isRecording, reprocess, chooseLanguage, toggleArchive, remove } = input;
   return [
+    ...(input.reviewHref && hasTranscript
+      ? [{ label: 'Review speakers', href: input.reviewHref }]
+      : []),
     ...(canTranscribe
       ? [
           {

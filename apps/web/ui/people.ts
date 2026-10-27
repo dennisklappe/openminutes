@@ -1,4 +1,4 @@
-import type { PersonDto, PersonLineDto } from '../src/dto.js';
+import type { PersonDto, PersonLineDto, TrackingFilter } from '../src/dto.js';
 
 /** People whose name, email or notes contain the text, in the order given. */
 export function filterPeople(people: readonly PersonDto[], query: string): PersonDto[] {
@@ -64,4 +64,31 @@ export function reasonLabel(
     default:
       return '';
   }
+}
+
+export const trackingLabels: Record<TrackingFilter, string> = {
+  tracked: 'Tracked people',
+  all: 'Everyone, also not tracked',
+  untracked: 'Only not tracked',
+};
+
+type MergeSide = Pick<PersonDto, 'name' | 'emails' | 'samples' | 'meetings' | 'tracking'>;
+
+export interface MergePreview {
+  name: string;
+  emails: string[];
+  samples: number;
+  /** One of them is not tracked, so the merged person is too and no voice is kept. */
+  untracked: boolean;
+}
+
+/** What the merged person will look like: the kept person with the emails and samples of both. */
+export function mergePreview(keep: MergeSide, drop: MergeSide): MergePreview {
+  const untracked = keep.tracking === 'off' || drop.tracking === 'off';
+  return {
+    name: keep.name,
+    emails: [...new Set([...keep.emails, ...drop.emails].map((email) => email.toLowerCase()))],
+    samples: untracked ? 0 : keep.samples + drop.samples,
+    untracked,
+  };
 }

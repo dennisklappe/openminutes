@@ -1,9 +1,18 @@
 import { useEffect, useState, type SubmitEvent } from 'react';
-import type { PeopleDto, PeopleFilter, PeopleSort } from '../../src/dto.js';
+import type {
+  PeopleDto,
+  PeopleFilter,
+  PeopleSort,
+  PersonDto,
+  TrackingFilter,
+} from '../../src/dto.js';
 import { api, errorMessage } from '../api.js';
+import { useConfirm } from '../Confirm.js';
 import { Dialog } from '../Dialog.js';
-import { PlusIcon, SearchIcon } from '../icons.js';
-import { parseEmails, profileLabels, profileLevel, validEmail } from '../people.js';
+import { MoreIcon, PlusIcon, SearchIcon } from '../icons.js';
+import { Menu } from '../Menu.js';
+import { MergeDialog } from '../MergePeople.js';
+import { parseEmails, profileLabels, profileLevel, trackingLabels, validEmail } from '../people.js';
 import '../people.css';
 
 const NAME_MAX = 80;
@@ -124,6 +133,7 @@ function SortHeader({
 }
 
 export function People() {
+  const confirm = useConfirm();
   const [data, setData] = useState<PeopleDto>();
   const [error, setError] = useState<string>();
   const [q, setQ] = useState('');
@@ -135,6 +145,9 @@ export function People() {
   const [adding, setAdding] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [reload, setReload] = useState(0);
+  const [tracking, setTracking] = useState<TrackingFilter>('tracked');
+  const [selected, setSelected] = useState<Map<string, PersonDto>>(new Map());
+  const [merging, setMerging] = useState<[PersonDto | string, PersonDto | string]>();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -148,7 +161,7 @@ export function People() {
 
   useEffect(() => {
     let current = true;
-    api.people({ q: search, sort, dir, source, page, pageSize: PAGE_SIZE }).then(
+    api.people({ q: search, sort, dir, source, tracking, page, pageSize: PAGE_SIZE }).then(
       (result) => {
         if (current) setData(result);
       },
@@ -159,7 +172,7 @@ export function People() {
     return () => {
       current = false;
     };
-  }, [search, sort, dir, source, page, reload]);
+  }, [search, sort, dir, source, tracking, page, reload]);
 
   const changeSort = (field: PeopleSort) => {
     if (field === sort) setDir(dir === 'asc' ? 'desc' : 'asc');
@@ -184,7 +197,39 @@ export function People() {
     );
   };
 
+  const toggle = (person: PersonDto) => {
+    setSelected((current) => {
+      const next = new Map(current);
+      if (next.has(person.id)) next.delete(person.id);
+      else next.set(person.id, person);
+      return next;
+    });
+  };
+
+  const changeTracking = async (person: PersonDto) => {
+    if (person.tracking === 'off') {
+      await api.setTracking(person.id, 'on');
+    } else {
+      const confirmed = await confirm({
+        title: `Stop tracking ${person.name}?`,
+        body: (
+          <p>
+            Their saved voice samples and voice profile are deleted, and no voice is learned or
+            suggested for them again. Their lines are no longer offered for review. {person.name}{' '}
+            stays by name in every transcript and in the minutes.
+          </p>
+        ),
+        confirmLabel: 'Stop tracking',
+        destructive: true,
+      });
+      if (!confirmed) return;
+      await api.setTracking(person.id, 'off');
+    }
+    setReload((n) => n + 1);
+  };
+
   const shown = data?.people ?? [];
+  const pair = selected.size === 2 ? [...selected.values()] : undefined;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const from = data && data.total > 0 ? (data.page - 1) * data.pageSize + 1 : 0;
 
@@ -243,17 +288,61 @@ export function People() {
           <option value="joined">Was in a meeting</option>
           <option value="invited">Only invited</option>
         </select>
+        <select
+          aria-label="Tracking"
+          value={tracking}
+          onChange={(e) => {
+            setTracking(e.target.value as TrackingFilter);
+            setPage(1);
+          }}
+        >
+          {(Object.keys(trackingLabels) as TrackingFilter[]).map((value) => (
+            <option key={value} value={value}>
+              {trackingLabels[value]}
+            </option>
+          ))}
+        </select>
       </div>
       {error && (
         <p className="feedback error" role="alert">
           {error}
         </p>
       )}
+      {selected.size > 0 && (
+        <div className="toolbar selection-bar" role="region" aria-label="Selected people">
+          <span>{selected.size} selected</span>
+          <button
+            type="button"
+            className="primary"
+            disabled={!pair}
+            onClick={() => {
+              if (pair?.[0] && pair[1]) setMerging([pair[0], pair[1]]);
+            }}
+          >
+            Merge 2 selected
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelected(new Map());
+            }}
+          >
+            Clear
+          </button>
+          {selected.size !== 2 && (
+            <span className="muted">Select exactly two people to merge.</span>
+          )}
+        </div>
+      )}
       {data && shown.length === 0 ? (
         <div className="panel empty-state">
-          <h3>{search || source !== 'all' ? 'Nobody matches' : 'No people yet'}</h3>
+          <h3>
+            {search || source !== 'all' || tracking !== 'tracked'
+              ? 'Nobody matches'
+              : 'No people yet'}
+          </h3>
           <p>
-            {search || source !== 'all'
+            {search || source !== 'all' || tracking !== 'tracked'
               ? 'Try another name or email.'
               : 'People appear after a meeting, when you name a speaker, or when you add them here.'}
           </p>
@@ -284,22 +373,58 @@ export function People() {
                     num
                     onSort={changeSort}
                   />
+                  <th>
+                    <span className="visually-hidden">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {shown.map((person) => (
-                  <tr key={person.id}>
+                  <tr
+                    key={person.id}
+                    className={person.tracking === 'off' ? 'is-untracked' : undefined}
+                  >
                     <td>
-                      <a className="row-link" href={`#/people/${person.id}`}>
-                        {person.name}
-                      </a>
-                      {person.source === 'invited' && <span className="muted"> Invited</span>}
+                      <div className="name-cell">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${person.name}`}
+                          checked={selected.has(person.id)}
+                          onChange={() => {
+                            toggle(person);
+                          }}
+                        />
+                        <div>
+                          <a className="row-link" href={`#/people/${person.id}`}>
+                            {person.name}
+                          </a>
+                          {person.source === 'invited' && <span className="muted"> Invited</span>}
+                          {person.tracking === 'off' && <span className="muted"> Not tracked</span>}
+                          {person.duplicates[0] && (
+                            <span className="duplicate-hint">
+                              Possible duplicate of {person.duplicates[0].name}.{' '}
+                              <button
+                                type="button"
+                                className="link"
+                                onClick={() => {
+                                  const other = person.duplicates[0];
+                                  if (other) setMerging([person, other.id]);
+                                }}
+                              >
+                                Merge
+                              </button>
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="muted">
                       {person.emails.length === 0 ? 'No email' : person.emails.join(', ')}
                     </td>
                     <td className="muted">
-                      {data.learning || person.samples > 0 ? (
+                      {person.tracking === 'off' ? (
+                        'Not tracked'
+                      ) : data.learning || person.samples > 0 ? (
                         <span className={`profile-dot ${profileLevel(person)}`}>
                           {profileLabels[profileLevel(person)]}
                         </span>
@@ -311,6 +436,25 @@ export function People() {
                     <td className="num">{person.meetings}</td>
                     <td className="num muted">
                       {person.lastSeenAt ? dateFormat.format(new Date(person.lastSeenAt)) : ''}
+                    </td>
+                    <td className="row-menu">
+                      <Menu
+                        trigger={<MoreIcon />}
+                        label={`Actions for ${person.name}`}
+                        align="end"
+                        items={[
+                          { label: 'Open', href: `#/people/${person.id}` },
+                          ...(person.needsReview > 0
+                            ? [{ label: 'Review lines', href: `#/people/${person.id}/review` }]
+                            : []),
+                          {
+                            label: person.tracking === 'off' ? 'Track again' : 'Do not track',
+                            onSelect: () => {
+                              void changeTracking(person);
+                            },
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -339,6 +483,20 @@ export function People() {
             </div>
           </div>
         )
+      )}
+      {merging && (
+        <MergeDialog
+          a={merging[0]}
+          b={merging[1]}
+          onClose={() => {
+            setMerging(undefined);
+          }}
+          onMerged={() => {
+            setMerging(undefined);
+            setSelected(new Map());
+            setReload((n) => n + 1);
+          }}
+        />
       )}
       {adding && (
         <AddPerson

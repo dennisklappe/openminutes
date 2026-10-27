@@ -204,7 +204,10 @@
 
 .review-undo {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 16px 12px;
   border-top: 1px solid var(--line);
 }
@@ -300,4 +303,133 @@
   font: inherit;
   color: inherit;
   cursor: pointer;
+}
+
+.review-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.review-controls:empty {
+  display: none;
+}
+
+.review-order {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.scope-chip a {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.scope-chip a:hover {
+  background: var(--line);
+}
+
+button.link.quiet {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.status-chip {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.people-table tr.is-untracked a.row-link {
+  color: var(--muted);
+}
+
+.duplicate-hint,
+.name-cell input {
+  position: relative;
+  z-index: 1;
+}
+
+.name-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.name-cell input {
+  flex: none;
+  margin-top: 3px;
+}
+
+.duplicate-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.selection-bar {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.merge-keep {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+.merge-keep legend {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.merge-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+
+.merge-effects {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding-left: 18px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
 }

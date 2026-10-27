@@ -73,7 +73,10 @@ export function App() {
   const meetingId = /^\/meetings\/([\w-]+)$/.exec(route)?.[1];
   const personId = /^\/people\/([\w-]+)$/.exec(route)?.[1];
   const review = /^\/people\/(?:([\w-]+)\/)?review$/.exec(route);
-  const page = meetingId ? (
+  const meetingReview = /^\/meetings\/([\w-]+)\/review$/.exec(route)?.[1];
+  const page = meetingReview ? (
+    <Review meetingId={meetingReview} />
+  ) : meetingId ? (
     <MeetingDetail id={meetingId} />
   ) : route.startsWith('/minutes') ? (
     <Minutes view={minutesView(route)} />

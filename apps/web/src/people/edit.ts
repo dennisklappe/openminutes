@@ -1,4 +1,4 @@
-import { cleanEmails, rebuildProfile } from '@openminutes/core';
+import { cleanEmails, rebuildProfile, resumeTracking, stopTracking } from '@openminutes/core';
 import {
   and,
   eq,
@@ -168,7 +168,19 @@ export async function mergePeople(db: Database, targetId: string, sourceId: stri
         updatedAt: new Date(),
       })
       .where(eq(people.id, targetId));
-    await rebuildProfile(tx, targetId);
+    // Not tracked wins: if either was marked do not track, the merged person keeps no voice.
+    if (target.tracking === 'off' || source.tracking === 'off') await stopTracking(tx, targetId);
+    else await rebuildProfile(tx, targetId);
+  });
+}
+
+/** Marks a person do not track (their voice is deleted) or tracks them again. */
+export async function setTracking(db: Database, id: string, tracking: 'on' | 'off') {
+  await db.transaction(async (tx) => {
+    const [found] = await tx.select({ id: people.id }).from(people).where(eq(people.id, id));
+    if (!found) throw new PeopleError('Person not found', 404);
+    if (tracking === 'off') await stopTracking(tx, id);
+    else await resumeTracking(tx, id);
   });
 }
 

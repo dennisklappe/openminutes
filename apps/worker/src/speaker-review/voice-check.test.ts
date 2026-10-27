@@ -1,5 +1,5 @@
-import { addVoiceSamples, ensurePerson } from '@openminutes/core';
-import { meetings, participants } from '@openminutes/db';
+import { addVoiceSamples, ensurePerson, stopTracking } from '@openminutes/core';
+import { eq, meetings, participants, people } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import type { Diarizer, EmbeddedLines } from '@openminutes/providers';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -170,5 +170,19 @@ describe('checkVoices', () => {
     expect(await checkVoices(deps(broken), meeting.id, rows, '/a', null)).toEqual(rows);
     expect(error).toHaveBeenCalledOnce();
     error.mockRestore();
+  });
+
+  it('never suggests a person marked do not track and scores nobody against their voice', async () => {
+    const { meeting, anna, bram, row } = await setup(true);
+    const [bramPerson] = await test.db
+      .select()
+      .from(people)
+      .where(eq(people.name, bram.displayName));
+    await stopTracking(test.db, bramPerson?.id ?? '');
+    const rows = [row(0, anna.id)];
+    const out = await checkVoices(deps(diarizer([[0, 1]]).client), meeting.id, rows, '/a', null);
+    expect(out[0]?.suggestedParticipantId).toBeUndefined();
+    expect(out[0]?.voiceScores?.map((s) => s.participantId)).toEqual([anna.id]);
+    expect(out[0]?.speakerCandidates?.some((c) => c.participantId === bram.id)).toBe(false);
   });
 });

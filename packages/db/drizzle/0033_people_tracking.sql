@@ -1,0 +1,1 @@
+ALTER TABLE "people" ADD COLUMN "tracking" text DEFAULT 'on' NOT NULL;

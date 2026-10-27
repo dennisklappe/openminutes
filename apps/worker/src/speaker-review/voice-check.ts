@@ -52,7 +52,9 @@ async function profiledParticipants(db: Database, meetingId: string): Promise<Pr
     db.select().from(participants).where(eq(participants.meetingId, meetingId)),
     db.select().from(people),
   ]);
-  const withVoice = everyone.filter((person) => person.voicePrototypes.length > 0);
+  const withVoice = everyone.filter(
+    (person) => person.tracking === 'on' && person.voicePrototypes.length > 0,
+  );
   if (withVoice.length === 0) return [];
   const profiled: Profiled[] = [];
   for (const participant of here) {

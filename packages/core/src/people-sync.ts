@@ -229,6 +229,10 @@ async function syncMeeting(
       continue;
     }
     const { person, created } = await index.resolve(name, emails, 'joined');
+    if (person.tracking === 'off') {
+      stats.skipped++;
+      continue;
+    }
     if (created) stats.createdJoined++;
     joined.add(person.id);
     if (row.personId === null) {
@@ -247,6 +251,10 @@ async function syncMeeting(
       continue;
     }
     const { person, created } = await index.resolve(name, email, 'invited');
+    if (person.tracking === 'off') {
+      stats.skipped++;
+      continue;
+    }
     if (created) stats.createdInvited++;
     if (joined.has(person.id)) continue;
     const added = await db
