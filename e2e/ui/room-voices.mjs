@@ -22,6 +22,10 @@ const { applyRoomVoices, rememberCount } = await load('@openminutes/core');
 const out = process.env.OUT ?? join(process.env.TMPDIR ?? '.', 'room-shots');
 mkdirSync(out, { recursive: true });
 const step = (name) => console.log(`== ${name}`);
+/** An unnamed voice shows as "Voice N" with the tile it joined from in the via tag. */
+const viaText = (number, tile) => new RegExp(`Voice ${number}[\\s\\S]*via ${tile}`);
+const voiceRow = (page, number, tile) =>
+  page.locator('.sub-person', { hasText: viaText(number, tile) });
 
 const server = await startRealServer({ uiDir: fileURLToPath(new URL('apps/web/dist/ui', root)) });
 const { db } = server;
@@ -147,7 +151,7 @@ for (const [size, width, height] of sizes) {
       0,
       'nothing is relabelled before the answer',
     );
-    assert.equal(await page.getByText('Voice 1 (Jo and Sam)').count(), 0, 'no sub-people yet');
+    assert.equal(await voiceRow(page, 1, 'Jo and Sam').count(), 0, 'no sub-people yet');
     await fits(page, `${size} ${scheme} question`);
     await page.screenshot({ path: join(out, `${size}-${scheme}-question.png`), fullPage: true });
     await context.close();
@@ -164,14 +168,14 @@ step('answer 2: the voices become people under the tile');
     .getByRole('button', { name: '2', exact: true })
     .click();
   await page.getByText('sounds like several people').waitFor({ state: 'detached' });
-  await page.getByText('Voice 1 (Jo and Sam)').first().waitFor();
-  await page.getByText('Voice 2 (Jo and Sam)').first().waitFor();
+  await voiceRow(page, 1, 'Jo and Sam').first().waitFor();
+  await voiceRow(page, 2, 'Jo and Sam').first().waitFor();
   // The voices are first-level rows of the list, like Remote Rita; the tile is a note.
   const items = page.locator('.participant-list:not(.absent-list) > li');
   const heads = (await items.allInnerTexts()).map((t) => t.split('\n')[0]);
   assert.deepEqual(
     heads.map((h) => h.replace(/\s*(via|Unnamed).*$/, '')),
-    ['Voice 1 (Jo and Sam)', 'Voice 2 (Jo and Sam)', 'Remote Rita'],
+    ['Voice 1', 'Voice 2', 'Remote Rita'],
   );
   assert.equal(await page.locator('.sub-people').count(), 0, 'nothing is nested');
   assert.equal(await page.locator('.participant-list:not(.absent-list) > li.voice-row').count(), 2);
@@ -193,7 +197,7 @@ for (const [size, width, height] of sizes) {
   for (const scheme of ['light', 'dark']) {
     const { context, page } = await newPage(width, height, scheme);
     await page.goto(`${server.url}/#/meetings/${settled.m.id}`);
-    await page.getByText('Voice 1 (Jo and Sam)').first().waitFor();
+    await voiceRow(page, 1, 'Jo and Sam').first().waitFor();
     await openNote(page);
     assert.equal(await page.getByText('sounds like several people').count(), 0, 'no question');
     await fits(page, `${size} ${scheme} sub rows`);
@@ -207,7 +211,7 @@ step('name voice 1 with a new name, voice 2 with a person from People');
   const { context, page } = await newPage(1440, 900, 'light');
   await page.goto(`${server.url}/#/meetings/${settled.m.id}`);
   const rows = page.locator('.sub-person');
-  const first = rows.filter({ hasText: 'Voice 1 (Jo and Sam)' });
+  const first = rows.filter({ hasText: viaText(1, 'Jo and Sam') });
   await first.getByRole('button', { name: 'Name', exact: true }).click();
   // The invitees of the meeting are offered first, as "Name (address)".
   const invited = page.getByRole('list', { name: 'Invited to this meeting' });
@@ -220,7 +224,7 @@ step('name voice 1 with a new name, voice 2 with a person from People');
   await page.getByRole('button', { name: 'Name the voice' }).click();
   await rows.filter({ hasText: 'Jo Parker' }).getByRole('link', { name: 'Jo Parker' }).waitFor();
   await page.screenshot({ path: join(out, 'desktop-light-named-one.png'), fullPage: true });
-  const second = rows.filter({ hasText: 'Voice 2 (Jo and Sam)' });
+  const second = rows.filter({ hasText: viaText(2, 'Jo and Sam') });
   await second.getByRole('button', { name: 'Name', exact: true }).click();
   await page.getByRole('button', { name: 'People...' }).click();
   await page.getByRole('searchbox').fill('Anna');
@@ -273,7 +277,7 @@ step('emails per sub-person: an invitee goes to one of them only');
   await page.goto(`${server.url}/#/meetings/${other.m.id}`);
   const rows = page.locator('.sub-person');
   await rows
-    .filter({ hasText: 'Voice 1 (Pat and Lee)' })
+    .filter({ hasText: viaText(1, 'Pat and Lee') })
     .getByRole('button', { name: /Emails of/ })
     .click();
   const dialog = page.getByRole('dialog');
@@ -283,7 +287,7 @@ step('emails per sub-person: an invitee goes to one of them only');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await dialog.waitFor({ state: 'detached' });
   await rows
-    .filter({ hasText: 'Voice 2 (Pat and Lee)' })
+    .filter({ hasText: viaText(2, 'Pat and Lee') })
     .getByRole('button', { name: /Emails of/ })
     .click();
   const second = page.getByRole('dialog');
@@ -375,7 +379,7 @@ step('Change who this is: wrong person, back to unnamed, another person');
   const { context, page } = await newPage(1440, 900, 'light');
   await page.goto(`${server.url}/#/meetings/${wrong.m.id}`);
   const rows = page.locator('.sub-person');
-  const first = rows.filter({ hasText: 'Voice 1 (Ann and Sam)' });
+  const first = rows.filter({ hasText: viaText(1, 'Ann and Sam') });
   await first.getByRole('button', { name: 'Name', exact: true }).click();
   await page.getByRole('button', { name: 'People...' }).click();
   await page.getByRole('searchbox').fill('Anna');
@@ -426,15 +430,18 @@ step('Change who this is: wrong person, back to unnamed, another person');
   await page.getByRole('dialog').getByRole('button', { name: 'Unnamed again' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Change who this is' }).click();
   await page.getByRole('dialog').waitFor({ state: 'detached' });
-  await rows.filter({ hasText: 'Voice 1 (Ann and Sam)' }).getByText('Unnamed').waitFor();
+  await rows
+    .filter({ hasText: viaText(1, 'Ann and Sam') })
+    .getByText('Unnamed')
+    .waitFor();
   await context.close();
   for (const [size, width, height] of sizes) {
     for (const scheme of ['light', 'dark']) {
       const { context: c, page: p } = await newPage(width, height, scheme);
       await p.goto(`${server.url}/#/meetings/${wrong.m.id}`);
-      await p.getByText('Voice 1 (Ann and Sam)').first().waitFor();
+      await voiceRow(p, 1, 'Ann and Sam').first().waitFor();
       await p.getByRole('button', { name: /Name$/ }).first().waitFor();
-      const named = p.locator('.sub-person', { hasText: 'Voice 2 (Ann and Sam)' });
+      const named = p.locator('.sub-person', { hasText: viaText(2, 'Ann and Sam') });
       await named.getByRole('button', { name: 'Name', exact: true }).click();
       await p.getByRole('heading', { name: 'Invited to this meeting' }).waitFor();
       await fits(p, `${size} ${scheme} invited`);
@@ -503,7 +510,7 @@ step('"It is one person" removes the sub-people');
   });
   const { context, page } = await newPage(1440, 900, 'light');
   await page.goto(`${server.url}/#/meetings/${one.m.id}`);
-  await page.getByText('Voice 1 (Kim and Lee)').first().waitFor();
+  await voiceRow(page, 1, 'Kim and Lee').first().waitFor();
   await openNote(page);
   assert.equal(await page.getByRole('button', { name: 'Split into 2 people' }).count(), 1);
   await page.getByRole('button', { name: 'It is one person' }).click();
@@ -511,7 +518,7 @@ step('"It is one person" removes the sub-people');
   assert.equal(await page.locator('details.shared-note').count(), 0, 'the note is gone');
   await page.reload();
   await page.getByText('Another board meeting').first().waitFor();
-  assert.equal(await page.getByText('Voice 1 (Kim and Lee)').count(), 0);
+  assert.equal(await voiceRow(page, 1, 'Kim and Lee').count(), 0);
   await context.close();
 }
 
