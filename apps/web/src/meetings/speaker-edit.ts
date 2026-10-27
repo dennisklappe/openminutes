@@ -175,6 +175,7 @@ async function split(
       startMs: cut,
       endMs: row.endMs,
       text: rest,
+      language: row.language,
       confidence: row.confidence,
       speakerConfidence: row.speakerConfidence,
       speakerSource: row.speakerSource,

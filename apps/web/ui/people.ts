@@ -1,4 +1,4 @@
-import type { PersonDto, PersonLineDto, TrackingFilter } from '../src/dto.js';
+import type { LanguageCoverageDto, PersonDto, PersonLineDto, TrackingFilter } from '../src/dto.js';
 
 /** People whose name, email or notes contain the text, in the order given. */
 export function filterPeople(people: readonly PersonDto[], query: string): PersonDto[] {
@@ -61,6 +61,10 @@ export function reasonLabel(
       return line.speakerConfidence === null
         ? 'Speaker uncertain'
         : `Speaker uncertain: ${percent(line.speakerConfidence)}`;
+    case 'elimination':
+      return 'By elimination: the voice fits nobody else in the meeting, and this person is the one left';
+    case 'training':
+      return 'The label looks right, a confirmed line adds to the voice profile';
     default:
       return '';
   }
@@ -92,3 +96,17 @@ export function mergePreview(keep: MergeSide, drop: MergeSide): MergePreview {
     untracked,
   };
 }
+
+/** "45 s of 90 s" */
+export const coverageText = (seconds: number, target: number) =>
+  `${String(seconds)} s of ${String(target)} s`;
+
+/** "42 s", "3 min": short spans of speech for a profile card. */
+export const speechText = (seconds: number) =>
+  seconds >= 120 ? `${String(Math.round(seconds / 60))} min` : `${String(seconds)} s`;
+
+/** "42 s verified, 3 min auto" */
+export const profileBreakdown = (profile: Pick<LanguageCoverageDto, 'seconds' | 'autoSeconds'>) =>
+  profile.autoSeconds > 0
+    ? `${speechText(profile.seconds)} verified, ${speechText(profile.autoSeconds)} auto`
+    : `${speechText(profile.seconds)} verified`;

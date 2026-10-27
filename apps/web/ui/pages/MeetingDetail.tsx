@@ -54,6 +54,7 @@ export function MeetingDetail({ id }: { id: string }) {
     canRejoin,
     canDelete,
     summaries,
+    speakersChangedSinceSummary,
     summaryOptions,
   } = data;
 
@@ -285,6 +286,7 @@ export function MeetingDetail({ id }: { id: string }) {
             <SummaryPanel
               meetingId={id}
               summaries={summaries}
+              speakersChanged={speakersChangedSinceSummary}
               options={summaryOptions}
               hasTranscript={segments.length > 0}
               onRequested={refresh}

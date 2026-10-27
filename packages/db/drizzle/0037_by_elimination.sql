@@ -1,0 +1,1 @@
+ALTER TABLE "transcript_segments" ADD COLUMN "by_elimination" boolean DEFAULT false NOT NULL;

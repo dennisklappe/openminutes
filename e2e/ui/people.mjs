@@ -64,11 +64,11 @@ const reset = async () => {
   await db.update(meetings).set({ dismissedInvitees: null }).where(eq(meetings.id, meeting.id));
   await db
     .update(participants)
-    .set({ inviteeEmail: null, displayName: 'Marketing Acme' })
+    .set({ inviteeEmail: null, inviteeEmails: [], displayName: 'Marketing Acme' })
     .where(eq(participants.id, people[0].id));
   await db
     .update(participants)
-    .set({ displayName: 'Guest 7', originalName: null, inviteeEmail: null })
+    .set({ displayName: 'Guest 7', originalName: null, inviteeEmail: null, inviteeEmails: [] })
     .where(eq(participants.id, people[2].id));
 };
 
@@ -97,10 +97,10 @@ for (const [width, height, size] of [
   );
   await page.getByRole('button', { name: 'Rename Guest 7' }).click();
   const dialog = page.getByRole('dialog');
-  const select = dialog.getByLabel('Which invitee is this?');
-  await dialog.getByLabel('Name').fill('Carla');
-  assert.equal(await select.inputValue(), '');
-  await select.selectOption('carla@acme.example');
+  const boxes = dialog.getByRole('group').getByRole('checkbox');
+  await dialog.getByLabel('Name', { exact: true }).fill('Carla');
+  assert.equal(await boxes.evaluateAll((all) => all.filter((b) => b.checked).length), 0);
+  await dialog.getByRole('checkbox', { name: /carla@acme\.example/ }).check();
   await page.screenshot({ path: join(out, `${size}-rename-dialog.png`) });
   await dialog.getByRole('button', { name: 'Save' }).click();
   await dialog.waitFor({ state: 'detached' });

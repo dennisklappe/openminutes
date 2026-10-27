@@ -1,9 +1,24 @@
 import { useCallback, useEffect, useState, type SubmitEvent } from 'react';
-import type { PersonChoiceDto, PersonDetailDto, PersonLineDto } from '../../src/dto.js';
+import { Fragment } from 'react';
+import type {
+  LanguageCoverageDto,
+  PersonChoiceDto,
+  PersonDetailDto,
+  PersonLineDto,
+} from '../../src/dto.js';
 import { api, errorMessage, meetingUrl } from '../api.js';
 import { useConfirm } from '../Confirm.js';
 import { MergeInto } from '../MergePeople.js';
-import { parseEmails, profileLabels, profileLevel, reasonLabel, validEmail } from '../people.js';
+import {
+  coverageText,
+  parseEmails,
+  profileLabels,
+  profileBreakdown,
+  profileLevel,
+  reasonLabel,
+  speechText,
+  validEmail,
+} from '../people.js';
 import { SnippetPlayer } from '../SnippetPlayer.js';
 import '../people.css';
 
@@ -326,6 +341,21 @@ export function PersonDetail({ id }: { id: string }) {
 
   const untracked = person.tracking === 'off';
 
+  const forgetLanguage = async (profile: LanguageCoverageDto) => {
+    const confirmed = await confirm({
+      title: `Delete the ${profile.languageName} profile of ${person.name}?`,
+      body: (
+        <p>
+          The voice samples in {profile.languageName} are deleted. The other languages, the person
+          and their lines stay.
+        </p>
+      ),
+      confirmLabel: 'Delete profile',
+      destructive: true,
+    });
+    if (confirmed) act(api.forgetPersonProfile(person.id, profile.language));
+  };
+
   const stopTracking = async () => {
     const confirmed = await confirm({
       title: `Stop tracking ${person.name}?`,
@@ -474,8 +504,14 @@ export function PersonDetail({ id }: { id: string }) {
                 <dd>{person.samples}</dd>
                 <dt>Clean speech</dt>
                 <dd>{person.voiceSeconds} s</dd>
+                <dt>Languages</dt>
+                <dd>
+                  {detail.profiles.length === 0
+                    ? 'None yet'
+                    : detail.profiles.map((profile) => profile.languageName).join(', ')}
+                </dd>
                 <dt>Ways of sounding</dt>
-                <dd>{detail.prototypes} of 5</dd>
+                <dd>{detail.prototypes} in total, up to 5 per language</dd>
               </dl>
               {!detail.learning && (
                 <p className="privacy-note">
@@ -499,7 +535,7 @@ export function PersonDetail({ id }: { id: string }) {
                   void forget();
                 }}
               >
-                Forget voice
+                Forget all voices
               </button>
             </footer>
           </section>
@@ -528,14 +564,117 @@ export function PersonDetail({ id }: { id: string }) {
           </div>
         </section>
       )}
-      <LineList
-        title="Verified lines"
-        empty="Verify a line to confirm it is this person."
-        lines={detail.verified}
-        detail={detail}
-        busy={busy}
-        act={act}
-      />
+      {!untracked &&
+        detail.profiles.map((profile) => (
+          <Fragment key={profile.language}>
+            <section
+              className="panel language-profile"
+              aria-label={`${profile.languageName} voice profile`}
+            >
+              <header className="card-head">
+                <div className="card-title">
+                  <h3>
+                    {profile.languageName}{' '}
+                    <span className="muted">
+                      {coverageText(profile.effectiveSeconds, profile.targetSeconds)}
+                    </span>
+                  </h3>
+                </div>
+              </header>
+              <div className="card-body">
+                <div
+                  className="voice-review-meter"
+                  role="progressbar"
+                  aria-label={`${profile.languageName} voice profile`}
+                  aria-valuemin={0}
+                  aria-valuemax={profile.targetSeconds}
+                  aria-valuenow={Math.min(profile.effectiveSeconds, profile.targetSeconds)}
+                >
+                  <span
+                    style={{
+                      width: `${String(Math.min(100, (100 * profile.effectiveSeconds) / profile.targetSeconds))}%`,
+                    }}
+                  />
+                </div>
+                <p className="muted">
+                  {profileBreakdown(profile)}
+                  {' · '}
+                  {profile.samples} verified {profile.samples === 1 ? 'sample' : 'samples'}
+                  {profile.effectiveSeconds >= profile.targetSeconds ? ', good enough' : ''}
+                </p>
+                {profile.autoSamples > 0 && (
+                  <>
+                    <p className="muted">
+                      Added by itself from lines that were near certain. They count less than lines
+                      you verified.
+                    </p>
+                    <ul className="auto-meetings">
+                      {profile.autoMeetings.map((meeting) => (
+                        <li key={meeting.meetingId}>
+                          <a href={`#/meetings/${meeting.meetingId}`}>{meeting.title}</a>
+                          <span className="muted"> · {speechText(meeting.seconds)}</span>{' '}
+                          <button
+                            type="button"
+                            className="link"
+                            disabled={busy}
+                            onClick={() => {
+                              act(
+                                api
+                                  .removeMeetingAutoSamples(meeting.meetingId)
+                                  .then(() => api.person(person.id)),
+                              );
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+              <footer className="card-foot">
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={busy || profile.samples === 0}
+                  onClick={() => {
+                    void forgetLanguage(profile);
+                  }}
+                >
+                  Delete this profile
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || profile.autoSamples === 0}
+                  onClick={() => {
+                    act(api.removeAutoSamples(person.id, profile.language));
+                  }}
+                >
+                  Remove auto samples
+                </button>
+              </footer>
+            </section>
+            <LineList
+              title={`Verified lines in ${profile.languageName}`}
+              empty="Verify a line in this language to confirm it is this person."
+              lines={detail.verified.filter((line) => line.language === profile.language)}
+              detail={detail}
+              busy={busy}
+              act={act}
+            />
+          </Fragment>
+        ))}
+      {(untracked || detail.profiles.length === 0) && (
+        <LineList
+          title="Verified lines"
+          empty="Verify a line to confirm it is this person."
+          lines={detail.verified}
+          detail={detail}
+          busy={busy}
+          act={act}
+        />
+      )}
       {merging && (
         <MergeInto
           person={person}

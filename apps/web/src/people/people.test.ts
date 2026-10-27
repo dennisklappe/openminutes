@@ -10,8 +10,10 @@ import {
   type JobPayloads,
 } from '@openminutes/core';
 import {
+  audioFiles,
   eq,
   meetings,
+  notInArray,
   participants,
   people,
   transcriptSegments,
@@ -94,7 +96,7 @@ describe('people', () => {
       participantId,
       startMs: i * 4000,
       endMs: i * 4000 + 3000,
-      text: `Synthetic line ${String(i)}`,
+      text: `Synthetic line ${String(i)} about the quarterly planning`,
       speakerConfidence: 0.4,
       speakerSource: 'diarization' as const,
       speakerCandidates: [
@@ -493,6 +495,513 @@ describe('people', () => {
     });
   });
 
+  describe('skips and stored decisions', () => {
+    const queue = async (query = '') =>
+      (await (await call('GET', `/people/review${query}`)).json()) as ReviewQueueDto;
+
+    async function room() {
+      const person = await create({ name: `Skip ${String(Math.random()).slice(2, 8)}` });
+      const other = await create({ name: `Else ${String(Math.random()).slice(2, 8)}` });
+      const fixture = await meeting('Skip meeting');
+      await test.db
+        .update(participants)
+        .set({ displayName: person.name, personId: person.id, nameConfirmed: true })
+        .where(eq(participants.id, fixture.one.id));
+      return { person, other, ...fixture };
+    }
+    const ids = (body: ReviewQueueDto) => body.lines.map((l) => l.id);
+
+    it('keeps a skipped line out of the queue in a later session and lists it on request', async () => {
+      const { person, a, b } = await room();
+      const skip = await call('POST', '/people/review/skip', {
+        personId: person.id,
+        segmentId: a.id,
+      });
+      expect(skip.status).toBe(200);
+      const again = await queue(`?personId=${person.id}`);
+      expect(ids(again)).toEqual([b.id]);
+      expect(again.skippedCount).toBe(1);
+      const skipped = await queue(`?personId=${person.id}&skipped=1`);
+      expect(ids(skipped)).toEqual([a.id]);
+    });
+
+    it('brings a skipped line back when it is proposed for someone else', async () => {
+      const { person, other, a } = await room();
+      await call('POST', '/people/review/skip', { personId: person.id, segmentId: a.id });
+      await test.db
+        .update(participants)
+        .set({ personId: other.id })
+        .where(eq(participants.id, a.participantId ?? ''));
+      expect(ids(await queue(`?personId=${other.id}`))).toContain(a.id);
+    });
+
+    it('undoes a skip', async () => {
+      const { person, a } = await room();
+      await call('POST', '/people/review/skip', { personId: person.id, segmentId: a.id });
+      const undone = await call('POST', '/people/review/undo', { segmentId: a.id });
+      expect(await undone.json()).toEqual({ undone: 'skip' });
+      expect(ids(await queue(`?personId=${person.id}`))).toContain(a.id);
+      const nothing = await call('POST', '/people/review/undo', { segmentId: a.id });
+      expect(await nothing.json()).toEqual({ undone: null });
+    });
+
+    it('rejects a skip for a missing line or person', async () => {
+      const { person, a } = await room();
+      expect(
+        (await call('POST', '/people/review/skip', { personId: missing, segmentId: a.id })).status,
+      ).toBe(404);
+      expect(
+        (await call('POST', '/people/review/skip', { personId: person.id, segmentId: missing }))
+          .status,
+      ).toBe(404);
+      expect((await call('POST', '/people/review/skip', { nope: 1 })).status).toBe(404);
+    });
+
+    it('undoes a verify: the old label and the profile come back', async () => {
+      const { person, a, one, two } = await room();
+      await test.db
+        .update(transcriptSegments)
+        .set({ participantId: two.id })
+        .where(eq(transcriptSegments.id, a.id));
+      await call('POST', `/people/${person.id}/lines/${a.id}/verify`, {});
+      await test.db.insert(voiceSamples).values({
+        personId: person.id,
+        kind: 'line',
+        segmentId: a.id,
+        embedding: [1, 0],
+        durationMs: 3000,
+      });
+      const [verified] = await test.db
+        .select()
+        .from(transcriptSegments)
+        .where(eq(transcriptSegments.id, a.id));
+      expect(verified).toMatchObject({ participantId: one.id, speakerSource: 'user' });
+      expect((await call('POST', '/people/review/undo', { segmentId: a.id })).status).toBe(200);
+      const [back] = await test.db
+        .select()
+        .from(transcriptSegments)
+        .where(eq(transcriptSegments.id, a.id));
+      expect(back).toMatchObject({ participantId: two.id, speakerSource: 'diarization' });
+      const samples = await test.db
+        .select()
+        .from(voiceSamples)
+        .where(eq(voiceSamples.segmentId, a.id));
+      expect(samples).toEqual([]);
+      expect(ids(await queue(`?personId=${person.id}`))).not.toContain(a.id);
+    });
+
+    it('undoes a rejection so the line is offered again', async () => {
+      const { person, a } = await room();
+      const rejected = await call('POST', `/people/${person.id}/lines/${a.id}/reject`, {});
+      expect(rejected.status).toBe(200);
+      expect(ids(await queue(`?personId=${person.id}`))).not.toContain(a.id);
+      const undone = await call('POST', '/people/review/undo', { segmentId: a.id });
+      expect(await undone.json()).toEqual({ undone: 'reject' });
+      expect(ids(await queue(`?personId=${person.id}`))).toContain(a.id);
+    });
+  });
+
+  describe('the useful queue', () => {
+    const queue = async (query = '') =>
+      (await (await call('GET', `/people/review${query}`)).json()) as ReviewQueueDto;
+    const ids = (body: ReviewQueueDto) => body.lines.map((l) => l.id);
+
+    /** One meeting with the given lines of one person, each `ms` long and spaced a minute apart. */
+    async function lines(
+      specs: { ms?: number; text?: string; other?: boolean; rival?: number; sure?: boolean }[],
+    ) {
+      const person = await create({ name: `Useful ${String(Math.random()).slice(2, 8)}` });
+      const fixture = await meeting('Useful meeting');
+      await test.db
+        .update(participants)
+        .set({ displayName: person.name, personId: person.id, nameConfirmed: true })
+        .where(eq(participants.id, fixture.one.id));
+      await test.db.insert(audioFiles).values({
+        meetingId: fixture.meeting.id,
+        path: 'x.opus',
+        durationMs: 600_000,
+        codec: 'opus',
+        size: 1,
+      });
+      await test.db
+        .delete(transcriptSegments)
+        .where(eq(transcriptSegments.meetingId, fixture.meeting.id));
+      const rows = await test.db
+        .insert(transcriptSegments)
+        .values(
+          specs.flatMap((spec, i) => {
+            const start = i * 60_000;
+            const base = {
+              meetingId: fixture.meeting.id,
+              participantId: fixture.one.id,
+              startMs: start,
+              endMs: start + (spec.ms ?? 5000),
+              text: spec.text ?? 'we should move the planning meeting to thursday',
+              speakerConfidence: spec.sure ? 0.95 : 0.3,
+              speakerSource: 'diarization' as const,
+              speakerCandidates: [
+                { participantId: fixture.one.id, score: spec.sure ? 0.95 : 0.3 },
+                { participantId: fixture.two.id, score: spec.rival ?? 0.1 },
+              ],
+            };
+            return [
+              base,
+              ...(spec.other
+                ? [
+                    {
+                      ...base,
+                      participantId: fixture.two.id,
+                      startMs: start + 1000,
+                      endMs: start + 4000,
+                      speakerConfidence: 0.99,
+                    },
+                  ]
+                : []),
+            ];
+          }),
+        )
+        .returning();
+      const mine = rows.filter((r) => r.participantId === fixture.one.id);
+      return { person, fixture, mine: mine.toSorted((x, y) => x.startMs - y.startMs) };
+    }
+
+    it('leaves out short lines, overlapped lines and filler', async () => {
+      const { person, mine } = await lines([
+        {},
+        { ms: 2000 },
+        { other: true },
+        { text: 'yeah okay right' },
+      ]);
+      const body = await queue(`?personId=${person.id}`);
+      expect(ids(body)).toEqual([mine[0]?.id]);
+    });
+
+    it('stops asking for training at 90 seconds, shows who is good enough, keeps doubtful lines', async () => {
+      const { person, mine } = await lines([{ rival: 0.8 }, { sure: true }, { sure: true }]);
+      await test.db.insert(voiceSamples).values({
+        personId: person.id,
+        kind: 'imported',
+        embedding: [1, 0],
+        durationMs: 90_000,
+      });
+      const body = await queue(`?personId=${person.id}`);
+      expect(ids(body)).toEqual([mine[0]?.id]);
+      expect(body.lines[0]).toMatchObject({ profileSeconds: 90, profileTargetSeconds: 90 });
+      expect(body.complete.map((p) => p.id)).toEqual([person.id]);
+    });
+
+    it('shows how far the profile is', async () => {
+      const { person } = await lines([{ sure: true }]);
+      await test.db.insert(voiceSamples).values({
+        personId: person.id,
+        kind: 'imported',
+        embedding: [1, 0],
+        durationMs: 45_000,
+      });
+      const body = await queue(`?personId=${person.id}`);
+      expect(body.lines[0]).toMatchObject({
+        profileSeconds: 45,
+        profileTargetSeconds: 90,
+        why: 'training',
+      });
+      expect(body.complete).toEqual([]);
+    });
+
+    it('caps a session at 25 cards and says how many more there are', async () => {
+      const second = await lines(Array.from({ length: 40 }, () => ({ ms: 3000 })));
+      const capped = await queue(`?personId=${second.person.id}`);
+      expect(capped.lines).toHaveLength(25);
+      // Doubtful lines are all asked about, the session shows the first 25.
+      expect(capped.more).toBe(15);
+      expect(capped.lines.every((l) => l.why === 'doubt')).toBe(true);
+      const training = await lines(Array.from({ length: 40 }, () => ({ ms: 3000, sure: true })));
+      const trained = await queue(`?personId=${training.person.id}`);
+      // Confident 3 s lines stop at the 90 s target: 30 of the 40, 25 of them in this session.
+      expect(trained.lines).toHaveLength(25);
+      expect(trained.more).toBe(5);
+    });
+
+    it('counts the useful lines on the People page, capped', async () => {
+      const response = await call('GET', '/people');
+      const page = (await response.json()) as PeopleDto;
+      expect(page.reviewable).toBeLessThanOrEqual(25);
+      expect(page.reviewable).toBeGreaterThan(0);
+    });
+  });
+
+  describe('voice profiles per language', () => {
+    const queue = async (query = '') =>
+      (await (await call('GET', `/people/review${query}`)).json()) as ReviewQueueDto;
+
+    /** One person with two meetings of 6 confident lines each, one in Dutch and one in English. */
+    async function bilingual() {
+      const person = await create({ name: `Bilingual ${String(Math.random()).slice(2, 8)}` });
+      const make = async (language: string) => {
+        const fixture = await meeting(`Meeting ${language}`);
+        await test.db.update(meetings).set({ language }).where(eq(meetings.id, fixture.meeting.id));
+        await test.db
+          .update(participants)
+          .set({ displayName: person.name, personId: person.id, nameConfirmed: true })
+          .where(eq(participants.id, fixture.one.id));
+        await test.db.insert(audioFiles).values({
+          meetingId: fixture.meeting.id,
+          path: 'x.opus',
+          durationMs: 600_000,
+          codec: 'opus',
+          size: 1,
+        });
+        await test.db
+          .update(transcriptSegments)
+          .set({ speakerConfidence: 0.95, language })
+          .where(eq(transcriptSegments.meetingId, fixture.meeting.id));
+        return fixture;
+      };
+      const dutch = await make('nl');
+      const english = await make('en');
+      return { person, dutch, english };
+    }
+
+    it('counts coverage per language: a finished Dutch profile does not stop English training', async () => {
+      const { person, dutch, english } = await bilingual();
+      await test.db.insert(voiceSamples).values({
+        personId: person.id,
+        kind: 'imported',
+        embedding: [1, 0],
+        durationMs: 90_000,
+        language: 'nl',
+      });
+      const body = await queue(`?personId=${person.id}`);
+      const ids = body.lines.map((l) => l.id);
+      expect(ids).toContain(english.a.id);
+      expect(ids).not.toContain(dutch.a.id);
+      const card = body.lines.find((l) => l.id === english.a.id);
+      expect(card).toMatchObject({ language: 'en', languageName: 'English', profileSeconds: 0 });
+      expect(body.complete).toEqual([
+        expect.objectContaining({ id: person.id, language: 'nl', languageName: 'Dutch' }),
+      ]);
+    });
+
+    it('lists a person with one profile per language and creates one from a verified line', async () => {
+      const { person, dutch, english } = await bilingual();
+      await test.db.insert(voiceSamples).values([
+        {
+          personId: person.id,
+          kind: 'imported',
+          embedding: [1, 0],
+          durationMs: 30_000,
+          language: 'nl',
+        },
+        {
+          personId: person.id,
+          kind: 'imported',
+          embedding: [0, 1],
+          durationMs: 12_000,
+          language: 'en',
+        },
+      ]);
+      const listed = (await (await call('GET', '/people')).json()) as PeopleDto;
+      const row = listed.people.find((p) => p.id === person.id);
+      expect(row?.languages.map((l) => [l.language, l.seconds])).toEqual([
+        ['nl', 30],
+        ['en', 12],
+      ]);
+      expect(row?.languages[0]).toMatchObject({ languageName: 'Dutch', targetSeconds: 90 });
+
+      // No German sample yet, but a verified German line makes the profile card appear.
+      await test.db
+        .update(transcriptSegments)
+        .set({ language: 'de' })
+        .where(eq(transcriptSegments.id, english.b.id));
+      await call('POST', `/people/${person.id}/lines/${english.b.id}/verify`, {});
+      const shown = await detail(person.id);
+      expect(shown.profiles.map((p) => p.language).sort()).toEqual(['de', 'en', 'nl']);
+      expect(shown.profiles.find((p) => p.language === 'de')).toMatchObject({
+        samples: 0,
+        seconds: 0,
+      });
+      expect(shown.verified.find((l) => l.id === english.b.id)?.language).toBe('de');
+      expect(dutch.meeting.id).toBeTruthy();
+    });
+
+    it('deletes one language profile and keeps the others', async () => {
+      const { person } = await bilingual();
+      await test.db.insert(voiceSamples).values([
+        {
+          personId: person.id,
+          kind: 'imported',
+          embedding: [1, 0],
+          durationMs: 30_000,
+          language: 'nl',
+        },
+        {
+          personId: person.id,
+          kind: 'imported',
+          embedding: [0, 1],
+          durationMs: 12_000,
+          language: 'en',
+        },
+      ]);
+      await call('POST', `/people/${person.id}/tracking`, { tracking: 'on' });
+      const removed = await call('DELETE', `/people/${person.id}/voice/nl`);
+      expect(removed.status).toBe(200);
+      const left = (await removed.json()) as PersonDetailDto;
+      expect(left.profiles.map((p) => p.language)).toEqual(['en']);
+      const [row] = await test.db.select().from(people).where(eq(people.id, person.id));
+      expect(row?.voicePrototypes.map((p) => p.language)).toEqual(['en']);
+      expect((await call('DELETE', `/people/${person.id}/voice/nl`)).status).toBe(404);
+      expect((await call('DELETE', `/people/${person.id}/voice/NOPE`)).status).toBe(404);
+      expect((await call('DELETE', `/people/${missing}/voice/en`)).status).toBe(404);
+    });
+  });
+
+  describe('samples the voice added by itself', () => {
+    /** A person with a verified Dutch seed and 3 auto samples from one Dutch meeting. */
+    async function seeded() {
+      const person = await create({ name: `Auto ${String(Math.random()).slice(2, 8)}` });
+      const fixture = await meeting('Auto meeting');
+      await test.db
+        .update(meetings)
+        .set({ language: 'nl' })
+        .where(eq(meetings.id, fixture.meeting.id));
+      await test.db
+        .update(participants)
+        .set({ displayName: person.name, personId: person.id, nameConfirmed: true })
+        .where(eq(participants.id, fixture.one.id));
+      await test.db.insert(voiceSamples).values([
+        {
+          personId: person.id,
+          kind: 'imported',
+          embedding: [1, 0],
+          durationMs: 40_000,
+          language: 'nl',
+        },
+        ...[fixture.a, fixture.b, fixture.c].map((line) => ({
+          personId: person.id,
+          kind: 'line' as const,
+          segmentId: line.id,
+          meetingId: fixture.meeting.id,
+          embedding: [1, 0],
+          durationMs: 3000,
+          language: 'nl',
+          source: 'auto' as const,
+        })),
+      ]);
+      return { person, ...fixture };
+    }
+
+    it('counts verified and auto speech apart on the profile card', async () => {
+      const { person, meeting: m } = await seeded();
+      const [card] = (await detail(person.id)).profiles;
+      expect(card).toMatchObject({
+        language: 'nl',
+        seconds: 40,
+        autoSamples: 3,
+        autoSeconds: 9,
+        autoMeetings: [{ meetingId: m.id, title: 'Auto meeting', seconds: 9 }],
+      });
+      // Auto speech counts less towards the target: 40 s + 0.4 * 9 s.
+      expect(card?.effectiveSeconds).toBe(44);
+    });
+
+    it('removes the auto samples of a profile and rebuilds it from the verified ones', async () => {
+      const { person } = await seeded();
+      const removed = await call('DELETE', `/people/${person.id}/voice/nl/auto`);
+      expect(removed.status).toBe(200);
+      const [card] = ((await removed.json()) as PersonDetailDto).profiles;
+      expect(card).toMatchObject({ seconds: 40, autoSamples: 0, autoSeconds: 0 });
+      const [row] = await test.db.select().from(people).where(eq(people.id, person.id));
+      expect(row?.voicePrototypes).toEqual([{ vector: [1, 0], samples: 1, language: 'nl' }]);
+      expect((await call('DELETE', `/people/${missing}/voice/nl/auto`)).status).toBe(404);
+    });
+
+    it('removes the auto samples of one meeting for everyone', async () => {
+      const { person, meeting: m } = await seeded();
+      const response = await call('DELETE', `/people/auto-voices/${m.id}`);
+      expect(await response.json()).toEqual({ removed: 3 });
+      expect((await detail(person.id)).profiles[0]?.autoSamples).toBe(0);
+      expect((await call('DELETE', '/people/auto-voices/nope')).status).toBe(404);
+    });
+
+    it('drops a rejected auto sample and asks a bit more margin of that person', async () => {
+      const { person, a } = await seeded();
+      const rejected = await call('POST', `/people/${person.id}/lines/${a.id}/reject`, {});
+      expect(rejected.status).toBe(200);
+      const samples = await test.db
+        .select()
+        .from(voiceSamples)
+        .where(eq(voiceSamples.segmentId, a.id));
+      expect(samples).toMatchObject([{ rejected: true, source: 'verified' }]);
+      const [row] = await test.db.select().from(people).where(eq(people.id, person.id));
+      expect(row?.autoMargin).toBeCloseTo(0.02);
+    });
+
+    it('turns an auto sample into a verified one when a person confirms the line', async () => {
+      const { person, b } = await seeded();
+      await call('POST', `/people/${person.id}/lines/${b.id}/verify`, {});
+      const [sample] = await test.db
+        .select()
+        .from(voiceSamples)
+        .where(eq(voiceSamples.segmentId, b.id));
+      expect(sample?.source).toBe('verified');
+    });
+
+    it('does not offer a line the voice learned by itself for training', async () => {
+      const { person, a } = await seeded();
+      await test.db.insert(audioFiles).values({
+        meetingId: a.meetingId,
+        path: 'x.opus',
+        durationMs: 600_000,
+        codec: 'opus',
+        size: 1,
+      });
+      await test.db
+        .update(transcriptSegments)
+        .set({ speakerConfidence: 0.95 })
+        .where(eq(transcriptSegments.meetingId, a.meetingId));
+      await test.db.delete(voiceSamples).where(eq(voiceSamples.personId, person.id));
+      await test.db.insert(voiceSamples).values({
+        personId: person.id,
+        kind: 'line',
+        segmentId: a.id,
+        embedding: [1, 0],
+        durationMs: 3000,
+        source: 'auto',
+      });
+      const body = (await (
+        await call('GET', `/people/review?personId=${person.id}`)
+      ).json()) as ReviewQueueDto;
+      const ids = body.lines.map((l) => l.id);
+      expect(ids).not.toContain(a.id);
+    });
+  });
+
+  describe('lines by elimination', () => {
+    it('are reviewed with their own reason, even when the confidence looks fine', async () => {
+      const person = await create({ name: `Elim ${String(Math.random()).slice(2, 8)}` });
+      const fixture = await meeting('Elimination meeting');
+      await test.db
+        .update(participants)
+        .set({ displayName: person.name, personId: person.id, nameConfirmed: true })
+        .where(eq(participants.id, fixture.one.id));
+      await test.db
+        .update(transcriptSegments)
+        .set({ speakerConfidence: 0.88, byElimination: true })
+        .where(eq(transcriptSegments.id, fixture.a.id));
+      const body = (await (
+        await call('GET', `/people/review?personId=${person.id}`)
+      ).json()) as ReviewQueueDto;
+      const card = body.lines.find((l) => l.id === fixture.a.id);
+      expect(card).toMatchObject({ reason: 'elimination', why: 'doubt' });
+      // A person confirming the line clears the flag.
+      await call('POST', `/people/${person.id}/lines/${fixture.a.id}/verify`, {});
+      const [row] = await test.db
+        .select()
+        .from(transcriptSegments)
+        .where(eq(transcriptSegments.id, fixture.a.id));
+      expect(row?.byElimination).toBe(false);
+    });
+  });
+
   describe('review scopes and order', () => {
     const queue = async (query = '') => {
       const response = await call('GET', `/people/review${query}`);
@@ -545,9 +1054,17 @@ describe('people', () => {
       return { first, second, older, newer };
     }
 
+    /** Settles every other line, so the session cap leaves room for the fixture. */
+    const settleOthers = (ours: Set<string>) =>
+      test.db
+        .update(transcriptSegments)
+        .set({ speakerSource: 'user' })
+        .where(notInArray(transcriptSegments.id, [...ours]));
+
     it('goes through all people newest meeting first, then in the order spoken', async () => {
       const { first, second, older, newer } = await twoMeetings();
       const ours = new Set([older.a.id, older.b.id, newer.a.id, newer.b.id]);
+      await settleOthers(ours);
       const body = await queue();
       expect(body.order).toBe('newest');
       expect(body.lines.map((l) => l.id).filter((id) => ours.has(id))).toEqual([
@@ -566,6 +1083,7 @@ describe('people', () => {
     it('can start with the least sure line instead', async () => {
       const { older, newer } = await twoMeetings();
       const ours = new Set([older.a.id, older.b.id, newer.a.id, newer.b.id]);
+      await settleOthers(ours);
       const body = await queue('?order=uncertain');
       expect(body.order).toBe('uncertain');
       expect(body.lines.map((l) => l.id).filter((id) => ours.has(id))).toEqual([

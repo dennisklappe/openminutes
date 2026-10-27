@@ -35,6 +35,8 @@ export interface MeetingDetailDto {
   speakerCheck: SpeakerCheckDto;
   chat: ChatMessageDto[];
   summaries: SummaryDto[];
+  /** A person changed who said a line after the active summary was written, and has not dismissed it. */
+  speakersChangedSinceSummary: boolean;
   summaryOptions: SummaryOptionsDto;
 }
 

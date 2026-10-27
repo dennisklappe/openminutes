@@ -327,8 +327,8 @@ describe('titles and voices', () => {
       await namedVoice('Bram', [0, 1], false);
       const [anna] = await test.db.select().from(people).where(eq(people.name, 'Anna'));
       expect(anna?.voicePrototypes).toEqual([
-        { vector: [1, 0], samples: 1 },
-        { vector: [0, 1], samples: 1 },
+        { vector: [1, 0], samples: 1, language: 'und' },
+        { vector: [0, 1], samples: 1, language: 'und' },
       ]);
       const [bram] = await test.db.select().from(people).where(eq(people.name, 'Bram'));
       expect(bram?.voicePrototypes).toEqual([]);

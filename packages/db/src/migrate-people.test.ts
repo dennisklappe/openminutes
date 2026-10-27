@@ -67,10 +67,14 @@ it('turns voices, aliases and named participants into people without losing any'
       {
         name: 'Carla Voss',
         emails: ['c2@x.com', 'c3@x.com', 'c@x.com'],
-        voice_prototypes: [{ vector: [1, 0], samples: 4 }],
+        voice_prototypes: [{ vector: [1, 0], samples: 4, language: 'und' }],
       },
       { name: 'Erin', emails: [], voice_prototypes: [] },
-      { name: 'Frank', emails: [], voice_prototypes: [{ vector: [0, 1], samples: 2 }] },
+      {
+        name: 'Frank',
+        emails: [],
+        voice_prototypes: [{ vector: [0, 1], samples: 2, language: 'und' }],
+      },
     ]);
     const samples = await pool.query(
       `select p.name, s.kind, s.weight from voice_samples s join people p on p.id = s.person_id order by p.name`,

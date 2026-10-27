@@ -1,5 +1,7 @@
 import {
   assignSpeakers,
+  isKnownLanguage,
+  normalizeLanguage,
   scoreSpeaker,
   shiftToRange,
   type SpeakerSpan,
@@ -22,8 +24,14 @@ export function toTranscriptRows(
   speakerSpans: SpeakerSpan[],
   range: SpeechRange | null = null,
   source: 'indicator' | 'diarization' = 'indicator',
+  meetingLanguage?: string | null,
 ): TranscriptRow[] {
   const shift = (timeMs: number) => (range ? shiftToRange(timeMs, range) : timeMs);
+  // The speech model names one language for the whole recording, so every line gets it, unless a
+  // provider names a language for a segment itself. Unknown stays null.
+  const meetingLanguageCode = isKnownLanguage(meetingLanguage)
+    ? normalizeLanguage(meetingLanguage)
+    : null;
   const spans = speakerSpans.toSorted((a, b) => a.startMs - b.startMs);
   return assignSpeakers(segments, speakerSpans).map((segment) => {
     const { confidence, candidates } = scoreSpeaker(segment, spans, source);
@@ -33,6 +41,7 @@ export function toTranscriptRows(
       startMs: shift(segment.startMs),
       endMs: shift(segment.endMs),
       text: segment.text,
+      language: segment.language ? normalizeLanguage(segment.language) : meetingLanguageCode,
       confidence: segment.confidence ?? null,
       speakerConfidence: confidence,
       speakerSource: segment.participantId ? source : null,

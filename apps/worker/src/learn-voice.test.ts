@@ -122,6 +122,31 @@ describe('learnVoice', () => {
     expect(row).toMatchObject({ voiceEmbedding: [0.5, 0.5], personId: bram?.id });
   });
 
+  it('tags each sample with the language of its line, else of the meeting', async () => {
+    const { meeting, person, ids } = await setup({ nameConfirmed: true, displayName: 'Dora' });
+    await test.db.update(meetings).set({ language: 'nl' }).where(eq(meetings.id, meeting.id));
+    await test.db
+      .update(transcriptSegments)
+      .set({ language: 'en' })
+      .where(eq(transcriptSegments.id, ids[2] ?? ''));
+    await learnVoice(
+      deps(() => Promise.resolve(lines([1, 0], [0, 1]))),
+      { meetingId: meeting.id, participantId: person.id, segmentIds: ids },
+    );
+    const [dora] = await test.db.select().from(people).where(eq(people.name, 'Dora'));
+    const samples = await test.db
+      .select()
+      .from(voiceSamples)
+      .where(eq(voiceSamples.personId, dora?.id ?? ''));
+    expect(samples.map((x) => [x.segmentId, x.language]).sort()).toEqual(
+      [
+        [ids[0], 'nl'],
+        [ids[2], 'en'],
+      ].sort(),
+    );
+    expect(dora?.voicePrototypes.map((p) => p.language).sort()).toEqual(['en', 'nl']);
+  });
+
   it('counts a line once when it is learned again', async () => {
     const { meeting, person, ids } = await setup({ nameConfirmed: true, displayName: 'Cleo' });
     const payload = { meetingId: meeting.id, participantId: person.id, segmentIds: ids };

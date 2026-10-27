@@ -1,7 +1,9 @@
-import { and, eq, inArray, people, sql, voiceSamples } from '@openminutes/db';
+import { inArray, people, sql } from '@openminutes/db';
 import type { PeopleDto, PeopleQuery } from '../dto.js';
 import { checkEnabled, rememberEnabled } from '../voices/load.js';
 import { loadDuplicates, reviewCounts, toDto, type PeopleDeps } from './load.js';
+import { loadProfileRows } from './profiles.js';
+import { loadReviewQueue } from './review.js';
 import { loadMeetingStats, seenStats } from './stats.js';
 
 export const DEFAULT_PAGE_SIZE = 50;
@@ -61,36 +63,30 @@ export async function loadPeoplePage(
   const ids = found.map((row) => row.id);
   const [rows, samples, seen, review, dupes] = await Promise.all([
     ids.length === 0 ? [] : db.select().from(people).where(inArray(people.id, ids)),
-    ids.length === 0
-      ? []
-      : db
-          .select({
-            personId: voiceSamples.personId,
-            samples: sql<number>`coalesce(sum(${voiceSamples.weight}), 0)::int`,
-            ms: sql<number>`coalesce(sum(${voiceSamples.durationMs}), 0)::int`,
-          })
-          .from(voiceSamples)
-          .where(
-            and(
-              eq(voiceSamples.rejected, false),
-              sql`${voiceSamples.embedding} is not null`,
-              inArray(voiceSamples.personId, ids),
-            ),
-          )
-          .groupBy(voiceSamples.personId),
+    loadProfileRows(db, ids),
     loadMeetingStats(db, ids),
     reviewCounts(db, ids),
     loadDuplicates(db),
   ]);
   const byId = new Map(rows.map((row) => [row.id, row]));
-  const sampleOf = new Map(samples.map((sample) => [sample.personId, sample]));
   return {
     people: ids.flatMap((id) => {
       const person = byId.get(id);
-      return person ? [toDto(person, sampleOf.get(id), seen, review, dupes)] : [];
+      return person
+        ? [
+            toDto(
+              person,
+              samples.filter((sample) => sample.personId === id),
+              seen,
+              review,
+              dupes,
+            ),
+          ]
+        : [];
     }),
     total,
     needsReview: [...allReview.values()].reduce((sum, n) => sum + n, 0),
+    reviewable: (await loadReviewQueue(deps))?.lines.length ?? 0,
     invitedOnly: invited[0]?.n ?? 0,
     page,
     pageSize,

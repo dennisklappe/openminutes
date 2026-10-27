@@ -21,6 +21,21 @@ export interface VoiceCheckDeps {
   db: Database;
   createDiarizer: () => Promise<Diarizer | undefined>;
   enabled: () => Promise<boolean>;
+  /** Told about every scored line, for learning the near-certain ones afterwards. */
+  onScored?: (lines: ScoredLine[]) => void;
+}
+
+/** A line with its voice, what the check scored it against and how sure the timing was. */
+export interface ScoredLine {
+  startMs: number;
+  endMs: number;
+  participantId: string;
+  embedding: number[];
+  embedder: string | null;
+  /** The timing score before the voice changed it. */
+  timing: number | null;
+  /** Voice check score per profiled participant of the meeting, in the language of the line. */
+  scores: ReadonlyMap<string, number>;
 }
 
 /** The own voice may trail the best fitting other voice by this much before a line is doubted. */
@@ -38,6 +53,27 @@ const MARGIN_FLOOR = 0.5;
 const MIN_RELIABLE_MS = 1000;
 const MAX_LINES = 3000;
 
+/**
+ * A voice clearly ahead of the others raises the confidence of the label: at least this score
+ * and this margin over the best other voice add RAISE (scaled by how long the line is), up to
+ * RAISE_CAP. The voice alone never makes a line fully certain.
+ */
+export const RAISE_MIN_SCORE = 0.7;
+export const RAISE_MARGIN = 0.3;
+export const RAISE = 0.05;
+export const RAISE_CAP = 0.95;
+/**
+ * A line that fits nobody with a saved voice (every score below ELIM_MAX_SCORE) while exactly one
+ * participant has no saved voice is probably that participant, by elimination. It gets ELIM_BOOST
+ * more confidence up to ELIM_CAP when it is already labelled so, else that participant is
+ * suggested. Only for lines of at least SHORT_UTTERANCE_MS.
+ */
+export const ELIM_MAX_SCORE = 0.3;
+export const ELIM_BOOST = 0.1;
+export const ELIM_CAP = 0.9;
+/** A saved voice this sure of a line labelled as someone else is a conflict: both are doubted. */
+export const CONFLICT_SCORE = 0.8;
+
 const round = (value: number) => Math.round(value * 100) / 100;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
@@ -46,8 +82,16 @@ interface Profiled {
   prototypes: VoicePrototype[];
 }
 
+interface Seats {
+  profiled: Profiled[];
+  /** People in the meeting without a saved voice, bots left out. */
+  unprofiled: string[];
+  /** Someone in the meeting is marked do not track, so nobody can be ruled out by elimination. */
+  hasUntracked: boolean;
+}
+
 /** The meeting's participants that are a known person with a saved voice. */
-async function profiledParticipants(db: Database, meetingId: string): Promise<Profiled[]> {
+async function profiledParticipants(db: Database, meetingId: string): Promise<Seats> {
   const [here, everyone] = await Promise.all([
     db.select().from(participants).where(eq(participants.meetingId, meetingId)),
     db.select().from(people),
@@ -55,8 +99,11 @@ async function profiledParticipants(db: Database, meetingId: string): Promise<Pr
   const withVoice = everyone.filter(
     (person) => person.tracking === 'on' && person.voicePrototypes.length > 0,
   );
-  if (withVoice.length === 0) return [];
+  if (withVoice.length === 0) return { profiled: [], unprofiled: [], hasUntracked: false };
   const profiled: Profiled[] = [];
+  const unprofiled: string[] = [];
+  const off = everyone.filter((person) => person.tracking === 'off');
+  let hasUntracked = false;
   for (const participant of here) {
     const addresses = [participant.email, ...participant.inviteeEmails]
       .filter((address): address is string => !!address)
@@ -67,10 +114,22 @@ async function profiledParticipants(db: Database, meetingId: string): Promise<Pr
         (candidate) => candidate.name.toLowerCase() === participant.displayName.toLowerCase(),
       ) ??
       withVoice.find((candidate) => candidate.emails.some((email) => addresses.includes(email)));
-    if (person)
+    if (person) {
       profiled.push({ participantId: participant.id, prototypes: person.voicePrototypes });
+    } else if (
+      off.some(
+        (candidate) =>
+          candidate.id === participant.personId ||
+          candidate.name.toLowerCase() === participant.displayName.toLowerCase() ||
+          candidate.emails.some((email) => addresses.includes(email)),
+      )
+    ) {
+      hasUntracked = true;
+    } else if (!participant.isBot) {
+      unprofiled.push(participant.id);
+    }
   }
-  return profiled;
+  return { profiled, unprofiled, hasUntracked };
 }
 
 /**
@@ -113,14 +172,63 @@ export function judgeLine(
       : null;
   const weak = own !== undefined && own < WEAK_OWN_SCORE;
   const doubt = durationMs >= MIN_RELIABLE_MS && (better !== null || weak);
+  // A clear lead for the label raises the confidence a little, never to certainty.
+  const lead =
+    own !== undefined && own >= RAISE_MIN_SCORE && own - bestScore >= RAISE_MARGIN && !doubt;
+  const raised =
+    scaled !== null && lead && scaled < RAISE_CAP
+      ? Math.min(RAISE_CAP, scaled + RAISE * trust)
+      : scaled;
   const confidence =
-    scaled === null ? null : round(doubt ? Math.min(scaled, SUSPECT_CONFIDENCE_CAP) : scaled);
+    raised === null ? null : round(doubt ? Math.min(raised, SUSPECT_CONFIDENCE_CAP) : raised);
   if (doubt && better !== null) {
     const seen = candidates.find((candidate) => candidate.participantId === better);
     if (!seen) candidates.push({ participantId: better, score: MIN_SUGGESTION_SCORE });
     else if (seen.score < MIN_SUGGESTION_SCORE) seen.score = MIN_SUGGESTION_SCORE;
+    // A voice that is sure of someone else conflicts with the label: the label loses weight too.
+    if (bestScore >= CONFLICT_SCORE) {
+      const labelled = candidates.find(
+        (candidate) => candidate.participantId === row.participantId,
+      );
+      if (labelled) labelled.score = round(labelled.score / 2);
+    }
   }
   return { confidence, doubt, better: doubt ? better : null, candidates };
+}
+
+/**
+ * By elimination: when one participant has no saved voice and a long line fits none of the saved
+ * voices, the line is probably theirs. Undefined when that does not apply.
+ */
+export function eliminate(
+  row: Pick<TranscriptRow, 'participantId' | 'speakerCandidates' | 'startMs' | 'endMs'>,
+  verdict: { confidence: number | null; candidates: SpeakerCandidate[] },
+  scores: ReadonlyMap<string, number>,
+  remaining: string | undefined,
+): { confidence: number | null; candidates: SpeakerCandidate[]; suggest?: string } | undefined {
+  if (!remaining || !row.participantId) return undefined;
+  if (row.endMs - row.startMs < SHORT_UTTERANCE_MS) return undefined;
+  if ([...scores.values()].some((score) => score >= ELIM_MAX_SCORE)) return undefined;
+  if (row.participantId === remaining) {
+    const confidence =
+      verdict.confidence === null
+        ? null
+        : round(Math.min(ELIM_CAP, verdict.confidence + ELIM_BOOST));
+    return {
+      confidence: confidence === null ? null : Math.max(confidence, verdict.confidence ?? 0),
+      candidates: verdict.candidates,
+    };
+  }
+  const candidates = [...verdict.candidates];
+  const seen = candidates.find((candidate) => candidate.participantId === remaining);
+  if (!seen) candidates.push({ participantId: remaining, score: MIN_SUGGESTION_SCORE });
+  else if (seen.score < MIN_SUGGESTION_SCORE) seen.score = MIN_SUGGESTION_SCORE;
+  return {
+    confidence:
+      verdict.confidence === null ? null : Math.min(verdict.confidence, SUSPECT_CONFIDENCE_CAP),
+    candidates,
+    suggest: remaining,
+  };
 }
 
 /**
@@ -138,8 +246,9 @@ export async function checkVoices(
 ): Promise<TranscriptRow[]> {
   try {
     if (!(await deps.enabled())) return [...rows];
-    const profiled = await profiledParticipants(deps.db, meetingId);
+    const { profiled, unprofiled, hasUntracked } = await profiledParticipants(deps.db, meetingId);
     if (profiled.length === 0) return [...rows];
+    const remaining = unprofiled.length === 1 && !hasUntracked ? unprofiled[0] : undefined;
     const checked = rows.flatMap((row, i) =>
       row.participantId && row.speakerSource !== 'user' ? [i] : [],
     );
@@ -155,25 +264,44 @@ export async function checkVoices(
     );
     if (!embedded) return [...rows];
     const result = [...rows];
+    const scored: ScoredLine[] = [];
     for (const [n, i] of checked.entries()) {
       const row = rows[i];
       const embedding = embedded.embeddings[n];
       if (!row || !embedding) continue;
       const scores = new Map(
-        profiled.map((p) => [p.participantId, clamp(profileScore(embedding, p.prototypes), 0, 1)]),
+        profiled.map((p) => [
+          p.participantId,
+          clamp(profileScore(embedding, p.prototypes, row.language), 0, 1),
+        ]),
       );
       const verdict = judgeLine(row, row.endMs - row.startMs, scores);
+      const left = eliminate(row, verdict, scores, remaining);
+      if (row.participantId) {
+        scored.push({
+          startMs: row.startMs,
+          endMs: row.endMs,
+          participantId: row.participantId,
+          embedding,
+          embedder: embedded.model ?? null,
+          timing: row.speakerConfidence ?? null,
+          scores,
+        });
+      }
       result[i] = {
         ...row,
-        speakerConfidence: verdict.confidence,
-        speakerCandidates: verdict.candidates,
+        speakerConfidence: left?.confidence ?? verdict.confidence,
+        speakerCandidates: left?.candidates ?? verdict.candidates,
         voiceDoubt: verdict.doubt,
+        ...(left && { byElimination: true }),
         voiceScores: [...scores]
           .map(([participantId, score]) => ({ participantId, score: round(score) }))
           .toSorted((a, b) => b.score - a.score),
         ...(verdict.better && { suggestedParticipantId: verdict.better }),
+        ...(left?.suggest && !verdict.better && { suggestedParticipantId: left.suggest }),
       };
     }
+    deps.onScored?.(scored);
     return result;
   } catch (error) {
     console.error(`voice check of meeting ${meetingId} failed, keeping the labels`, error);

@@ -1,18 +1,45 @@
-import { dropLineSamples, rebuildProfile } from '@openminutes/core';
+import { dropLineSamples, penalizeAutoMargin, rebuildProfile } from '@openminutes/core';
 import {
   and,
   eq,
   participants,
   people,
+  reviewDecisions,
   transcriptSegments,
   voiceSamples,
   type Database,
+  type SegmentSnapshot,
 } from '@openminutes/db';
+import { markSpeakersChanged } from '../meetings/speakers-notice.js';
 import { PeopleError } from './edit.js';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 type Person = typeof people.$inferSelect;
 type Segment = typeof transcriptSegments.$inferSelect;
+
+const snapshotOf = (segment: Segment): SegmentSnapshot => ({
+  participantId: segment.participantId,
+  speakerSource: segment.speakerSource,
+  suggestedParticipantId: segment.suggestedParticipantId,
+  voiceDoubt: segment.voiceDoubt,
+  byElimination: segment.byElimination,
+  previousParticipantId: segment.previousParticipantId,
+  rejectedSuggestions: segment.rejectedSuggestions,
+});
+
+/** Remembers the line as it was before a decision, replacing a skip or an earlier decision. */
+async function remember(
+  tx: Tx,
+  segment: Segment,
+  personId: string,
+  kind: 'approve' | 'reject',
+): Promise<void> {
+  const values = { personId, kind, before: snapshotOf(segment), createdAt: new Date() };
+  await tx
+    .insert(reviewDecisions)
+    .values({ segmentId: segment.id, ...values })
+    .onConflictDoUpdate({ target: reviewDecisions.segmentId, set: values });
+}
 
 export interface LearnRequest {
   meetingId: string;
@@ -70,6 +97,7 @@ export async function verifyLine(
     const person = await personOf(tx, personId);
     const segment = await segmentOf(tx, segmentId);
     const participantId = await participantFor(tx, segment.meetingId, person);
+    await remember(tx, segment, personId, 'approve');
     await tx
       .update(transcriptSegments)
       .set({
@@ -77,6 +105,7 @@ export async function verifyLine(
         speakerSource: 'user',
         suggestedParticipantId: null,
         voiceDoubt: false,
+        byElimination: false,
         previousParticipantId:
           segment.participantId !== participantId && segment.speakerSource !== 'user'
             ? segment.participantId
@@ -92,7 +121,19 @@ export async function verifyLine(
           eq(voiceSamples.rejected, true),
         ),
       );
+    // A sample the voice added by itself is now confirmed by a person.
+    await tx
+      .update(voiceSamples)
+      .set({ source: 'verified' })
+      .where(
+        and(
+          eq(voiceSamples.personId, personId),
+          eq(voiceSamples.segmentId, segmentId),
+          eq(voiceSamples.source, 'auto'),
+        ),
+      );
     await dropLineSamples(tx, [segmentId], personId);
+    await markSpeakersChanged(tx, segment.meetingId);
     return { meetingId: segment.meetingId, participantId, segmentIds: [segmentId] };
   });
 }
@@ -102,6 +143,7 @@ export async function rejectLine(db: Database, personId: string, segmentId: stri
   await db.transaction(async (tx) => {
     await personOf(tx, personId);
     const segment = await segmentOf(tx, segmentId);
+    await remember(tx, segment, personId, 'reject');
     const mine = new Set(
       (
         await tx
@@ -110,9 +152,12 @@ export async function rejectLine(db: Database, personId: string, segmentId: stri
           .where(eq(participants.personId, personId))
       ).map((p) => p.id),
     );
-    await tx
+    const removed = await tx
       .delete(voiceSamples)
-      .where(and(eq(voiceSamples.personId, personId), eq(voiceSamples.segmentId, segmentId)));
+      .where(and(eq(voiceSamples.personId, personId), eq(voiceSamples.segmentId, segmentId)))
+      .returning({ source: voiceSamples.source });
+    // Turning down a line the voice learned by itself says its test was too loose for this person.
+    if (removed.some((sample) => sample.source === 'auto')) await penalizeAutoMargin(tx, personId);
     await tx
       .insert(voiceSamples)
       .values({ personId, kind: 'line', segmentId, meetingId: segment.meetingId, rejected: true })
@@ -129,6 +174,7 @@ export async function rejectLine(db: Database, personId: string, segmentId: stri
       if (!elsewhere) {
         throw new PeopleError('Nobody else fits this line, move it to a person instead', 409);
       }
+      await markSpeakersChanged(tx, segment.meetingId);
       await tx
         .update(transcriptSegments)
         .set({
@@ -137,6 +183,7 @@ export async function rejectLine(db: Database, personId: string, segmentId: stri
           previousParticipantId: segment.participantId,
           suggestedParticipantId: null,
           voiceDoubt: false,
+          byElimination: false,
         })
         .where(eq(transcriptSegments.id, segmentId));
     } else if (segment.suggestedParticipantId && mine.has(segment.suggestedParticipantId)) {
@@ -167,5 +214,59 @@ export async function removeFromProfile(db: Database, personId: string, segmentI
       .returning({ id: voiceSamples.id });
     if (removed.length === 0) throw new PeopleError('That line is not in the profile', 404);
     await rebuildProfile(tx, personId);
+  });
+}
+
+/**
+ * Hides a line from the review queue. It stays hidden, in every session, until the skipped lines
+ * are asked for or the line is proposed for someone else.
+ */
+export async function skipLine(db: Database, personId: string, segmentId: string) {
+  await db.transaction(async (tx) => {
+    await personOf(tx, personId);
+    await segmentOf(tx, segmentId);
+    const values = { personId, kind: 'skip' as const, before: null, createdAt: new Date() };
+    await tx
+      .insert(reviewDecisions)
+      .values({ segmentId, ...values })
+      .onConflictDoUpdate({ target: reviewDecisions.segmentId, set: values });
+  });
+}
+
+/**
+ * Takes back the last review decision on a line: a skip is forgotten, a verified or rejected
+ * line gets its earlier label back and loses the voice sample that decision made. Returns what
+ * was undone, or undefined when nothing was stored.
+ */
+export async function undoDecision(db: Database, segmentId: string) {
+  return db.transaction(async (tx) => {
+    const [decision] = await tx
+      .select()
+      .from(reviewDecisions)
+      .where(eq(reviewDecisions.segmentId, segmentId));
+    if (!decision) return undefined;
+    if (decision.before) {
+      const [line] = await tx
+        .select({ meetingId: transcriptSegments.meetingId })
+        .from(transcriptSegments)
+        .where(eq(transcriptSegments.id, segmentId));
+      if (line) await markSpeakersChanged(tx, line.meetingId);
+      await tx
+        .update(transcriptSegments)
+        .set(decision.before)
+        .where(eq(transcriptSegments.id, segmentId));
+      await tx
+        .delete(voiceSamples)
+        .where(
+          and(
+            eq(voiceSamples.personId, decision.personId),
+            eq(voiceSamples.segmentId, segmentId),
+            eq(voiceSamples.rejected, decision.kind === 'reject'),
+          ),
+        );
+      await rebuildProfile(tx, decision.personId);
+    }
+    await tx.delete(reviewDecisions).where(eq(reviewDecisions.segmentId, segmentId));
+    return decision.kind;
   });
 }

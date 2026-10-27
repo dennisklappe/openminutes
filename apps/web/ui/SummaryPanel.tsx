@@ -16,8 +16,18 @@ export function SummaryPanel(props: {
   hasTranscript: boolean;
   onRequested: () => void;
   onPeopleChanged: () => void;
+  /** A person changed who said a line after this summary was written. */
+  speakersChanged?: boolean;
 }) {
-  const { meetingId, summaries, options, hasTranscript, onRequested, onPeopleChanged } = props;
+  const {
+    meetingId,
+    summaries,
+    options,
+    hasTranscript,
+    onRequested,
+    onPeopleChanged,
+    speakersChanged = false,
+  } = props;
   const [chosen, setChosen] = useState<string>();
   const [promptId, setPromptId] = useState(options.defaultPromptId);
   const [provider, setProvider] = useState('');
@@ -42,19 +52,27 @@ export function SummaryPanel(props: {
     setError(errorMessage(failure));
   };
 
-  const generate = async () => {
+  const generate = async (afterSpeakerChange = false) => {
     const choice = { reapplyEdits: false };
     if (
       active &&
       !(await confirm({
         title: 'Regenerate the summary?',
         body: (
-          <ReapplyChoice
-            {...options.reapply}
-            onChange={(value) => {
-              choice.reapplyEdits = value;
-            }}
-          />
+          <>
+            {afterSpeakerChange && (
+              <p>
+                The transcript is sent to your summary provider again, using your own API key. The
+                current version stays in History and can be restored.
+              </p>
+            )}
+            <ReapplyChoice
+              {...options.reapply}
+              onChange={(value) => {
+                choice.reapplyEdits = value;
+              }}
+            />
+          </>
         ),
         confirmLabel: 'Regenerate as new version',
       }))
@@ -155,6 +173,29 @@ export function SummaryPanel(props: {
         </div>
       )}
       {error && <p className="error">{error}</p>}
+      {speakersChanged && active && !pending && (
+        <p className="banner" role="status">
+          <span>Speakers changed in the transcript since this summary was written.</span>
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              void generate(true);
+            }}
+          >
+            Regenerate summary
+          </button>
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              api.dismissSpeakersNotice(meetingId).then(onRequested, report);
+            }}
+          >
+            Dismiss
+          </button>
+        </p>
+      )}
       {pending && <p className="muted">Summarising, this can take a minute.</p>}
       {failed && !pending && <p className="error">{failed.error}</p>}
       {undoTarget && active && !pending && (

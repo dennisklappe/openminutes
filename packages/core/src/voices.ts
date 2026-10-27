@@ -1,3 +1,5 @@
+import { isKnownLanguage, LANGUAGE_PENALTY, normalizeLanguage } from './voice-language.js';
+
 export const VOICE_MATCH_THRESHOLD = 0.55;
 
 export function cosineSimilarity(a: readonly number[], b: readonly number[]): number {
@@ -29,16 +31,30 @@ export function mergeEmbeddings(
 interface KnownVoice {
   name: string;
   embedding: readonly number[];
+  /** The language of the vector. Missing: unknown. */
+  language?: string | undefined;
 }
 
 export function matchVoices(
   embedding: readonly number[],
   known: readonly KnownVoice[],
   threshold = VOICE_MATCH_THRESHOLD,
+  language?: string | null,
 ): { name: string; score: number }[] {
+  const wanted = normalizeLanguage(language);
+  const inLanguage = new Set(
+    isKnownLanguage(wanted)
+      ? known.filter((voice) => normalizeLanguage(voice.language) === wanted).map((v) => v.name)
+      : [],
+  );
   const best = new Map<string, number>();
   for (const voice of known) {
-    const score = cosineSimilarity(embedding, voice.embedding);
+    const own = normalizeLanguage(voice.language) === wanted;
+    // A name with a vector in this language is matched on those; the others only fill in when it has none.
+    if (isKnownLanguage(wanted) && inLanguage.has(voice.name) !== own) continue;
+    const score =
+      cosineSimilarity(embedding, voice.embedding) -
+      (isKnownLanguage(wanted) && !own ? LANGUAGE_PENALTY : 0);
     if (score >= threshold && score > (best.get(voice.name) ?? -Infinity)) {
       best.set(voice.name, score);
     }

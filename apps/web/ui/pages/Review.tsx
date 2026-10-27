@@ -7,12 +7,14 @@ import { isTyping } from '../keyboard.js';
 import {
   commit,
   confidenceLabel,
+  coverageLabel,
   counts,
   currentLine,
   decide,
   describeDecision,
   dropPerson,
   everyoneOptions,
+  focusLine,
   keyAction,
   pick,
   position,
@@ -20,12 +22,14 @@ import {
   reviewSkipped,
   rosterOptions,
   startReview,
+  uncommit,
   undo,
   type Decision,
   type Entry,
   type PickerOption,
   type ReviewState,
 } from '../review.js';
+import { buildReviewRoute, type ReviewRoute } from '../reviewRoute.js';
 import { reasonLabel } from '../people.js';
 import { SnippetPlayer } from '../SnippetPlayer.js';
 import '../people.css';
@@ -33,8 +37,6 @@ import '../people.css';
 type Picker = 'closed' | 'roster' | 'other' | 'new';
 
 const SHOWN = 50;
-/** How long the last decision can be taken back before it is sent. */
-const UNDO_MS = 10_000;
 
 function Key({ children }: { children: string }) {
   return (
@@ -264,7 +266,11 @@ function Card({
             <strong>{line.proposed.name}</strong>
             <span className="muted"> · {confidenceLabel(line)}</span>
             <br />
-            <span className="muted">{reasonLabel(line)}</span>
+            <span className="muted">
+              {line.why === 'training' ? 'Needs more samples' : 'Not sure who this is'}
+              {': '}
+              {reasonLabel(line)}
+            </span>
           </dd>
           {line.considered.length > 0 && (
             <>
@@ -276,6 +282,24 @@ function Card({
               </dd>
             </>
           )}
+          <dt>Voice profile</dt>
+          <dd>
+            {coverageLabel(line)}
+            <div
+              className="voice-review-meter"
+              role="progressbar"
+              aria-label={`${line.languageName} voice profile of ${line.proposed.name}`}
+              aria-valuemin={0}
+              aria-valuemax={line.profileTargetSeconds}
+              aria-valuenow={Math.min(line.profileSeconds, line.profileTargetSeconds)}
+            >
+              <span
+                style={{
+                  width: `${String(Math.min(100, (100 * line.profileSeconds) / line.profileTargetSeconds))}%`,
+                }}
+              />
+            </div>
+          </dd>
           <dt>Meeting</dt>
           <dd>
             <a href={`#/meetings/${line.meetingId}`}>{line.meetingTitle}</a>
@@ -343,23 +367,24 @@ function Card({
   );
 }
 
-export function Review({
-  personId,
-  meetingId,
-}: {
-  personId?: string | undefined;
-  meetingId?: string | undefined;
-}) {
+export function Review({ route }: { route: ReviewRoute }) {
+  const { personId, meetingId } = route;
   const confirm = useConfirm();
-  const [order, setOrder] = useState<ReviewOrder>('newest');
+  const [order, setOrder] = useState<ReviewOrder>(route.order ?? 'newest');
+  const [notice, setNotice] = useState<string>();
+  const wanted = useRef(route.lineId);
+  wanted.current = route.lineId;
+  /** A new order starts at its own first line, not at the card that was on screen. */
+  const freshStart = useRef(false);
   const [queue, setQueue] = useState<ReviewQueueDto>();
   const [state, setState] = useState<ReviewState>();
   const [picker, setPicker] = useState<Picker>('closed');
   const [error, setError] = useState<string>();
   const [message, setMessage] = useState('');
-  const pending = useRef<Entry | undefined>(undefined);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [, tick] = useState(0);
+  /** Decisions on their way to the server, each one sent the moment it is made. */
+  const sending = useRef(new Map<Entry, Promise<boolean>>());
+  const [skippedMode, setSkippedMode] = useState(false);
+  const [round, setRound] = useState(0);
   const exitTo = meetingId
     ? `#/meetings/${meetingId}`
     : personId
@@ -375,12 +400,22 @@ export function Review({
         ...(personId && { personId }),
         ...(meetingId && { meetingId }),
         order,
+        ...(skippedMode && { skipped: true }),
       })
       .then(
         (loaded) => {
           if (!current) return;
           setQueue(loaded);
-          setState(startReview(loaded.lines));
+          const fresh = startReview(loaded.lines);
+          const target = freshStart.current ? undefined : wanted.current;
+          freshStart.current = false;
+          const opened = target ? focusLine(fresh, target) : undefined;
+          setNotice(
+            target && !opened
+              ? 'That line is no longer in the queue, so this is the next one.'
+              : undefined,
+          );
+          setState(opened ?? fresh);
         },
         (failure: unknown) => {
           if (current) setError(errorMessage(failure));
@@ -389,34 +424,29 @@ export function Review({
     return () => {
       current = false;
     };
-  }, [personId, meetingId, order]);
+  }, [personId, meetingId, order, skippedMode, round]);
 
-  /** The last decision is held back until the next one, so Undo can take it back. */
+  /** Waits until every decision made so far has reached the server. */
   const flush = useCallback(async () => {
-    clearTimeout(timer.current);
-    const entry = pending.current;
-    if (!entry) return;
-    pending.current = undefined;
-    try {
-      await commit(api, entry);
-    } catch (failure) {
-      setState((current) => (current ? restore(current, entry) : current));
-      setError(`${errorMessage(failure)} The line is back for another look.`);
-    }
+    await Promise.all(sending.current.values());
   }, []);
 
-  useEffect(() => {
-    const hide = () => {
-      if (document.visibilityState === 'hidden') void flush();
-    };
-    document.addEventListener('visibilitychange', hide);
-    window.addEventListener('pagehide', hide);
-    return () => {
-      document.removeEventListener('visibilitychange', hide);
-      window.removeEventListener('pagehide', hide);
-      void flush();
-    };
-  }, [flush]);
+  /** Sends a decision at once. When it fails the line comes back for another look. */
+  const send = useCallback((entry: Entry) => {
+    const sent = commit(api, entry).then(
+      () => true,
+      (failure: unknown) => {
+        setState((current) => (current ? restore(current, entry) : current));
+        setError(`${errorMessage(failure)} The line is back for another look.`);
+        return false;
+      },
+    );
+    sending.current.set(entry, sent);
+    void sent.then(() => {
+      sending.current.delete(entry);
+    });
+    return sent;
+  }, []);
 
   const line = state && currentLine(state);
 
@@ -424,36 +454,58 @@ export function Review({
     (decision: Decision) => {
       if (!state || !line) return;
       const entry: Entry = { line, decision };
-      void flush();
       setError(undefined);
+      setNotice(undefined);
       setState(decide(state, decision));
       setPicker('closed');
       setMessage(describeDecision(entry));
-      if (decision.kind !== 'skip') {
-        pending.current = entry;
-        timer.current = setTimeout(() => {
-          void flush();
-          tick((n) => n + 1);
-        }, UNDO_MS);
-      }
+      void send(entry);
     },
-    [state, line, flush],
+    [state, line, send],
   );
 
-  /** Only a skip or the decision still held back can be taken back. */
-  const last = state?.history.at(-1);
-  const canUndo = last !== undefined && (last.decision.kind === 'skip' || pending.current === last);
+  // The address follows the card, replacing the entry so Back leaves the review and does not
+  // walk through lines that are already decided.
+  const lineId = line?.id;
+  useEffect(() => {
+    if (!state) return;
+    const address = `#${buildReviewRoute({ personId, meetingId, order, lineId })}`;
+    if (window.location.hash === address) return;
+    window.history.replaceState(null, '', address);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  }, [state === undefined, lineId, personId, meetingId, order]);
 
-  const onUndo = useCallback(() => {
-    if (!state || !last || !canUndo) return;
-    if (pending.current === last) {
-      pending.current = undefined;
-      clearTimeout(timer.current);
+  // A card address pasted or reached with Back and Forward opens that card.
+  useEffect(() => {
+    if (!route.lineId || route.lineId === lineId) return;
+    setState((current) => {
+      if (!current) return current;
+      const opened = focusLine(current, route.lineId ?? '');
+      setNotice(
+        opened ? undefined : 'That line is no longer in the queue, so this is the next one.',
+      );
+      return opened ?? current;
+    });
+  }, [route.lineId]);
+
+  const last = state?.history.at(-1);
+  const canUndo = last !== undefined;
+
+  /** Takes the last decision back, also on the server, then shows the line again. */
+  const onUndo = useCallback(async () => {
+    if (!last) return;
+    const entry = last;
+    if (sending.current.has(entry) && !(await sending.current.get(entry))) return;
+    try {
+      await uncommit(api, entry);
+    } catch (failure) {
+      setError(errorMessage(failure));
+      return;
     }
-    setState(undo(state));
+    setState((current) => (current?.history.at(-1) === entry ? undo(current) : current));
     setPicker('closed');
     setMessage('Undone.');
-  }, [state, last, canUndo]);
+  }, [last]);
 
   /** Stops tracking the proposed person and takes all their lines out of this queue. */
   const untrack = useCallback(async () => {
@@ -510,7 +562,7 @@ export function Review({
       } else if (action === 'approve') onDecide({ kind: 'approve' });
       else if (action === 'skip') onDecide({ kind: 'skip' });
       else if (action === 'disapprove') setPicker('roster');
-      else onUndo();
+      else void onUndo();
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -519,6 +571,7 @@ export function Review({
   }, [queue, line, picker, onDecide, onUndo, exit]);
 
   const done = state ? counts(state) : undefined;
+  const hidden = queue && !skippedMode ? queue.skippedCount + (done?.skipped ?? 0) : 0;
 
   return (
     <>
@@ -529,7 +582,8 @@ export function Review({
         <div>
           <h1>Review</h1>
           <p className="lede">
-            One line at a time. Approve it, say who it was instead, or skip it for later.
+            One line at a time. Approve it, say who it was instead, or skip it. Skipped lines stay
+            out of the way until you ask for them.
             {queue &&
               !queue.learning &&
               ' Voice learning is off, so approving only confirms who said the line.'}
@@ -557,6 +611,7 @@ export function Review({
             value={order}
             onChange={(e) => {
               void flush();
+              freshStart.current = true;
               setOrder(e.target.value as ReviewOrder);
             }}
           >
@@ -584,6 +639,11 @@ export function Review({
       <div className="visually-hidden" role="status" aria-live="polite">
         {message}
       </div>
+      {notice && (
+        <p className="feedback" role="status">
+          {notice}
+        </p>
+      )}
       {error && (
         <p className="feedback error" role="alert">
           {error}
@@ -597,7 +657,9 @@ export function Review({
           setPicker={setPicker}
           onDecide={onDecide}
           canUndo={canUndo}
-          onUndo={onUndo}
+          onUndo={() => {
+            void onUndo();
+          }}
           onUntrack={() => {
             void untrack();
           }}
@@ -605,14 +667,54 @@ export function Review({
       )}
       {queue && state && !line && done && (
         <div className="panel empty-state">
-          <h3>{state.total === 0 ? 'Nothing to review' : 'All done'}</h3>
+          <h3>
+            {state.total === 0 ? 'Nothing to review' : queue.more > 0 ? 'Session done' : 'All done'}
+          </h3>
           <p>
             {state.total === 0
-              ? 'No lines need a look right now.'
+              ? skippedMode
+                ? 'No skipped lines are left.'
+                : 'No lines need a look right now.'
               : `${String(done.approved)} approved, ${String(done.changed)} changed${done.skipped > 0 ? `, ${String(done.skipped)} skipped` : ''}.`}
           </p>
+          {!skippedMode && queue.complete.length > 0 && (
+            <ul className="muted">
+              {queue.complete.map((person) => (
+                <li key={`${person.id}|${person.language}`}>
+                  Profile for {person.name} is good enough ({person.languageName}).
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="review-end">
-            {done.skipped > 0 && (
+            {!skippedMode && queue.more > 0 && (
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  void flush().then(() => {
+                    setRound((n) => n + 1);
+                  });
+                }}
+              >
+                Keep going ({String(queue.more)} more)
+              </button>
+            )}
+            {!skippedMode && hidden > 0 && (
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  void flush().then(() => {
+                    setSkippedMode(true);
+                    setMessage('Back to the skipped lines.');
+                  });
+                }}
+              >
+                Review {String(hidden)} skipped
+              </button>
+            )}
+            {skippedMode && done.skipped > 0 && (
               <button
                 type="button"
                 className="primary"
@@ -624,8 +726,23 @@ export function Review({
                 Review {String(done.skipped)} skipped
               </button>
             )}
+            {skippedMode && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSkippedMode(false);
+                }}
+              >
+                Back to the review
+              </button>
+            )}
             {canUndo && (
-              <button type="button" onClick={onUndo}>
+              <button
+                type="button"
+                onClick={() => {
+                  void onUndo();
+                }}
+              >
                 Undo last
               </button>
             )}

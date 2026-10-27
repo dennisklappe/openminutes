@@ -8,6 +8,7 @@ import {
   dropPerson,
   describeDecision,
   everyoneOptions,
+  focusLine,
   keyAction,
   pick,
   position,
@@ -15,6 +16,7 @@ import {
   reviewSkipped,
   rosterOptions,
   startReview,
+  uncommit,
   undo,
 } from './review.js';
 
@@ -30,7 +32,12 @@ const line = (id: string, extra: Partial<ReviewLineDto> = {}): ReviewLineDto => 
   speakerConfidence: 0.3,
   voiceScore: null,
   reason: 'uncertain',
+  why: 'doubt',
   proposed: { id: 'p1', name: 'Anna' },
+  language: 'nl',
+  languageName: 'Dutch',
+  profileSeconds: 45,
+  profileTargetSeconds: 90,
   considered: [],
   roster: [],
   ...extra,
@@ -96,6 +103,8 @@ describe('commit', () => {
     rejectLine: vi.fn().mockResolvedValue({}),
     moveLine: vi.fn().mockResolvedValue({}),
     createPerson: vi.fn().mockResolvedValue({ person: { id: 'new' } }),
+    skipLine: vi.fn().mockResolvedValue({}),
+    undoReviewDecision: vi.fn().mockResolvedValue({}),
   });
 
   it('verifies for the proposed person on approve', async () => {
@@ -104,7 +113,7 @@ describe('commit', () => {
     expect(a.verifyLine).toHaveBeenCalledWith('p1', 'a');
   });
 
-  it('moves, rejects and creates with the existing endpoints, and sends nothing for a skip', async () => {
+  it('moves, rejects and creates with the existing endpoints, and stores a skip', async () => {
     const a = api();
     await commit(a, { line: line('a'), decision: { kind: 'move', personId: 'p2', name: 'B' } });
     expect(a.moveLine).toHaveBeenCalledWith('p1', 'a', 'p2');
@@ -116,6 +125,13 @@ describe('commit', () => {
     const before = a.verifyLine.mock.calls.length + a.moveLine.mock.calls.length;
     await commit(a, { line: line('c'), decision: { kind: 'skip' } });
     expect(a.verifyLine.mock.calls.length + a.moveLine.mock.calls.length).toBe(before);
+    expect(a.skipLine).toHaveBeenCalledWith('p1', 'c');
+  });
+
+  it('takes a sent decision back on the server', async () => {
+    const a = api();
+    await uncommit(a, { line: line('a'), decision: { kind: 'approve' } });
+    expect(a.undoReviewDecision).toHaveBeenCalledWith('a');
   });
 });
 
@@ -207,5 +223,22 @@ describe('do not track in the queue', () => {
     expect(rosterOptions([{ personId: null, name: 'Mute' }], people, 'p1')).toEqual([
       { personId: null, name: 'Mute' },
     ]);
+  });
+});
+
+describe('opening a card by its line', () => {
+  const start = () => startReview([line('a'), line('b'), line('c')]);
+
+  it('puts the line on screen and keeps the order of the rest', () => {
+    const state = focusLine(start(), 'c');
+    expect(state?.rest.map((l) => l.id)).toEqual(['c', 'a', 'b']);
+    expect(focusLine(start(), 'a')?.rest.map((l) => l.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('says when the line is gone: decided, skipped or never in the queue', () => {
+    const decided = decide(start(), { kind: 'approve' });
+    expect(focusLine(decided, 'a')).toBeUndefined();
+    expect(focusLine(decide(start(), { kind: 'skip' }), 'a')).toBeUndefined();
+    expect(focusLine(start(), 'zzz')).toBeUndefined();
   });
 });

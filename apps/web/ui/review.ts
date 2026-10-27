@@ -45,6 +45,16 @@ export const startReview = (lines: readonly ReviewLineDto[]): ReviewState => ({
   total: lines.length,
 });
 
+/**
+ * Puts the line with this id on screen, the others keep their order behind it. Undefined when
+ * the line is no longer to be looked at: decided, skipped or not in this queue.
+ */
+export function focusLine(state: ReviewState, id: string): ReviewState | undefined {
+  const found = state.rest.find((line) => line.id === id);
+  if (!found) return undefined;
+  return { ...state, rest: [found, ...state.rest.filter((line) => line !== found)] };
+}
+
 export const currentLine = (state: ReviewState) => state.rest[0];
 
 /** The 1-based place of the line on screen, for "3 of 12". */
@@ -120,17 +130,23 @@ export function describeDecision({ line, decision }: Entry): string {
 }
 
 export interface ReviewApi {
+  skipLine: (personId: string, segmentId: string) => Promise<unknown>;
+  undoReviewDecision: (segmentId: string) => Promise<unknown>;
   verifyLine: (personId: string, segmentId: string) => Promise<unknown>;
   rejectLine: (personId: string, segmentId: string) => Promise<unknown>;
   moveLine: (personId: string, segmentId: string, target: string) => Promise<unknown>;
   createPerson: (body: { name: string }) => Promise<{ person: { id: string } }>;
 }
 
-/** Sends one decision with the endpoints the person page uses. A skip sends nothing. */
+/**
+ * Sends one decision at once, with the endpoints the person page uses. A skip is stored too, so
+ * the line does not come back after a refresh.
+ */
 export async function commit(api: ReviewApi, { line, decision }: Entry): Promise<void> {
   const from = line.proposed.id;
   switch (decision.kind) {
     case 'skip':
+      await api.skipLine(from, line.id);
       return;
     case 'approve':
       await api.verifyLine(from, line.id);
@@ -146,6 +162,11 @@ export async function commit(api: ReviewApi, { line, decision }: Entry): Promise
       await api.moveLine(from, line.id, person.id);
     }
   }
+}
+
+/** Takes a sent decision back on the server, so the line is open again. */
+export async function uncommit(api: ReviewApi, { line }: Entry): Promise<void> {
+  await api.undoReviewDecision(line.id);
 }
 
 export interface PickerOption {
@@ -234,3 +255,12 @@ export function confidenceLabel(line: Pick<ReviewLineDto, 'speakerConfidence' | 
   if (line.voiceScore !== null) parts.push(`voice fits ${percent(line.voiceScore)}`);
   return parts.join(', ');
 }
+
+/** "Dennis: 45 s of 90 s, Dutch", how far the voice profile is from good enough. */
+export const coverageLabel = (
+  line: Pick<
+    ReviewLineDto,
+    'proposed' | 'profileSeconds' | 'profileTargetSeconds' | 'languageName'
+  >,
+) =>
+  `${line.proposed.name}: ${String(line.profileSeconds)} s of ${String(line.profileTargetSeconds)} s, ${line.languageName}`;
