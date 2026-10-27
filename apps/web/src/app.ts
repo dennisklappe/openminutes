@@ -48,6 +48,7 @@ import { storageRoutes } from './settings/storage.js';
 import { wizardRoutes } from './settings/wizard.js';
 import { participantAliasRoutes } from './participants/alias-routes.js';
 import { meetingParticipantRoutes } from './participants/routes.js';
+import { peopleRoutes } from './people/routes.js';
 import { meetingVoiceRoutes } from './voices/routes.js';
 import { voiceSettingsRoutes } from './voices/settings-routes.js';
 import { UpdateChecker } from './updates/checker.js';
@@ -128,6 +129,8 @@ export function createApp(deps: AppDeps): Hono {
   api.route('/meetings', meetingVoiceRoutes(deps));
   api.route('/meetings', meetingParticipantRoutes(deps));
   api.route('/meetings', speakerEditRoutes(deps));
+  api.use('/people/*', requireSession(deps));
+  api.route('/people', peopleRoutes(deps));
   api.use('/series/*', requireSession(deps));
   api.route('/series', seriesRoutes(deps));
   api.route('/meetings', shareRoutes(deps));

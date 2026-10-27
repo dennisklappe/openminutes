@@ -122,6 +122,8 @@ describe('speaker edits', () => {
         speakerSource: 'diarization',
         uncertain: true,
         previousSpeaker: null,
+        suggestedSpeaker: null,
+        suggestedSpeakerId: null,
       });
       expect(body.speakerChoices.map((choice) => choice.name)).toEqual([
         'Speaker 1',
@@ -328,6 +330,46 @@ describe('speaker edits', () => {
       expect((await edit(meeting.id, { kind: 'merge', segmentIds: [a.id, a.id] })).status).toBe(
         400,
       );
+    });
+  });
+
+  describe('suggestions', () => {
+    it('rejects a suggestion for good, undoes it, and clears it when a person picks', async () => {
+      const { meeting, one, two, a } = await fixture();
+      await test.db
+        .update(transcriptSegments)
+        .set({ suggestedParticipantId: two.id })
+        .where(eq(transcriptSegments.id, a.id));
+      const before = (await detail(meeting.id)).segments;
+      expect(before[0]).toMatchObject({
+        suggestedSpeaker: 'Speaker 2',
+        suggestedSpeakerId: two.id,
+      });
+
+      const rejected = await applied(meeting.id, { kind: 'reject-suggestion', segmentIds: [a.id] });
+      expect(rejected.segments[0]).toMatchObject({
+        speakerId: one.id,
+        speakerSource: 'diarization',
+        suggestedSpeakerId: null,
+      });
+      const [row] = await test.db
+        .select()
+        .from(transcriptSegments)
+        .where(eq(transcriptSegments.id, a.id));
+      expect(row?.rejectedSuggestions).toEqual([two.id]);
+
+      expect((await applied(meeting.id, rejected.undo)).segments).toEqual(before);
+
+      const accepted = await applied(meeting.id, {
+        kind: 'assign',
+        segmentIds: [a.id],
+        speaker: { id: two.id },
+      });
+      expect(accepted.segments[0]).toMatchObject({
+        speakerId: two.id,
+        speakerSource: 'user',
+        suggestedSpeakerId: null,
+      });
     });
   });
 

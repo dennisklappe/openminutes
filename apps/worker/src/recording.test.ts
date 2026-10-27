@@ -1,11 +1,11 @@
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AudioStorage, LocalStorage } from '@openminutes/core';
+import { AudioStorage, LocalStorage, rememberVoice } from '@openminutes/core';
 import {
   audioFiles,
   eq,
-  knownVoices,
+  people,
   meetings,
   participants,
   transcriptSegments,
@@ -73,6 +73,7 @@ describe('processMeeting for phone recordings', () => {
         : Promise.resolve(diarizerOutcome);
     },
     embed: () => Promise.resolve(undefined),
+    embedEach: () => Promise.resolve(undefined),
   };
 
   const deps = (withRecording = true): ProcessDeps => ({
@@ -93,6 +94,7 @@ describe('processMeeting for phone recordings', () => {
           recording: {
             createDiarizer: () => Promise.resolve(diarizer),
             voicesRemembered: () => Promise.resolve(remember),
+            voicesChecked: () => Promise.resolve(false),
             createSuggester: () => Promise.resolve(suggester),
           },
         }
@@ -124,7 +126,7 @@ describe('processMeeting for phone recordings', () => {
       },
       test: () => Promise.resolve({}),
     };
-    await test.db.delete(knownVoices);
+    await test.db.delete(people);
   });
 
   async function insertMeeting(
@@ -371,10 +373,8 @@ describe('processMeeting for phone recordings', () => {
       Object.fromEntries((await load(id)).people.map((p) => [p.displayName, p.nameSuggestions]));
 
     it('suggests known voices only when voices are remembered', async () => {
-      await test.db.insert(knownVoices).values([
-        { name: 'Anna', embedding: [0.9, 0.1, 0] },
-        { name: 'Bram', embedding: [0, 0, 1] },
-      ]);
+      await rememberVoice(test.db, 'Anna', [0.9, 0.1, 0]);
+      await rememberVoice(test.db, 'Bram', [0, 0, 1]);
       const without = await insertMeeting();
       await processMeeting(deps(), without);
       expect((await suggestionsOf(without))['Speaker 1']).toBeNull();
@@ -413,7 +413,7 @@ describe('processMeeting for phone recordings', () => {
 
     it('puts a voice match before the same name from the conversation', async () => {
       remember = true;
-      await test.db.insert(knownVoices).values({ name: 'anna', embedding: [1, 0, 0] });
+      await rememberVoice(test.db, 'anna', [1, 0, 0]);
       suggesterReply = '{"names":[{"speaker":"Speaker 1","name":"Anna"}]}';
       const id = await insertMeeting();
       await processMeeting(deps(), id);
@@ -442,7 +442,7 @@ describe('processMeeting for phone recordings', () => {
 
     it('keeps voice suggestions when the conversation call fails', async () => {
       remember = true;
-      await test.db.insert(knownVoices).values({ name: 'Anna', embedding: [1, 0, 0] });
+      await rememberVoice(test.db, 'Anna', [1, 0, 0]);
       suggesterReply = new Error('quota');
       const id = await insertMeeting();
       await processMeeting(deps(), id);

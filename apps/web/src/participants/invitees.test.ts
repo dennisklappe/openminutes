@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createProviders } from '@openminutes/calendar';
 import { LocalStorage, SettingsStore } from '@openminutes/core';
-import { eq, knownVoices, meetings, participantAliases, participants } from '@openminutes/db';
+import {
+  eq,
+  meetings,
+  participantAliases,
+  participants,
+  people as peopleTable,
+} from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import type { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -182,11 +188,12 @@ describe('linking calendar invitees to participants', () => {
       .from(participantAliases)
       .where(eq(participantAliases.originalName, 'JP'));
     expect(alias).toMatchObject({ displayName: 'Jo Parker', email: 'jo@parker.example' });
-    const [voice] = await test.db
+    const [known] = await test.db
       .select()
-      .from(knownVoices)
-      .where(eq(knownVoices.name, 'Jo Parker'));
-    expect(voice?.email).toBe('jo@parker.example');
+      .from(peopleTable)
+      .where(eq(peopleTable.name, 'Jo Parker'));
+    expect(known?.emails).toEqual(['jo@parker.example']);
+    expect(known?.voicePrototypes).toHaveLength(1);
     const people2 = (await minutesOf(meeting.id))?.attendees ?? [];
     expect(people2.find((p) => p.name === 'Jo Parker')?.email).toBe('jo@parker.example');
     const cleared = await read(await call('PUT', path, { name: 'Jo Parker', email: '' }));

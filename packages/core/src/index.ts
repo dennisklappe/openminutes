@@ -156,7 +156,29 @@ export {
   type PromptInput,
   type PromptTemplate,
 } from './summary-prompts.js';
-export { rememberVoice } from './known-voices.js';
+export {
+  addVoiceSample,
+  addVoiceSamples,
+  cleanEmails,
+  dropLineSamples,
+  ensurePerson,
+  findPersonByName,
+  forgetVoices,
+  linkParticipant,
+  normalizeEmail,
+  rebuildProfile,
+  rememberVoice,
+  savedVoices,
+  type NewSample,
+  type Person,
+} from './people.js';
+export {
+  buildPrototypes,
+  MAX_PROTOTYPES,
+  profileScore,
+  PROTOTYPE_JOIN_SIMILARITY,
+  type ProfileSample,
+} from './voice-profile.js';
 export { cosineSimilarity, matchVoices, mergeEmbeddings, VOICE_MATCH_THRESHOLD } from './voices.js';
 export {
   assembleChunks,
@@ -227,8 +249,10 @@ export {
 export {
   isUncertain,
   LOW_SPEAKER_CONFIDENCE,
+  MIN_SUGGESTION_SCORE,
   scoreSpeaker,
   SHORT_UTTERANCE_MS,
+  suggestionChoices,
   type SpeakerScore,
 } from './speaker-confidence.js';
 export { guessSpeakers, type GuessLine } from './speaker-guess.js';

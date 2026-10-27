@@ -38,22 +38,24 @@ With a summary provider set, uncertain lines are checked once more. Turn it off 
 | What comes back    | Only `{"changes":[{"index","speaker"}]}`, so words and timing cannot change                |
 | Bad answer         | The batch is skipped (unknown name, line twice, over 60% changed); the meeting never fails |
 | Cost               | About 4 small requests for a 45 minute recording with 40 uncertain lines                   |
-| Undo               | Changed lines keep their old speaker in `previous_participant_id`                          |
+| Undo               | Nothing is changed. A different speaker is stored as a suggestion on the line              |
+
+The model may only name a speaker the audio scored at 20% or more for that line, and the prompt tells it to keep the label unless the conversation clearly contradicts it. A suggestion shows under the line with **Accept** and **Reject**. Accept sets the speaker as your own correction. Reject remembers the choice, so the same speaker is not suggested for that line again. Lines you set yourself are never sent or suggested.
 
 Without a summary provider, a plain heuristic runs instead and sends nothing. It only fixes the obvious case: a line that opens like an answer ("Yes", "Ja", "Nee") right after a question. The check can be rerun with job `meeting.review-speakers`.
 
 ## How speakers are decided
 
-| Source         | Where it comes from                          |
-| -------------- | -------------------------------------------- |
-| `indicator`    | Meet and Teams speaking indicator            |
-| `diarization`  | Voices found in a phone recording            |
-| `ai` / `guess` | Second pass, or the heuristic                |
-| `user`         | A person changed the line. Never overwritten |
+| Source         | Where it comes from                                                          |
+| -------------- | ---------------------------------------------------------------------------- |
+| `indicator`    | Meet and Teams speaking indicator                                            |
+| `diarization`  | Voices found in a phone recording                                            |
+| `ai` / `guess` | Older lines the second pass or a heuristic changed. New reviews only suggest |
+| `user`         | A person changed the line. Never overwritten                                 |
 
 Every line gets a confidence from 0 to 1. It is a heuristic, not a probability. Lines under 70% show as uncertain. Very short lines and turn-taking oddities (a question and an answer from the same speaker, "Thanks, Anna" said by Anna) are capped so they stay uncertain.
 
-Corrections survive re-processing: they are remembered by name and time range and applied to the new lines (best effort). With "Remember voices" on, a correction also teaches that voice.
+Corrections survive re-processing: they are remembered by name and time range and applied to the new lines (best effort). With "Learn voices from lines I verify" on, a correction also teaches that voice. See [Voices](voices.md).
 
 ## Phone recordings
 
@@ -74,7 +76,7 @@ flowchart TD
 
 - Audio never goes to a third party for speaker detection. The diarizer runs only with the local provider.
 - "How many people are talking?" on the Record screen takes Auto, 2, 3, 4 or 5+. Use a count only when certain: a count of 2 on a one voice recording invents a second speaker. On a finished recording use More, Re-process with 2 speakers (or other count).
-- Names are only ever suggested, never applied. A suggestion comes from voice memory (with "Remember voices" on, up to 3 matches) or from names spoken in the call ("Thanks, Anna", text only). See [Voices](voices.md).
+- Names are only ever suggested, never applied. A suggestion comes from voice memory (with learning on, up to 3 matches) or from names spoken in the call ("Thanks, Anna", text only). See [Voices](voices.md).
 - A phone recording gets a short title (6 words at most) from its summary. Calendar and link meetings are never retitled.
 - Re-processing rebuilds speakers, keeps corrected lines and matches new voices to names you gave before.
 

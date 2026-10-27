@@ -8,6 +8,8 @@ import { Meetings } from './pages/Meetings.js';
 import { Archive } from './pages/Archive.js';
 import { Bin } from './pages/Bin.js';
 import { Minutes } from './pages/Minutes.js';
+import { People } from './pages/People.js';
+import { PersonDetail } from './pages/PersonDetail.js';
 import { minutesView } from './minutes/views.js';
 import { OfflineRecorder, Record } from './pages/Record.js';
 import { Settings } from './pages/Settings.js';
@@ -68,10 +70,15 @@ export function App() {
   }
 
   const meetingId = /^\/meetings\/([\w-]+)$/.exec(route)?.[1];
+  const personId = /^\/people\/([\w-]+)$/.exec(route)?.[1];
   const page = meetingId ? (
     <MeetingDetail id={meetingId} />
   ) : route.startsWith('/minutes') ? (
     <Minutes view={minutesView(route)} />
+  ) : route === '/people' ? (
+    <People />
+  ) : personId ? (
+    <PersonDetail id={personId} />
   ) : route === '/archive' ? (
     <Archive />
   ) : route === '/bin' ? (

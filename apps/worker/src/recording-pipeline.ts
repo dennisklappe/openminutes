@@ -15,6 +15,8 @@ import type { TranscriptRow } from './transcript-store.js';
 
 export interface RecordingDeps extends SpeakerSources {
   voicesRemembered: () => Promise<boolean>;
+  /** Lines are checked against the saved voices of the people in the meeting. */
+  voicesChecked: () => Promise<boolean>;
   createSuggester: () => Promise<SummaryProvider | undefined>;
 }
 

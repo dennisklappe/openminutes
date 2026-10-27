@@ -6,3 +6,4 @@ export type * from './dto/minutes.js';
 export type * from './dto/voices.js';
 export type * from './dto/recordings.js';
 export type * from './dto/imports.js';
+export type * from './dto/people.js';

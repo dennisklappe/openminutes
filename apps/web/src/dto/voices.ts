@@ -94,6 +94,9 @@ export interface KnownVoiceDto {
 }
 
 export interface VoiceSettingsDto {
+  /** Learn voices from lines a person verified. */
   remember: boolean;
+  /** Check lines against the saved voices. */
+  check: boolean;
   known: KnownVoiceDto[];
 }

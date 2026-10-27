@@ -32,6 +32,7 @@ import { Cancelled, limitFor, Run } from './run-progress.js';
 import { repairWindows } from './repair-windows.js';
 import { applyCorrections, captureCorrections } from './speaker-review/corrections.js';
 import { reviewTranscript } from './speaker-review/transcript-review.js';
+import { checkVoices } from './speaker-review/voice-check.js';
 import type { TrimAudio } from './trim-audio.js';
 import { saveTranscript, toTranscriptRows } from './transcript-store.js';
 
@@ -252,7 +253,21 @@ export async function processMeeting(
       range,
       staleIds,
     );
-    const { rows, check } = await reviewTranscript(deps, meetingId, corrected, staleIds);
+    const checked =
+      labels || !deps.recording
+        ? corrected
+        : await checkVoices(
+            {
+              db: deps.db,
+              createDiarizer: deps.recording.createDiarizer,
+              enabled: deps.recording.voicesChecked,
+            },
+            meetingId,
+            corrected,
+            original.path,
+            range,
+          );
+    const { rows, check } = await reviewTranscript(deps, meetingId, checked, staleIds);
     await saveTranscript(deps.db, meetingId, rows, range);
     if (labels) await finishRecording(deps.db, deps.recording, meetingId, labels, rows);
     await deps.db

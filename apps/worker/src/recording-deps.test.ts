@@ -10,6 +10,7 @@ describe('createRecordingDeps', () => {
   const diarizer: Diarizer = {
     diarize: () => Promise.resolve(undefined),
     embed: () => Promise.resolve(undefined),
+    embedEach: () => Promise.resolve(undefined),
   };
   const configs: unknown[] = [];
   const deps = () =>
@@ -44,6 +45,9 @@ describe('createRecordingDeps', () => {
     expect(await deps().voicesRemembered()).toBe(false);
     await settings.set('voices.remember', 'true');
     expect(await deps().voicesRemembered()).toBe(true);
+    expect(await deps().voicesChecked()).toBe(false);
+    await settings.set('voices.check', 'true');
+    expect(await deps().voicesChecked()).toBe(true);
     expect(await deps().createSuggester()).toBeUndefined();
     await saveProviderSettings(settings, 'summary', 'openai-compatible', {
       baseUrl: 'http://x/v1',

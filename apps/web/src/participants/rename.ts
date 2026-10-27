@@ -1,4 +1,4 @@
-import { rememberVoice } from '@openminutes/core';
+import { linkParticipant, rememberVoice } from '@openminutes/core';
 import {
   and,
   desc,
@@ -96,10 +96,11 @@ export async function renameParticipant(
       })
       .where(eq(participants.id, person.id))
       .returning();
+    if (saved) await linkParticipant(tx, saved);
     if (remember && saved) {
       await syncAlias(tx, original, name, saved);
       if (saved.voiceEmbedding) {
-        await rememberVoice(tx, name, saved.voiceEmbedding, personEmail(saved));
+        await rememberVoice(tx, name, saved.voiceEmbedding, personEmail(saved), saved.meetingId);
       }
     }
     if (name === person.displayName) return { summaryUpdated: false };

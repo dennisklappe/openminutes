@@ -1,0 +1,3 @@
+ALTER TABLE "transcript_segments" ADD COLUMN "suggested_participant_id" uuid;--> statement-breakpoint
+ALTER TABLE "transcript_segments" ADD COLUMN "rejected_suggestions" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "transcript_segments" ADD CONSTRAINT "transcript_segments_suggested_participant_id_participants_id_fk" FOREIGN KEY ("suggested_participant_id") REFERENCES "public"."participants"("id") ON DELETE set null ON UPDATE no action;

@@ -133,3 +133,39 @@ describe('local diarizer embed', () => {
     });
   });
 });
+
+describe('local diarizer embedEach', () => {
+  const ranges = [
+    { startMs: 1000, endMs: 4000 },
+    { startMs: 9000, endMs: 9200 },
+  ];
+
+  it('posts the ranges and returns a print per range with the model name', async () => {
+    const { fetch, calls } = scriptedFetch(
+      json({ available: true, embeddings: [[0.6, 0.8], null], model: 'nl-model' }),
+    );
+    const diarizer = createLocalDiarizer({ baseUrl: 'http://whisper:8000/' }, { fetch });
+
+    const out = await diarizer.embedEach({ path: await tempAudio() }, ranges);
+
+    expect(out).toEqual({ embeddings: [[0.6, 0.8], null], model: 'nl-model' });
+    expect(calls[0]?.url).toBe('http://whisper:8000/embed-lines');
+    expect(bodyField(calls[0], 'ranges')).toBe('[[1000,4000],[9000,9200]]');
+  });
+
+  it('returns undefined when the service has no model', async () => {
+    const { fetch } = scriptedFetch(json({ available: false, reason: 'model missing' }));
+    const diarizer = createLocalDiarizer({ baseUrl: 'http://whisper:8000' }, { fetch });
+
+    expect(await diarizer.embedEach({ path: await tempAudio() }, ranges)).toBeUndefined();
+  });
+
+  it('rejects an unexpected body', async () => {
+    const { fetch } = scriptedFetch(json({ embeddings: [] }));
+    const diarizer = createLocalDiarizer({ baseUrl: 'http://whisper:8000' }, { fetch });
+
+    await expect(diarizer.embedEach({ path: await tempAudio() }, ranges)).rejects.toMatchObject({
+      code: 'invalid_response',
+    });
+  });
+});

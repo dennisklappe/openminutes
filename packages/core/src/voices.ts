@@ -25,6 +25,7 @@ export function mergeEmbeddings(
   );
 }
 
+/** A name can have several vectors, it then counts with the best of them. */
 interface KnownVoice {
   name: string;
   embedding: readonly number[];
@@ -35,8 +36,12 @@ export function matchVoices(
   known: readonly KnownVoice[],
   threshold = VOICE_MATCH_THRESHOLD,
 ): { name: string; score: number }[] {
-  return known
-    .map((voice) => ({ name: voice.name, score: cosineSimilarity(embedding, voice.embedding) }))
-    .filter((match) => match.score >= threshold)
-    .sort((a, b) => b.score - a.score);
+  const best = new Map<string, number>();
+  for (const voice of known) {
+    const score = cosineSimilarity(embedding, voice.embedding);
+    if (score >= threshold && score > (best.get(voice.name) ?? -Infinity)) {
+      best.set(voice.name, score);
+    }
+  }
+  return [...best].map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score);
 }

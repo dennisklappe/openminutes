@@ -24,6 +24,8 @@ export async function loadSegments(db: Database, meetingId: string): Promise<Seg
     speakerSource: row.speakerSource,
     uncertain: isUncertain(row),
     previousSpeaker: nameOf(row.previousParticipantId),
+    suggestedSpeaker: nameOf(row.suggestedParticipantId),
+    suggestedSpeakerId: row.suggestedParticipantId,
   }));
 }
 

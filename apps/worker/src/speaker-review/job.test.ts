@@ -26,6 +26,10 @@ describe('reviewMeetingSpeakers', () => {
       ])
       .returning();
     if (!one || !two) throw new Error('insert failed');
+    const candidates = [
+      { participantId: one.id, score: 0.7 },
+      { participantId: two.id, score: 0.3 },
+    ];
     const line = (i: number, text: string, extra: object = {}) => ({
       meetingId: meeting.id,
       participantId: one.id,
@@ -34,6 +38,7 @@ describe('reviewMeetingSpeakers', () => {
       text,
       speakerConfidence: 0.4,
       speakerSource: 'diarization' as const,
+      speakerCandidates: candidates,
       ...extra,
     });
     await test.db
@@ -57,7 +62,7 @@ describe('reviewMeetingSpeakers', () => {
     return meeting;
   };
 
-  it('guesses the obvious answer without a model and leaves corrected lines alone', async () => {
+  it('suggests the obvious answer without a model and leaves corrected lines alone', async () => {
     const { id, one, two } = await setup();
     await reviewMeetingSpeakers(
       { db: test.db, createRefiner: () => Promise.resolve(undefined) },
@@ -65,14 +70,14 @@ describe('reviewMeetingSpeakers', () => {
     );
 
     const rows = await stored(id);
-    expect(rows.map((r) => r.participantId)).toEqual([one.id, two.id, one.id]);
-    expect(rows[1]).toMatchObject({ speakerSource: 'guess', previousParticipantId: one.id });
-    expect(rows[2]?.speakerSource).toBe('user');
+    expect(rows.map((r) => r.participantId)).toEqual([one.id, one.id, one.id]);
+    expect(rows[1]).toMatchObject({ speakerSource: 'diarization', suggestedParticipantId: two.id });
+    expect(rows[2]).toMatchObject({ speakerSource: 'user', suggestedParticipantId: null });
     expect((await checked(id))?.speakerCheckedAt).toBeInstanceOf(Date);
   });
 
   it('uses the model when there is one and marks the meeting refined', async () => {
-    const { id, two } = await setup();
+    const { id, one, two } = await setup();
     const provider: SummaryProvider = {
       model: 'fake',
       maxInputChars: 100_000,
@@ -84,7 +89,11 @@ describe('reviewMeetingSpeakers', () => {
       id,
     );
 
-    expect((await stored(id))[1]).toMatchObject({ participantId: two.id, speakerSource: 'ai' });
+    expect((await stored(id))[1]).toMatchObject({
+      participantId: one.id,
+      speakerSource: 'diarization',
+      suggestedParticipantId: two.id,
+    });
     expect(await checked(id)).toMatchObject({ speakersRefined: true, speakerCheckError: null });
   });
 

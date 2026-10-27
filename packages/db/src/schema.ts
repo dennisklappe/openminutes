@@ -141,6 +141,32 @@ export interface NameSuggestion {
   source: 'conversation' | 'voice' | 'calendar';
 }
 
+export interface VoicePrototype {
+  vector: number[];
+  /** How many samples this vector stands for. */
+  samples: number;
+}
+
+export const voiceSampleKinds = ['line', 'meeting', 'imported'] as const;
+export type VoiceSampleKind = (typeof voiceSampleKinds)[number];
+
+/** Someone the owner knows: a name, any number of emails and, when allowed, a voice profile. */
+export const people = pgTable(
+  'people',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    notes: text('notes'),
+    /** Lower case. A person may have none, one or several. */
+    emails: jsonb('emails').$type<string[]>().notNull().default([]),
+    /** Up to 5 vectors built from the voice samples, matched by the highest cosine. */
+    voicePrototypes: jsonb('voice_prototypes').$type<VoicePrototype[]>().notNull().default([]),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('people_name_idx').on(sql`lower(${t.name})`)],
+);
+
 export const participants = pgTable('participants', {
   id: id(),
   meetingId: meetingId(),
@@ -157,6 +183,7 @@ export const participants = pgTable('participants', {
   voiceEmbedding: jsonb('voice_embedding').$type<number[]>(),
   nameConfirmed: boolean('name_confirmed').notNull().default(false),
   nameSuggestions: jsonb('name_suggestions').$type<NameSuggestion[]>(),
+  personId: uuid('person_id').references((): AnyPgColumn => people.id, { onDelete: 'set null' }),
 });
 
 export const participantAliases = pgTable(
@@ -187,6 +214,39 @@ export const knownVoices = pgTable(
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
   (t) => [uniqueIndex('known_voices_name_idx').on(t.name)],
+);
+
+/** One verified stretch of someone's voice, the unit a voice profile is built from. */
+export const voiceSamples = pgTable(
+  'voice_samples',
+  {
+    id: id(),
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: voiceSampleKinds }).notNull(),
+    meetingId: uuid('meeting_id').references(() => meetings.id, { onDelete: 'set null' }),
+    segmentId: uuid('segment_id').references((): AnyPgColumn => transcriptSegments.id, {
+      onDelete: 'set null',
+    }),
+    /** Null while the worker has not embedded the line yet. */
+    embedding: jsonb('embedding').$type<number[]>(),
+    /** Which embedding model made the vector, so a model change can be told apart. */
+    embedder: text('embedder'),
+    durationMs: integer('duration_ms').notNull().default(0),
+    /** How many earlier samples an imported vector stands for. */
+    weight: integer('weight').notNull().default(1),
+    /** A line the owner said is not this person, kept so it is not offered again. */
+    rejected: boolean('rejected').notNull().default(false),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('voice_samples_person_idx').on(t.personId),
+    uniqueIndex('voice_samples_line_idx').on(t.personId, t.segmentId),
+    uniqueIndex('voice_samples_meeting_idx')
+      .on(t.personId, t.meetingId)
+      .where(sql`${t.kind} = 'meeting'`),
+  ],
 );
 
 export const audioFiles = pgTable('audio_files', {
@@ -223,6 +283,17 @@ export const transcriptSegments = pgTable('transcript_segments', {
     (): AnyPgColumn => participants.id,
     { onDelete: 'set null' },
   ),
+  /** The speaker the review thinks is right when it disagrees with the label, never applied by itself. */
+  suggestedParticipantId: uuid('suggested_participant_id').references(
+    (): AnyPgColumn => participants.id,
+    { onDelete: 'set null' },
+  ),
+  /** The voice check found the line closer to another saved voice than to the label. */
+  voiceDoubt: boolean('voice_doubt').notNull().default(false),
+  /** How well each meeting participant's saved voice fits the line, best first. */
+  voiceScores: jsonb('voice_scores').$type<SpeakerCandidate[]>(),
+  /** Speakers a person turned down for this line, so the review does not suggest them again. */
+  rejectedSuggestions: jsonb('rejected_suggestions').$type<string[]>().notNull().default([]),
 });
 
 export const summaries = pgTable('summaries', {

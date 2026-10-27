@@ -163,7 +163,8 @@ class EmbedRangesTest(unittest.TestCase):
 
     def test_ranges_under_the_minimum_are_skipped(self):
         result = self.embed([(0, diarize.MIN_EMBED_MS - 1)])
-        self.assertEqual(result, {"available": True, "embedding": None, "durationMs": 0})
+        self.assertEqual(result["embedding"], None)
+        self.assertEqual(result["durationMs"], 0)
 
     def test_the_longest_ranges_fill_the_budget_first(self):
         with mock.patch.object(diarize, "CENTROID_MS", 5_000):
@@ -205,3 +206,42 @@ class KnownCountTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EmbedEachTest(unittest.TestCase):
+    def embed(self, ranges, spans=((0, 10), (90, 10))):
+        _, audio = clip(*spans)
+        with (
+            mock.patch.object(diarize, "_load", return_value=(None, "", "", FakeExtractor())),
+            mock.patch.object(diarize, "decode_audio", return_value=audio),
+        ):
+            return diarize.embed_each("x.wav", ranges)
+
+    def test_every_range_gets_its_own_print_in_order(self):
+        result = self.embed([(0, 3000), (10_000, 11_000)])
+        self.assertEqual(len(result["embeddings"]), 2)
+        first, second = result["embeddings"]
+        self.assertAlmostEqual(math.degrees(math.atan2(first[1], first[0])), 0, places=3)
+        self.assertAlmostEqual(math.degrees(math.atan2(second[1], second[0])), 90, places=3)
+
+    def test_a_short_line_is_read_from_a_window_around_it(self):
+        result = self.embed([(10_800, 10_900)])
+        self.assertAlmostEqual(
+            math.degrees(math.atan2(result["embeddings"][0][1], result["embeddings"][0][0])),
+            90,
+            places=3,
+        )
+
+    def test_a_line_past_the_end_has_no_print(self):
+        result = self.embed([(500_000, 501_000)])
+        self.assertEqual(result["embeddings"], [None])
+
+    def test_the_embedding_model_can_be_set_by_environment(self):
+        env = {
+            "DIARIZATION_EMBEDDING_NAME": "nl.onnx",
+            "DIARIZATION_EMBEDDING_URL": "https://example.invalid/nl.onnx",
+            "DIARIZATION_EMBEDDING_SHA256": "ab",
+        }
+        with mock.patch.dict(os.environ, env):
+            self.assertEqual(diarize.embedding_model().name, "nl.onnx")
+        self.assertEqual(diarize.embedding_model(), diarize.DEFAULT_EMBEDDING)

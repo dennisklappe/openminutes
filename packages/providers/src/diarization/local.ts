@@ -36,6 +36,15 @@ const embedSchema = z.discriminatedUnion('available', [
   z.object({ available: z.literal(false), reason: z.string().optional() }),
 ]);
 
+const embedEachSchema = z.discriminatedUnion('available', [
+  z.object({
+    available: z.literal(true),
+    embeddings: z.array(z.array(z.number()).nullable()),
+    model: z.string().optional(),
+  }),
+  z.object({ available: z.literal(false), reason: z.string().optional() }),
+]);
+
 export interface LocalDiarizerConfig {
   baseUrl: string;
   token?: string | undefined;
@@ -84,6 +93,21 @@ export function createLocalDiarizer(
       );
       const data = await parseJson('local-diarization', response, embedSchema);
       return data.available ? (data.embedding ?? undefined) : undefined;
+    },
+    async embedEach(audio, ranges) {
+      const response = await request(
+        joinUrl(config.baseUrl, '/embed-lines'),
+        {
+          method: 'POST',
+          headers,
+          body: await audioForm(audio.path, {
+            ranges: JSON.stringify(ranges.map((range) => [range.startMs, range.endMs])),
+          }),
+        },
+        { provider: 'local-diarization', fetch: deps.fetch, timeoutMs: EMBED_TIMEOUT_MS },
+      );
+      const data = await parseJson('local-diarization', response, embedEachSchema);
+      return data.available ? { embeddings: data.embeddings, model: data.model } : undefined;
     },
   };
 }

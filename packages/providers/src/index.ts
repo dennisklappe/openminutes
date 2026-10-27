@@ -45,6 +45,7 @@ export type {
   DiarizedSpeaker,
   DiarizedTurn,
   EmbedRange,
+  EmbeddedLines,
   DiarizeOptions,
   Diarizer,
 } from './diarization/types.js';

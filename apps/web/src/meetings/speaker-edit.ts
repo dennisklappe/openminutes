@@ -1,3 +1,4 @@
+import { dropLineSamples } from '@openminutes/core';
 import {
   and,
   eq,
@@ -32,6 +33,8 @@ const toSnapshot = (row: Row): SpeakerSnapshotDto => ({
   speakerSource: row.speakerSource,
   speakerCandidates: row.speakerCandidates,
   previousSpeakerId: row.previousParticipantId,
+  suggestedSpeakerId: row.suggestedParticipantId,
+  rejectedSuggestions: row.rejectedSuggestions,
 });
 
 const fromSnapshot = (meetingId: string, row: SpeakerSnapshotDto) => ({
@@ -46,6 +49,8 @@ const fromSnapshot = (meetingId: string, row: SpeakerSnapshotDto) => ({
   speakerSource: row.speakerSource,
   speakerCandidates: row.speakerCandidates,
   previousParticipantId: row.previousSpeakerId,
+  suggestedParticipantId: row.suggestedSpeakerId,
+  rejectedSuggestions: row.rejectedSuggestions,
 });
 
 async function segmentsOf(tx: Tx, meetingId: string, ids: readonly string[]): Promise<Row[]> {
@@ -105,6 +110,7 @@ function assignment(row: Row, targetId: string) {
   return {
     participantId: targetId,
     speakerSource: 'user' as const,
+    suggestedParticipantId: null,
     previousParticipantId: keepsPrevious ? row.previousParticipantId : row.participantId,
   };
 }
@@ -122,6 +128,15 @@ async function assign(
       .set(assignment(row, target.id))
       .where(eq(transcriptSegments.id, row.id));
   }
+  const [targetPerson] = await tx
+    .select({ personId: participants.personId })
+    .from(participants)
+    .where(eq(participants.id, target.id));
+  await dropLineSamples(
+    tx,
+    rows.map((row) => row.id),
+    targetPerson?.personId,
+  );
   return {
     undo: {
       kind: 'restore',
@@ -244,6 +259,30 @@ async function revert(
   };
 }
 
+async function rejectSuggestion(
+  tx: Tx,
+  meeting: Meeting,
+  input: Extract<SpeakerEditInput, { kind: 'reject-suggestion' }>,
+): Promise<AppliedEdit> {
+  const rows = (await segmentsOf(tx, meeting.id, input.segmentIds)).filter(
+    (row) => row.suggestedParticipantId !== null,
+  );
+  for (const row of rows) {
+    await tx
+      .update(transcriptSegments)
+      .set({
+        suggestedParticipantId: null,
+        rejectedSuggestions: [
+          ...new Set([...row.rejectedSuggestions, row.suggestedParticipantId as string]),
+        ],
+      })
+      .where(eq(transcriptSegments.id, row.id));
+  }
+  return {
+    undo: { kind: 'restore', rows: rows.map(toSnapshot), removeIds: [], removeSpeakerIds: [] },
+  };
+}
+
 async function restore(
   tx: Tx,
   meeting: Meeting,
@@ -268,6 +307,9 @@ async function restore(
         ...values,
         previousParticipantId: people.has(row.previousSpeakerId ?? '')
           ? row.previousSpeakerId
+          : null,
+        suggestedParticipantId: people.has(row.suggestedSpeakerId ?? '')
+          ? row.suggestedSpeakerId
           : null,
       })
       .onConflictDoUpdate({ target: transcriptSegments.id, set: values });
@@ -316,6 +358,8 @@ export function applySpeakerEdit(
         return merge(tx, meeting, input);
       case 'revert':
         return revert(tx, meeting, input);
+      case 'reject-suggestion':
+        return rejectSuggestion(tx, meeting, input);
       case 'restore':
         return restore(tx, meeting, input);
     }

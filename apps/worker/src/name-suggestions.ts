@@ -1,5 +1,5 @@
-import { matchVoices } from '@openminutes/core';
-import { eq, knownVoices, participants, type Database, type NameSuggestion } from '@openminutes/db';
+import { matchVoices, savedVoices } from '@openminutes/core';
+import { eq, participants, type Database, type NameSuggestion } from '@openminutes/db';
 import type { SummaryProvider } from '@openminutes/providers';
 import type { RecordingSpeaker } from './recording-speakers.js';
 import { splitText } from './summarize.js';
@@ -29,7 +29,7 @@ export async function voiceSuggestions(
   db: Database,
   speakers: readonly RecordingSpeaker[],
 ): Promise<Map<string, NameSuggestion[]>> {
-  const known = await db.select().from(knownVoices);
+  const known = await savedVoices(db);
   const result = new Map<string, NameSuggestion[]>();
   for (const { id, embedding } of speakers) {
     if (!embedding) continue;

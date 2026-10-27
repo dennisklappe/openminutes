@@ -15,6 +15,30 @@ const SHORT_BASE = 0.3;
 const SHORT_SLOPE = 0.35;
 const MAX_CANDIDATES = 3;
 
+/** The review may only suggest a speaker the audio gave at least this much of the line. */
+export const MIN_SUGGESTION_SCORE = 0.2;
+
+/**
+ * The speakers the review may suggest for a line: the ones the audio scored, other than the one
+ * it carries and the ones a person already turned down. Nobody for a line a person set.
+ */
+export function suggestionChoices(line: {
+  participantId: string | null;
+  speakerSource: SpeakerSource | null;
+  speakerCandidates: SpeakerCandidate[] | null;
+  rejectedSuggestions: readonly string[];
+}): string[] {
+  if (line.speakerSource === 'user') return [];
+  return (line.speakerCandidates ?? [])
+    .filter(
+      (candidate) =>
+        candidate.score >= MIN_SUGGESTION_SCORE &&
+        candidate.participantId !== line.participantId &&
+        !line.rejectedSuggestions.includes(candidate.participantId),
+    )
+    .map((candidate) => candidate.participantId);
+}
+
 /** A line is uncertain when it has a low confidence and nobody has confirmed its speaker. */
 export const isUncertain = (line: {
   speakerConfidence: number | null;
