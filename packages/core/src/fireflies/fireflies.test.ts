@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -128,6 +128,22 @@ describe('Fireflies export', () => {
       expect(meeting.endedAt.toISOString()).toBe('2026-10-01T09:12:00.000Z');
       expect(meeting).not.toHaveProperty('segments');
       expect(meeting).not.toHaveProperty('summary');
+    });
+
+    it('writes the attendee addresses in lower case, once each', async () => {
+      const dir = join(root, 'mixed');
+      await mkdir(dir);
+      await writeFile(
+        join(dir, 'metadata.json'),
+        JSON.stringify({
+          attendees: [' Alice@Example.COM ', 'alice@example.com', 'Bob@Example.com'],
+          meetingTitle: 'Mixed case',
+          meetingStartTime: '2026-10-01T09:00:00.000Z',
+          meetingEndTime: '2026-10-01T09:30:00.000Z',
+        }),
+      );
+      const meeting = await readFirefliesMeeting(dir, 'mixed');
+      expect(meeting.attendees).toEqual(['alice@example.com', 'bob@example.com']);
     });
 
     it('marks a meeting without a recording', async () => {

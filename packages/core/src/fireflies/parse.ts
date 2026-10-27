@@ -35,7 +35,7 @@ const exists = (path: string) =>
 function attendeesOf(emails: readonly string[]): string[] {
   const seen = new Set<string>();
   return emails
-    .map((email) => email.trim())
+    .map((email) => email.trim().toLowerCase())
     .filter((email) => {
       const key = email.toLowerCase();
       if (!EMAIL.test(email) || NOTETAKER.test(email) || seen.has(key)) return false;
