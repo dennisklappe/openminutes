@@ -292,7 +292,8 @@ const confirmDialog = (page) => page.locator('dialog.confirm-dialog[open]');
   assert.ok(!(await card(page).innerText()).includes('Weekly planning'));
   await page.screenshot({ path: join(out, 'desktop-light-scope.png'), fullPage: true });
   await page.getByRole('link', { name: 'Review everyone instead' }).click();
-  await page.waitForFunction(() => location.hash === '#/people/review');
+  // The address gains the card id as soon as the queue loads, so match the start.
+  await page.waitForFunction(() => location.hash.startsWith('#/people/review'));
 
   step('do not track from the review card');
   await page.goto(`${server.url}/#/meetings/${older.id}/review`);
@@ -573,6 +574,169 @@ for (const [size, width, height] of [
     }
     await context.close();
   }
+}
+
+step('split a mixed line and mark one as mixed');
+const [fay, gus] = await db
+  .insert(people)
+  .values([{ name: 'Fay Splitter' }, { name: 'Gus Second' }])
+  .returning();
+const [splitMeeting] = await db
+  .insert(meetings)
+  .values({
+    title: 'Split check',
+    platform: 'meet',
+    joinUrl: 'https://meet.google.com/jjj-kkkk-lll',
+    status: 'transcribed',
+    startedAt: new Date('2026-10-26T09:00:00Z'),
+  })
+  .returning();
+await db.insert(audioFiles).values({
+  meetingId: splitMeeting.id,
+  path: 'none.opus',
+  durationMs: 600000,
+  codec: 'opus',
+  size: 1,
+});
+const [faySeat, gusSeat] = await db
+  .insert(participants)
+  .values([
+    { meetingId: splitMeeting.id, displayName: fay.name, personId: fay.id, nameConfirmed: true },
+    { meetingId: splitMeeting.id, displayName: gus.name, personId: gus.id, nameConfirmed: true },
+  ])
+  .returning();
+const probableText = 'Thanks all for joining today and now over to you Gus please go ahead';
+const mixedText = 'This line holds two people talking but nobody noticed it at all yet';
+const [probable, plain] = await db
+  .insert(transcriptSegments)
+  .values(
+    [
+      [probableText, 0.9, 'probable'],
+      [mixedText, 0.2, null],
+    ].map(([text, confidence, mixed], index) => ({
+      meetingId: splitMeeting.id,
+      participantId: faySeat.id,
+      startMs: 10000 + index * 12000,
+      endMs: 20000 + index * 12000,
+      text,
+      speakerConfidence: confidence,
+      speakerSource: 'diarization',
+      speakerCandidates: [],
+      language: 'en',
+      mixed,
+    })),
+  )
+  .returning();
+const splitLines = async () =>
+  (
+    await db
+      .select()
+      .from(transcriptSegments)
+      .where(eq(transcriptSegments.meetingId, splitMeeting.id))
+  ).toSorted((a, b) => a.startMs - b.startMs);
+for (const [size, width, height] of [
+  ['desktop', 1440, 900],
+  ['phone', 390, 844],
+]) {
+  for (const scheme of ['light', 'dark']) {
+    const { context, page } = await newPage(width, height, scheme);
+    await page.goto(`${server.url}/#/meetings/${splitMeeting.id}/review`);
+    await card(page).waitFor();
+    assert.match(await card(page).innerText(), /Probably two speakers/);
+    await page.locator('.review-split').waitFor();
+    await page.screenshot({ path: join(out, `${size}-${scheme}-split-open.png`), fullPage: true });
+    await page.getByRole('button', { name: 'over', exact: true }).click();
+    await page.getByRole('button', { name: 'Split again' }).click();
+    await page.getByRole('button', { name: 'please', exact: true }).click();
+    assert.equal(await page.locator('.review-parts li').count(), 3);
+    const overflow = await page.evaluate(
+      () => globalThis.document.documentElement.scrollWidth - globalThis.innerWidth,
+    );
+    assert.ok(overflow <= 0, `${size} ${scheme} split: overflow ${String(overflow)}`);
+    await page.screenshot({ path: join(out, `${size}-${scheme}-split-three.png`), fullPage: true });
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('.review-split').count(), 0, 'Escape closes the split first');
+    await page.screenshot({
+      path: join(out, `${size}-${scheme}-split-actions.png`),
+      fullPage: true,
+    });
+    await context.close();
+  }
+}
+{
+  const { context, page } = await newPage(1440, 900, 'light');
+  await page.goto(`${server.url}/#/meetings/${splitMeeting.id}/review`);
+  await card(page).waitFor();
+  await page.locator('.review-split').waitFor();
+  await page.getByRole('button', { name: 'over', exact: true }).click();
+  assert.equal(await page.locator('.review-parts select').nth(1).inputValue(), gus.id);
+  await page.getByRole('button', { name: 'Split line', exact: true }).last().click();
+  await page.waitForFunction(() =>
+    globalThis.document.querySelector('.review-card')?.textContent?.includes('nobody noticed'),
+  );
+  await page.waitForTimeout(300);
+  let rows = await splitLines();
+  assert.equal(rows.length, 3);
+  assert.deepEqual(
+    rows.slice(0, 2).map((r) => [r.text, r.participantId, r.speakerSource, r.mixed]),
+    [
+      ['Thanks all for joining today and now', faySeat.id, 'user', null],
+      ['over to you Gus please go ahead', gusSeat.id, 'user', null],
+    ],
+  );
+
+  step('Undo puts the line back whole');
+  await page.keyboard.press('u');
+  await page.locator('.review-split').waitFor();
+  await page.waitForTimeout(300);
+  rows = await splitLines();
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].text, probableText);
+  assert.equal(rows[0].mixed, 'probable');
+
+  step('X opens the split on a plain card, M marks it mixed, U takes it back');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('s');
+  assert.match(await card(page).innerText(), /nobody noticed/);
+  await page.keyboard.press('x');
+  await page.locator('.review-split').waitFor();
+  await page.screenshot({ path: join(out, 'desktop-light-split-plain.png') });
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('m');
+  await page.waitForTimeout(300);
+  assert.match(await status(page).innerText(), /Marked as mixed/);
+  assert.equal((await splitLines())[1].mixed, 'marked');
+  // The last card is gone, so the end screen has the Undo button (the key needs a card).
+  await page.getByRole('button', { name: 'Undo last' }).click();
+  await card(page).waitFor();
+  await page.waitForTimeout(300);
+  assert.equal((await splitLines())[1].mixed, null);
+  await page.keyboard.press('m');
+  await page.waitForTimeout(300);
+  assert.equal((await splitLines())[1].mixed, 'marked');
+  assert.equal(
+    (await db.select().from(voiceSamples).where(eq(voiceSamples.segmentId, plain.id))).length,
+    0,
+  );
+
+  step('the marker shows in the transcript and clears');
+  await page.goto(`${server.url}/#/meetings/${splitMeeting.id}`);
+  const marker = page.locator('.mixed-marker');
+  await marker.first().waitFor();
+  assert.equal(await marker.count(), 2, 'one probable, one marked');
+  assert.match(await marker.first().innerText(), /probably mixed/);
+  await page.screenshot({ path: join(out, 'desktop-light-mixed-transcript.png'), fullPage: true });
+  await marker
+    .filter({ hasText: /^mixed/ })
+    .getByRole('button', { name: 'Clear' })
+    .click();
+  await page.waitForFunction(
+    () => globalThis.document.querySelectorAll('.mixed-badge').length === 1,
+  );
+  await page.waitForTimeout(300);
+  assert.equal((await splitLines())[1].mixed, null);
+  assert.equal(probable.id, (await splitLines())[0].id);
+  await context.close();
 }
 
 await browser.close();

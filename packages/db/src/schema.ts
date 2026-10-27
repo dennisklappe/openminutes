@@ -431,14 +431,7 @@ export const transcriptSegments = pgTable('transcript_segments', {
   mixed: text('mixed', { enum: mixedStates }),
 });
 
-export const reviewDecisionKinds = [
-  'skip',
-  'approve',
-  'reject',
-  'move',
-  'mixed',
-  'split',
-] as const;
+export const reviewDecisionKinds = ['skip', 'approve', 'reject', 'move', 'mixed', 'split'] as const;
 export type ReviewDecisionKind = (typeof reviewDecisionKinds)[number];
 
 /** What a line looked like before a review decision, so Undo can put it back. */

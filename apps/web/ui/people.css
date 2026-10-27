@@ -264,7 +264,12 @@
 
 @media (max-width: 520px) {
   .card-foot.review-actions {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .review-actions .primary,
+  .review-actions .split-action {
+    grid-column: 1 / -1;
   }
 
   .review-actions .primary {
