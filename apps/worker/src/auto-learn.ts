@@ -20,7 +20,15 @@ import {
   voiceSamples,
   type Database,
 } from '@openminutes/db';
+import type { Diarizer } from '@openminutes/providers';
+import { findProbablyMixed, markProbablyMixed } from './mixed-guard.js';
 import type { ScoredLine } from './speaker-review/voice-check.js';
+
+/** What the mixed line guard needs: the audio the lines were scored on and the voice service. */
+export interface AutoLearnGuard {
+  audioPath: string;
+  diarizer: Diarizer | undefined;
+}
 
 /** Where a line stands, gathered by `autoLearn` and judged by `isNearCertain`. */
 export interface NearCertainInput {
@@ -69,10 +77,11 @@ export async function autoLearn(
   meetingId: string,
   scored: readonly ScoredLine[],
   enabled: boolean,
+  guard?: AutoLearnGuard,
 ): Promise<number> {
   if (!enabled || scored.length === 0) return 0;
   try {
-    return await learnNearCertain(db, meetingId, scored);
+    return await learnNearCertain(db, meetingId, scored, guard);
   } catch (error) {
     console.error(`automatic voice learning of meeting ${meetingId} failed`, error);
     return 0;
@@ -83,6 +92,7 @@ async function learnNearCertain(
   db: Database,
   meetingId: string,
   scored: readonly ScoredLine[],
+  guard: AutoLearnGuard | undefined,
 ): Promise<number> {
   const [[meeting], segments, seats] = await Promise.all([
     db.select({ language: meetings.language }).from(meetings).where(eq(meetings.id, meetingId)),
@@ -120,6 +130,12 @@ async function learnNearCertain(
       .filter((s) => s.source === 'auto' && s.meetingId === meetingId && !s.rejected)
       .reduce((sum, s) => sum + s.durationMs, 0);
     const additions = [];
+    const candidates: {
+      line: ScoredLine;
+      segment: (typeof segments)[number];
+      language: string;
+      durationMs: number;
+    }[] = [];
     for (const line of lines.toSorted((a, b) => a.startMs - b.startMs)) {
       const segment = segments.find(
         (s) =>
@@ -127,7 +143,7 @@ async function learnNearCertain(
           s.endMs === line.endMs &&
           s.participantId === line.participantId,
       );
-      if (!segment || taken.has(segment.id)) continue;
+      if (!segment || segment.mixed || taken.has(segment.id)) continue;
       const language = normalizeLanguage(segment.language ?? meeting?.language);
       const durationMs = line.endMs - line.startMs;
       const seed = verifiedMs.get(language) ?? 0;
@@ -150,6 +166,26 @@ async function learnNearCertain(
         extraMargin: owner.autoMargin,
       });
       if (!near) continue;
+      candidates.push({ line, segment, language, durationMs });
+    }
+    // Only the near-certain candidates are checked for two voices, to keep the guard cheap.
+    const mixed = guard
+      ? await findProbablyMixed(
+          guard.diarizer,
+          guard.audioPath,
+          candidates.map((c) => c.line),
+        )
+      : new Set<number>();
+    await markProbablyMixed(
+      db,
+      [...mixed].flatMap((i) => (candidates[i] ? [candidates[i].segment.id] : [])),
+    );
+    for (const [i, { line, segment, language, durationMs }] of candidates.entries()) {
+      if (mixed.has(i)) continue;
+      // The caps are kept per line in order, a dropped mixed line frees its share again.
+      if ((autoMs.get(language) ?? 0) + durationMs > AUTO_RATIO * (verifiedMs.get(language) ?? 0))
+        continue;
+      if (thisMeetingMs + durationMs > AUTO_PER_MEETING_MS) continue;
       autoMs.set(language, (autoMs.get(language) ?? 0) + durationMs);
       thisMeetingMs += durationMs;
       additions.push({

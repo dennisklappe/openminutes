@@ -188,6 +188,142 @@ describe('learnVoice', () => {
     expect(row?.voiceEmbedding).toEqual([1, 0]);
   });
 
+  describe('the mixed line guard', () => {
+    // Whole lines first, then the halves of the lines of at least 4 s.
+    const guarded = (whole: (number[] | null)[], halves: (number[] | null)[]) => {
+      const embedEach = vi
+        .fn<Diarizer['embedEach']>()
+        .mockResolvedValueOnce(lines(...whole))
+        .mockResolvedValueOnce(lines(...halves));
+      return embedEach;
+    };
+    const longLines = async (ids: string[]) => {
+      await test.db
+        .update(transcriptSegments)
+        .set({ endMs: 6000 })
+        .where(eq(transcriptSegments.id, ids[0] ?? ''));
+      await test.db
+        .update(transcriptSegments)
+        .set({ endMs: 11_000 })
+        .where(eq(transcriptSegments.id, ids[2] ?? ''));
+    };
+    const samplesOf = async (name: string) => {
+      const [owner] = await test.db.select().from(people).where(eq(people.name, name));
+      if (!owner) return [];
+      return test.db.select().from(voiceSamples).where(eq(voiceSamples.personId, owner.id));
+    };
+    const flag = async (id: string | undefined) =>
+      (
+        await test.db
+          .select()
+          .from(transcriptSegments)
+          .where(eq(transcriptSegments.id, id ?? ''))
+      )[0]?.mixed;
+
+    it('keeps a line of two voices out of the profile and flags it as probable', async () => {
+      const { meeting, person, ids } = await setup({ nameConfirmed: true, displayName: 'Eva' });
+      await longLines(ids);
+      // Line 1 has halves of one voice, line 3 halves of two voices.
+      const embedEach = guarded(
+        [
+          [1, 0],
+          [0, 1],
+        ],
+        [
+          [1, 0],
+          [0.9, 0.1],
+          [1, 0],
+          [0, 1],
+        ],
+      );
+      await learnVoice(deps(embedEach), {
+        meetingId: meeting.id,
+        participantId: person.id,
+        segmentIds: ids,
+      });
+      expect(embedEach).toHaveBeenCalledTimes(2);
+      expect(embedEach.mock.calls[1]?.[1]).toHaveLength(4);
+      const samples = await samplesOf('Eva');
+      expect(samples.map((s) => s.segmentId)).toEqual([ids[0]]);
+      expect(await flag(ids[0])).toBeNull();
+      expect(await flag(ids[2])).toBe('probable');
+      const [row] = await test.db.select().from(participants).where(eq(participants.id, person.id));
+      expect(row?.voiceEmbedding).toEqual([1, 0]);
+    });
+
+    it('skips lines a person marked as mixed or that are still probable, without embedding them', async () => {
+      const { meeting, person, ids } = await setup({ nameConfirmed: true, displayName: 'Finn' });
+      await test.db
+        .update(transcriptSegments)
+        .set({ mixed: 'marked' })
+        .where(eq(transcriptSegments.id, ids[0] ?? ''));
+      await test.db
+        .update(transcriptSegments)
+        .set({ mixed: 'probable' })
+        .where(eq(transcriptSegments.id, ids[2] ?? ''));
+      const embedEach = vi.fn(() => Promise.resolve(lines([1, 0])));
+      await learnVoice(deps(embedEach), {
+        meetingId: meeting.id,
+        participantId: person.id,
+        segmentIds: ids,
+      });
+      expect(embedEach).not.toHaveBeenCalled();
+      expect(await samplesOf('Finn')).toEqual([]);
+      expect(await flag(ids[0])).toBe('marked');
+    });
+
+    it('never turns a marked line into a probable one', async () => {
+      const { meeting, person, ids } = await setup({ nameConfirmed: true, displayName: 'Gijs' });
+      await longLines(ids);
+      // The mark is set after the line was picked: simulate by racing the update in the embed call.
+      const embedEach = vi
+        .fn<Diarizer['embedEach']>()
+        .mockImplementationOnce(async () => {
+          await test.db
+            .update(transcriptSegments)
+            .set({ mixed: 'marked' })
+            .where(eq(transcriptSegments.id, ids[2] ?? ''));
+          return lines([1, 0], [0, 1]);
+        })
+        .mockResolvedValueOnce(lines([1, 0], [0, 1], [1, 0], [0, 1]));
+      await learnVoice(deps(embedEach), {
+        meetingId: meeting.id,
+        participantId: person.id,
+        segmentIds: ids,
+      });
+      expect(await flag(ids[2])).toBe('marked');
+      expect(await flag(ids[0])).toBe('probable');
+    });
+
+    it('fails open: an unavailable embedder for the halves does not block learning', async () => {
+      const { meeting, person, ids } = await setup({ nameConfirmed: true, displayName: 'Hanna' });
+      await longLines(ids);
+      const embedEach = vi
+        .fn<Diarizer['embedEach']>()
+        .mockResolvedValueOnce(lines([1, 0], [0, 1]))
+        .mockRejectedValueOnce(new Error('voice service is down'));
+      await learnVoice(deps(embedEach), {
+        meetingId: meeting.id,
+        participantId: person.id,
+        segmentIds: ids,
+      });
+      expect(await samplesOf('Hanna')).toHaveLength(2);
+      expect(await flag(ids[0])).toBeNull();
+    });
+
+    it('does not check lines under the guard length', async () => {
+      const { meeting, person, ids } = await setup({ nameConfirmed: true, displayName: 'Iris' });
+      const embedEach = vi.fn(() => Promise.resolve(lines([1, 0], [0, 1])));
+      await learnVoice(deps(embedEach), {
+        meetingId: meeting.id,
+        participantId: person.id,
+        segmentIds: ids,
+      });
+      expect(embedEach).toHaveBeenCalledTimes(1);
+      expect(await samplesOf('Iris')).toHaveLength(2);
+    });
+  });
+
   it('learns nothing for a person marked do not track, not even on the participant', async () => {
     const { meeting, person, ids } = await setup({ nameConfirmed: true, displayName: 'Dirk' });
     const [dirk] = await test.db

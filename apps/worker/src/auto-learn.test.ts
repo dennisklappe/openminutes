@@ -16,7 +16,8 @@ import {
   voiceSamples,
 } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { Diarizer } from '@openminutes/providers';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { autoLearn, isNearCertain, type NearCertainInput } from './auto-learn.js';
 import type { ScoredLine } from './speaker-review/voice-check.js';
 
@@ -221,6 +222,89 @@ describe('autoLearn', () => {
       text: 'over',
     });
     expect(await autoLearn(test.db, talkedOver.meeting.id, talkedOver.scored, true)).toBe(0);
+  });
+
+  describe('the mixed line guard', () => {
+    // Setup lines are 5 s, so every near-certain line is guarded.
+    const diarizerOf = (embeddings: (number[] | null)[]) => {
+      const embedEach = vi.fn<Diarizer['embedEach']>(() =>
+        Promise.resolve({ embeddings, model: 'm' }),
+      );
+      const diarizer: Diarizer = {
+        diarize: () => Promise.resolve(undefined),
+        embed: () => Promise.resolve(undefined),
+        embedEach,
+      };
+      return { diarizer, embedEach };
+    };
+    const flag = async (id: string) =>
+      (await test.db.select().from(transcriptSegments).where(eq(transcriptSegments.id, id)))[0]
+        ?.mixed;
+
+    it('drops a probable line, flags it and learns the clean ones', async () => {
+      const { meeting, person, rows, scored } = await setup();
+      const [a, b, c] = rows.toSorted((x, y) => x.startMs - y.startMs);
+      // Halves per line in order: line 2 has two different voices.
+      const d = diarizerOf([
+        [1, 0],
+        [1, 0.1],
+        [1, 0],
+        [0, 1],
+        [1, 0],
+        [0.9, 0],
+      ]);
+      expect(
+        await autoLearn(test.db, meeting.id, scored, true, {
+          audioPath: '/a',
+          diarizer: d.diarizer,
+        }),
+      ).toBe(2);
+      const auto = (await autoSamples(person.id)).filter((s) => s.source === 'auto');
+      expect(auto.map((s) => s.segmentId).sort()).toEqual([a?.id, c?.id].sort());
+      expect(await flag(b?.id ?? '')).toBe('probable');
+      expect(await flag(a?.id ?? '')).toBeNull();
+      expect(d.embedEach).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips lines with a mixed flag and does not embed them', async () => {
+      const { meeting, person, rows, scored } = await setup({ lines: 2 });
+      const [a] = rows.toSorted((x, y) => x.startMs - y.startMs);
+      await test.db
+        .update(transcriptSegments)
+        .set({ mixed: 'marked' })
+        .where(eq(transcriptSegments.id, a?.id ?? ''));
+      const d = diarizerOf([
+        [1, 0],
+        [1, 0],
+      ]);
+      expect(
+        await autoLearn(test.db, meeting.id, scored, true, {
+          audioPath: '/a',
+          diarizer: d.diarizer,
+        }),
+      ).toBe(1);
+      expect(d.embedEach.mock.calls[0]?.[1]).toHaveLength(2);
+      expect((await autoSamples(person.id)).filter((s) => s.source === 'auto')).toHaveLength(1);
+    });
+
+    it('fails open without a voice service or when it throws', async () => {
+      const none = await setup({ lines: 2 });
+      expect(
+        await autoLearn(test.db, none.meeting.id, none.scored, true, {
+          audioPath: '/a',
+          diarizer: undefined,
+        }),
+      ).toBe(2);
+      const broken = await setup({ lines: 2 });
+      const d = diarizerOf([]);
+      d.embedEach.mockRejectedValue(new Error('down'));
+      expect(
+        await autoLearn(test.db, broken.meeting.id, broken.scored, true, {
+          audioPath: '/a',
+          diarizer: d.diarizer,
+        }),
+      ).toBe(2);
+    });
   });
 
   it('never replaces a line that already has a sample or was rejected for the person', async () => {

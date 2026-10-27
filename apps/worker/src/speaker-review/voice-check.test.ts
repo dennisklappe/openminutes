@@ -534,6 +534,21 @@ describe('checkVoices with meeting-local anchor voices', () => {
     expect(seen.filter((line) => line.anchor).length).toBeGreaterThanOrEqual(6);
   });
 
+  it('does not use a line flagged as mixed as an anchor', async () => {
+    const mixed = (i: number) => (i < 3 ? { mixed: 'marked' as const } : {});
+    const flagged = await meeting(Array.from({ length: 8 }, (_, i) => mixed(i)));
+    const d = voices([A, A2, A, B, B2, B, B, B2]);
+    // All three clean Anna turns are mixed, so only Bram has anchors and no voice pair exists.
+    const out = await checkVoices(config(d.client), flagged.m.id, flagged.rows, '/a.opus', null);
+    expect(d.embedEach).not.toHaveBeenCalled();
+    expect(out).toEqual(flagged.rows);
+    // The same meeting without flags still separates the two people.
+    const clean = await meeting();
+    const e = voices([A, A2, A, B, B2, B, B, B2]);
+    await checkVoices(config(e.client), clean.m.id, clean.rows, '/a.opus', null);
+    expect(e.embedEach).toHaveBeenCalledOnce();
+  });
+
   it('makes no calls when the check is off and saves no voice for anyone', async () => {
     const { m, rows } = await meeting();
     const d = voices([A, A2, A, B, B2, B, B, B2]);
