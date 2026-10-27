@@ -18,10 +18,16 @@ export interface PersonDto {
   lastSeenAt: string | null;
   /** Added by hand, was in a meeting, or only on an invitation. */
   source: PersonSource;
+  /** Off: no voice is learned or suggested for them, their name stays in transcripts. */
+  tracking: 'on' | 'off';
+  /** Other people who are probably the same person. Never merged on its own. */
+  duplicates: PersonChoiceDto[];
 }
 
 export type PeopleSort = 'name' | 'meetings' | 'lastSeen';
 export type PeopleFilter = 'all' | 'joined' | 'invited';
+/** tracked: the default, without people marked do not track. */
+export type TrackingFilter = 'tracked' | 'all' | 'untracked';
 
 export interface PeopleQuery {
   q?: string | undefined;
@@ -31,6 +37,7 @@ export interface PeopleQuery {
   source?: PeopleFilter | undefined;
   page?: number | undefined;
   pageSize?: number | undefined;
+  tracking?: TrackingFilter | undefined;
 }
 
 export interface PeopleDto {
@@ -72,6 +79,12 @@ export interface PersonLineDto {
 export interface PersonChoiceDto {
   id: string;
   name: string;
+  /** False for a person marked do not track. */
+  tracked?: boolean;
+}
+
+export interface PersonTrackingInput {
+  tracking: 'on' | 'off';
 }
 
 export interface PersonDetailDto {
@@ -139,9 +152,18 @@ export interface ReviewLineDto {
   roster: ReviewRosterDto[];
 }
 
+export type ReviewOrder = 'newest' | 'uncertain';
+
+export interface ReviewScopeDto {
+  person?: PersonChoiceDto;
+  meeting?: { id: string; title: string };
+}
+
 export interface ReviewQueueDto {
-  /** Lowest confidence first. */
+  /** Newest meeting first by default, or the least sure first. */
   lines: ReviewLineDto[];
+  order: ReviewOrder;
+  scope: ReviewScopeDto;
   /** Everyone a line can be moved to. */
   people: PersonChoiceDto[];
   learning: boolean;

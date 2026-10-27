@@ -1,5 +1,19 @@
 import type { PersonChoiceDto, ReviewLineDto, ReviewRosterDto } from '../src/dto.js';
 
+/** Drops every line proposed for one person, such as after they are marked do not track. */
+export function dropPerson(state: ReviewState, personId: string): ReviewState {
+  const keep = (line: ReviewLineDto) => line.proposed.id !== personId;
+  const rest = state.rest.filter(keep);
+  const skipped = state.skipped.filter(keep);
+  return {
+    ...state,
+    rest,
+    skipped,
+    total:
+      state.total - (state.rest.length - rest.length) - (state.skipped.length - skipped.length),
+  };
+}
+
 /** What the reviewer did with one line. */
 export type Decision =
   | { kind: 'skip' }
@@ -138,6 +152,8 @@ export interface PickerOption {
   /** Null for a meeting participant who is not a saved person yet. */
   personId: string | null;
   name: string;
+  /** Marked do not track: shown only in the full list. */
+  untracked?: boolean;
 }
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -156,7 +172,7 @@ export function rosterOptions(
   for (const entry of roster) {
     const match = entry.personId
       ? undefined
-      : people.find((person) => same(person.name, entry.name));
+      : people.find((person) => person.tracked !== false && same(person.name, entry.name));
     const personId = entry.personId ?? match?.id ?? null;
     if (personId === proposedId) continue;
     const key = personId ?? `name:${entry.name.toLowerCase()}`;
@@ -176,7 +192,11 @@ export function everyoneOptions(
   const needle = query.trim().toLowerCase();
   return people
     .filter((person) => person.id !== proposedId && person.name.toLowerCase().includes(needle))
-    .map((person) => ({ personId: person.id, name: person.name }));
+    .map((person) => ({
+      personId: person.id,
+      name: person.name,
+      ...(person.tracked === false && { untracked: true }),
+    }));
 }
 
 /** The decision for a picked option. */

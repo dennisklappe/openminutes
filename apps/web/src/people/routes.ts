@@ -1,10 +1,17 @@
 import type { JobSender } from '@openminutes/core';
-import { backfillPeople, forgetVoices, type SyncStats } from '@openminutes/core';
+import { backfillPeople, forgetVoices, isTracked, type SyncStats } from '@openminutes/core';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { PeopleDto, PersonDetailDto, ReviewQueueDto } from '../dto.js';
 import { rememberEnabled } from '../voices/load.js';
-import { createPerson, deletePerson, mergePeople, PeopleError, updatePerson } from './edit.js';
+import {
+  createPerson,
+  deletePerson,
+  mergePeople,
+  PeopleError,
+  setTracking,
+  updatePerson,
+} from './edit.js';
 import { rejectLine, removeFromProfile, verifyLine } from './lines.js';
 import { loadReviewQueue } from './review.js';
 import { loadPersonDetail, type PeopleDeps } from './load.js';
@@ -41,10 +48,17 @@ const listQuery = z.object({
   sort: z.enum(['name', 'meetings', 'lastSeen']).optional(),
   dir: z.enum(['asc', 'desc']).optional(),
   source: z.enum(['all', 'joined', 'invited']).optional(),
+  tracking: z.enum(['tracked', 'all', 'untracked']).optional(),
   page: z.coerce.number().int().min(1).max(100_000).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });
 const moveInput = z.strictObject({ personId: uuid });
+const trackingInput = z.strictObject({ tracking: z.enum(['on', 'off']) });
+const reviewQuery = z.object({
+  personId: uuid.optional(),
+  meetingId: uuid.optional(),
+  order: z.enum(['newest', 'uncertain']).optional(),
+});
 
 export function peopleRoutes(deps: PeopleRouteDeps): Hono {
   const routes = new Hono();
@@ -63,7 +77,8 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     }
   };
 
-  const learn = async (request: Awaited<ReturnType<typeof verifyLine>>) => {
+  const learn = async (request: Awaited<ReturnType<typeof verifyLine>>, personId: string) => {
+    if (!(await isTracked(deps.db, personId))) return;
     if (await rememberEnabled(deps.settings)) await deps.queue.send('meeting.learn-voice', request);
   };
 
@@ -77,10 +92,15 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
   routes.post('/backfill', async (c) => c.json<SyncStats>(await backfillPeople(deps.db)));
 
   routes.get('/review', async (c) => {
-    const raw = c.req.query('personId');
-    const id = raw === undefined ? undefined : uuid.safeParse(raw);
-    if (id && !id.success) return c.json({ error: 'Person not found' }, 404);
-    return c.json<ReviewQueueDto>(await loadReviewQueue(deps, id?.data));
+    const query = reviewQuery.safeParse(c.req.query());
+    if (!query.success) {
+      return c.json(
+        { error: c.req.query('meetingId') ? 'Meeting not found' : 'Person not found' },
+        404,
+      );
+    }
+    const queue = await loadReviewQueue(deps, query.data);
+    return queue ? c.json<ReviewQueueDto>(queue) : c.json({ error: 'Meeting not found' }, 404);
   });
 
   routes.post('/', async (c) => {
@@ -137,6 +157,17 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     });
   });
 
+  routes.post('/:id/tracking', async (c) => {
+    const id = uuid.safeParse(c.req.param('id'));
+    if (!id.success) return c.json({ error: 'Person not found' }, 404);
+    const body = trackingInput.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: 'Invalid tracking' }, 400);
+    return guard(c, async () => {
+      await setTracking(deps.db, id.data, body.data.tracking);
+      return c.json<PersonDetailDto | undefined>(await detail(id.data));
+    });
+  });
+
   routes.delete('/:id/voice', async (c) => {
     const id = uuid.safeParse(c.req.param('id'));
     const found = id.success ? await detail(id.data) : undefined;
@@ -162,13 +193,13 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
   };
 
   lineRoute('/verify', 'post', async (personId, segmentId) => {
-    await learn(await verifyLine(deps.db, personId, segmentId));
+    await learn(await verifyLine(deps.db, personId, segmentId), personId);
   });
   lineRoute('/reject', 'post', (personId, segmentId) => rejectLine(deps.db, personId, segmentId));
   lineRoute('/move', 'post', async (_personId, segmentId, raw) => {
     const body = moveInput.safeParse(raw);
     if (!body.success) throw new PeopleError('Pick who said it', 400);
-    await learn(await verifyLine(deps.db, body.data.personId, segmentId));
+    await learn(await verifyLine(deps.db, body.data.personId, segmentId), body.data.personId);
   });
   lineRoute('/profile', 'delete', (personId, segmentId) =>
     removeFromProfile(deps.db, personId, segmentId),

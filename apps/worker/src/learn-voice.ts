@@ -6,7 +6,16 @@ import {
   type AudioStorage,
   type JobPayloads,
 } from '@openminutes/core';
-import { and, eq, inArray, participants, transcriptSegments, type Database } from '@openminutes/db';
+import {
+  and,
+  eq,
+  inArray,
+  participants,
+  people,
+  sql,
+  transcriptSegments,
+  type Database,
+} from '@openminutes/db';
 import type { Diarizer } from '@openminutes/providers';
 
 export interface LearnVoiceDeps {
@@ -33,6 +42,7 @@ export async function learnVoice(
       .select()
       .from(participants)
       .where(and(eq(participants.id, participantId), eq(participants.meetingId, meetingId)));
+    if (person && (await untrackedPerson(deps.db, person))) return;
     const lines = await deps.db
       .select()
       .from(transcriptSegments)
@@ -91,6 +101,22 @@ export async function learnVoice(
   } catch (error) {
     console.error(`learning the voice of ${participantId} in meeting ${meetingId} failed`, error);
   }
+}
+
+/** A person marked do not track gets no voice learned, not even on the meeting participant. */
+async function untrackedPerson(
+  db: Database,
+  participant: { personId: string | null; displayName: string },
+): Promise<boolean> {
+  const [found] = await db
+    .select({ tracking: people.tracking })
+    .from(people)
+    .where(
+      participant.personId
+        ? eq(people.id, participant.personId)
+        : sql`lower(${people.name}) = lower(${participant.displayName.trim()})`,
+    );
+  return found?.tracking === 'off';
 }
 
 function mergeWeighted(

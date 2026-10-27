@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react';
-import type { ReviewLineDto, ReviewQueueDto } from '../../src/dto.js';
+import type { ReviewLineDto, ReviewOrder, ReviewQueueDto } from '../../src/dto.js';
 import { api, errorMessage, meetingUrl } from '../api.js';
+import { useConfirm } from '../Confirm.js';
 import { formatDate, formatDuration } from '../format.js';
 import { isTyping } from '../keyboard.js';
 import {
@@ -10,6 +11,7 @@ import {
   currentLine,
   decide,
   describeDecision,
+  dropPerson,
   everyoneOptions,
   keyAction,
   pick,
@@ -158,6 +160,7 @@ function PersonPicker({
                     }}
                   >
                     {option.name}
+                    {option.untracked && <span className="muted"> · not tracked</span>}
                   </button>
                 </li>
               ))}
@@ -219,6 +222,7 @@ function Card({
   onDecide,
   canUndo,
   onUndo,
+  onUntrack,
 }: {
   line: ReviewLineDto;
   queue: ReviewQueueDto;
@@ -227,6 +231,7 @@ function Card({
   onDecide: (decision: Decision) => void;
   canUndo: boolean;
   onUndo: () => void;
+  onUntrack: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const disapprove = useRef<HTMLButtonElement>(null);
@@ -327,6 +332,9 @@ function Card({
         </footer>
       )}
       <div className="review-undo">
+        <button type="button" className="link quiet" onClick={onUntrack}>
+          Do not track {line.proposed.name}
+        </button>
         <button type="button" className="link" disabled={!canUndo} onClick={onUndo}>
           Undo last <Key>U</Key>
         </button>
@@ -335,7 +343,15 @@ function Card({
   );
 }
 
-export function Review({ personId }: { personId?: string | undefined }) {
+export function Review({
+  personId,
+  meetingId,
+}: {
+  personId?: string | undefined;
+  meetingId?: string | undefined;
+}) {
+  const confirm = useConfirm();
+  const [order, setOrder] = useState<ReviewOrder>('newest');
   const [queue, setQueue] = useState<ReviewQueueDto>();
   const [state, setState] = useState<ReviewState>();
   const [picker, setPicker] = useState<Picker>('closed');
@@ -344,19 +360,36 @@ export function Review({ personId }: { personId?: string | undefined }) {
   const pending = useRef<Entry | undefined>(undefined);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [, tick] = useState(0);
-  const exitTo = personId ? `#/people/${personId}` : '#/people';
+  const exitTo = meetingId
+    ? `#/meetings/${meetingId}`
+    : personId
+      ? `#/people/${personId}`
+      : '#/people';
 
   useEffect(() => {
-    api.reviewQueue(personId).then(
-      (loaded) => {
-        setQueue(loaded);
-        setState(startReview(loaded.lines));
-      },
-      (failure: unknown) => {
-        setError(errorMessage(failure));
-      },
-    );
-  }, [personId]);
+    let current = true;
+    setQueue(undefined);
+    setState(undefined);
+    api
+      .reviewQueue({
+        ...(personId && { personId }),
+        ...(meetingId && { meetingId }),
+        order,
+      })
+      .then(
+        (loaded) => {
+          if (!current) return;
+          setQueue(loaded);
+          setState(startReview(loaded.lines));
+        },
+        (failure: unknown) => {
+          if (current) setError(errorMessage(failure));
+        },
+      );
+    return () => {
+      current = false;
+    };
+  }, [personId, meetingId, order]);
 
   /** The last decision is held back until the next one, so Undo can take it back. */
   const flush = useCallback(async () => {
@@ -422,6 +455,34 @@ export function Review({ personId }: { personId?: string | undefined }) {
     setMessage('Undone.');
   }, [state, last, canUndo]);
 
+  /** Stops tracking the proposed person and takes all their lines out of this queue. */
+  const untrack = useCallback(async () => {
+    if (!line) return;
+    const who = line.proposed;
+    const confirmed = await confirm({
+      title: `Stop tracking ${who.name}?`,
+      body: (
+        <p>
+          Their saved voice samples and voice profile are deleted, and no voice is learned or
+          suggested for them again. Their lines are no longer offered for review. {who.name} stays
+          by name in every transcript and in the minutes. You can track them again on their page.
+        </p>
+      ),
+      confirmLabel: 'Stop tracking',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await flush();
+    try {
+      await api.setTracking(who.id, 'off');
+      setState((current) => (current ? dropPerson(current, who.id) : current));
+      setPicker('closed');
+      setMessage(`${who.name} is not tracked any more.`);
+    } catch (failure) {
+      setError(errorMessage(failure));
+    }
+  }, [line, confirm, flush]);
+
   const exit = useCallback(() => {
     void flush().then(() => {
       window.location.hash = exitTo;
@@ -462,7 +523,7 @@ export function Review({ personId }: { personId?: string | undefined }) {
   return (
     <>
       <a className="back-link" href={exitTo}>
-        {personId ? 'Person' : 'People'}
+        {meetingId ? 'Meeting' : personId ? 'Person' : 'People'}
       </a>
       <header className="page-head">
         <div>
@@ -480,6 +541,30 @@ export function Review({ personId }: { personId?: string | undefined }) {
           </p>
         )}
       </header>
+      <div className="review-controls">
+        {(queue?.scope.person ?? queue?.scope.meeting) && (
+          <span className="scope-chip">
+            {queue.scope.person ? `Person: ${queue.scope.person.name}` : null}
+            {queue.scope.meeting ? `Meeting: ${queue.scope.meeting.title}` : null}
+            <a aria-label="Review everyone instead" href="#/people/review">
+              &times;
+            </a>
+          </span>
+        )}
+        <label className="review-order">
+          <span className="muted">Order</span>
+          <select
+            value={order}
+            onChange={(e) => {
+              void flush();
+              setOrder(e.target.value as ReviewOrder);
+            }}
+          >
+            <option value="newest">Newest meetings first</option>
+            <option value="uncertain">Least sure first</option>
+          </select>
+        </label>
+      </div>
       {state && state.total > 0 && (
         <div
           className="voice-review-meter"
@@ -513,6 +598,9 @@ export function Review({ personId }: { personId?: string | undefined }) {
           onDecide={onDecide}
           canUndo={canUndo}
           onUndo={onUndo}
+          onUntrack={() => {
+            void untrack();
+          }}
         />
       )}
       {queue && state && !line && done && (

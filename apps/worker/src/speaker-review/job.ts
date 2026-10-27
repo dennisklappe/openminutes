@@ -1,5 +1,5 @@
 import { eq, meetings, transcriptSegments } from '@openminutes/db';
-import { loadPeople, type ReviewDeps } from './transcript-review.js';
+import { loadPeople, loadUntracked, type ReviewDeps } from './transcript-review.js';
 import { reviewLines } from './review.js';
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -18,7 +18,12 @@ export async function reviewMeetingSpeakers(deps: ReviewDeps, meetingId: string)
       .where(eq(transcriptSegments.meetingId, meetingId))
       .orderBy(transcriptSegments.startMs, transcriptSegments.id);
     const provider = await deps.createRefiner();
-    const review = await reviewLines(provider, rows, await loadPeople(db, meetingId));
+    const review = await reviewLines(
+      provider,
+      rows,
+      await loadPeople(db, meetingId),
+      await loadUntracked(db, meetingId),
+    );
     await db.transaction(async (tx) => {
       for (const [i, line] of review.lines.entries()) {
         const before = rows[i];

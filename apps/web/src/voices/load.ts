@@ -3,6 +3,7 @@ import {
   asc,
   eq,
   participants,
+  people as peopleTable,
   transcriptSegments,
   type Database,
   type meetings,
@@ -34,7 +35,7 @@ function calendarNames(meeting: Meeting): VoiceSuggestionDto[] {
 
 export async function loadVoices(deps: VoiceDeps, meeting: Meeting): Promise<VoicesDto> {
   const remember = await rememberEnabled(deps.settings);
-  const [people, segments, known] = await Promise.all([
+  const [people, segments, known, untracked] = await Promise.all([
     deps.db.select().from(participants).where(eq(participants.meetingId, meeting.id)),
     deps.db
       .select()
@@ -42,7 +43,12 @@ export async function loadVoices(deps: VoiceDeps, meeting: Meeting): Promise<Voi
       .where(eq(transcriptSegments.meetingId, meeting.id))
       .orderBy(asc(transcriptSegments.startMs)),
     remember ? savedVoices(deps.db) : Promise.resolve([]),
+    deps.db
+      .select({ name: peopleTable.name })
+      .from(peopleTable)
+      .where(eq(peopleTable.tracking, 'off')),
   ]);
+  const hidden = new Set(untracked.map((person) => person.name.toLowerCase()));
 
   const firstSpoken = (p: Participant) => segments.findIndex((s) => s.participantId === p.id);
   const speaking = people
@@ -74,7 +80,7 @@ export async function loadVoices(deps: VoiceDeps, meeting: Meeting): Promise<Voi
           named(p),
         ],
         p.displayName,
-      ),
+      ).filter((suggestion) => !hidden.has(suggestion.name.toLowerCase())),
     };
   });
 

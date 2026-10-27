@@ -91,6 +91,38 @@ export async function linkParticipant(
   return person;
 }
 
+/** False for a person who is marked do not track: nothing is learned or suggested for them. */
+export async function isTracked(db: Pick<Database, 'select'>, personId: string): Promise<boolean> {
+  const [person] = await db
+    .select({ tracking: people.tracking })
+    .from(people)
+    .where(eq(people.id, personId));
+  return person?.tracking !== 'off';
+}
+
+/**
+ * Stops tracking a person: their voice samples, profile and the voice of their participants are
+ * deleted, and nothing is learned for them from now on. Their name stays in every transcript.
+ */
+export async function stopTracking(db: Writer, personId: string): Promise<void> {
+  await forgetVoices(db, [personId]);
+  await db
+    .update(participants)
+    .set({ voiceEmbedding: null })
+    .where(eq(participants.personId, personId));
+  await db
+    .update(people)
+    .set({ tracking: 'off', updatedAt: new Date() })
+    .where(eq(people.id, personId));
+}
+
+export async function resumeTracking(db: Writer, personId: string): Promise<void> {
+  await db
+    .update(people)
+    .set({ tracking: 'on', updatedAt: new Date() })
+    .where(eq(people.id, personId));
+}
+
 /** Builds the voice profile of a person again from their samples. */
 export async function rebuildProfile(db: Writer, personId: string): Promise<void> {
   const samples = await db
@@ -155,6 +187,7 @@ export async function addVoiceSamples(
   personId: string,
   samples: readonly Omit<NewSample, 'personId'>[],
 ): Promise<void> {
+  if (!(await isTracked(db, personId))) return;
   for (const sample of samples) await upsertSample(db, { ...sample, personId });
   await rebuildProfile(db, personId);
 }
@@ -183,13 +216,14 @@ export async function rememberVoice(
   return person;
 }
 
-/** Every saved voice vector with the name it belongs to, for matching a new voice by name. */
+/** Every saved voice vector of a tracked person with the name it belongs to, for matching a new voice by name. */
 export async function savedVoices(
   db: Pick<Database, 'select'>,
 ): Promise<{ name: string; embedding: number[] }[]> {
   const rows = await db
     .select({ name: people.name, prototypes: people.voicePrototypes })
-    .from(people);
+    .from(people)
+    .where(eq(people.tracking, 'on'));
   return rows.flatMap(({ name, prototypes }) =>
     prototypes.map((prototype) => ({ name, embedding: prototype.vector })),
   );

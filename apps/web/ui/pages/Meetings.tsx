@@ -254,6 +254,9 @@ function Table(props: {
                   align="end"
                   items={[
                     { label: 'Open', href: `#/meetings/${m.id}` },
+                    ...(m.status === 'transcribed'
+                      ? [{ label: 'Review speakers', href: `#/meetings/${m.id}/review` }]
+                      : []),
                     ...(m.canDelete
                       ? [
                           {

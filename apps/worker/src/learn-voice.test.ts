@@ -162,4 +162,31 @@ describe('learnVoice', () => {
     const [row] = await test.db.select().from(participants).where(eq(participants.id, person.id));
     expect(row?.voiceEmbedding).toEqual([1, 0]);
   });
+
+  it('learns nothing for a person marked do not track, not even on the participant', async () => {
+    const { meeting, person, ids } = await setup({ nameConfirmed: true, displayName: 'Dirk' });
+    const [dirk] = await test.db
+      .insert(people)
+      .values({ name: 'Dirk', tracking: 'off' })
+      .returning();
+    await test.db
+      .update(participants)
+      .set({ personId: dirk?.id ?? null })
+      .where(eq(participants.id, person.id));
+    const embedEach = vi.fn(() => Promise.resolve(lines([0.5, 0.5], [0.5, 0.5])));
+    await learnVoice(deps(embedEach), {
+      meetingId: meeting.id,
+      participantId: person.id,
+      segmentIds: ids,
+    });
+    expect(embedEach).not.toHaveBeenCalled();
+    const [row] = await test.db.select().from(participants).where(eq(participants.id, person.id));
+    expect(row?.voiceEmbedding).toBeNull();
+    expect(
+      await test.db
+        .select()
+        .from(voiceSamples)
+        .where(eq(voiceSamples.personId, dirk?.id ?? '')),
+    ).toEqual([]);
+  });
 });

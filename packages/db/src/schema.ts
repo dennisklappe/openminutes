@@ -151,6 +151,7 @@ export interface VoicePrototype {
 /** How a person came to be known: added by hand, was in a meeting, or only on an invitation. */
 export const personSources = ['manual', 'joined', 'invited'] as const;
 export type PersonSource = (typeof personSources)[number];
+export type PersonTracking = 'on' | 'off';
 
 export const voiceSampleKinds = ['line', 'meeting', 'imported'] as const;
 export type VoiceSampleKind = (typeof voiceSampleKinds)[number];
@@ -163,6 +164,8 @@ export const people = pgTable(
     name: text('name').notNull(),
     notes: text('notes'),
     source: text('source').$type<PersonSource>().notNull().default('manual'),
+    /** 'off' means do not track: no voice is learned or suggested, the name stays in transcripts. */
+    tracking: text('tracking').$type<PersonTracking>().notNull().default('on'),
     /** Lower case. A person may have none, one or several. */
     emails: jsonb('emails').$type<string[]>().notNull().default([]),
     /** Up to 5 vectors built from the voice samples, matched by the highest cosine. */

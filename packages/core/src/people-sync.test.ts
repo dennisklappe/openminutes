@@ -201,3 +201,51 @@ describe('people from meetings', () => {
     }
   });
 });
+
+describe('people marked do not track', () => {
+  let test: Awaited<ReturnType<typeof createTestDatabase>>;
+  beforeAll(async () => {
+    test = await createTestDatabase();
+  });
+  afterAll(() => test.close());
+
+  it('backfill and the meeting hook neither link, invite nor recreate them', async () => {
+    const [muted] = await test.db
+      .insert(people)
+      .values({ name: 'Mute Person', emails: ['mute@example.com'], tracking: 'off' })
+      .returning();
+    const [row] = await test.db
+      .insert(meetings)
+      .values({
+        title: 'm',
+        platform: 'meet',
+        joinUrl: `https://meet.google.com/${crypto.randomUUID()}`,
+        invitees: [
+          { email: 'mute@example.com', name: 'Mute Person', declined: false },
+          { email: 'other@example.com', name: 'Other Person', declined: false },
+        ],
+      })
+      .returning();
+    if (!row || !muted) throw new Error('insert failed');
+    await test.db.insert(participants).values([
+      { meetingId: row.id, displayName: 'Mute Person' },
+      { meetingId: row.id, displayName: 'Other Person' },
+    ]);
+
+    await backfillPeople(test.db);
+    await linkMeetingPeople(test.db, row.id);
+
+    const seats = await test.db
+      .select()
+      .from(participants)
+      .where(eq(participants.meetingId, row.id));
+    expect(seats.find((p) => p.displayName === 'Mute Person')?.personId).toBeNull();
+    expect(seats.find((p) => p.displayName === 'Other Person')?.personId).not.toBeNull();
+    expect(
+      await test.db.select().from(meetingInvitees).where(eq(meetingInvitees.personId, muted.id)),
+    ).toEqual([]);
+    const everyone = await test.db.select().from(people);
+    expect(everyone.filter((p) => p.name === 'Mute Person')).toHaveLength(1);
+    expect(everyone.find((p) => p.name === 'Mute Person')?.tracking).toBe('off');
+  });
+});

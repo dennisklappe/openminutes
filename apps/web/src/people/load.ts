@@ -17,6 +17,7 @@ import {
   type Database,
 } from '@openminutes/db';
 import type { PersonChoiceDto, PersonDetailDto, PersonDto, PersonLineDto } from '../dto.js';
+import { findDuplicates } from './duplicates.js';
 import { loadMeetingStats, type MeetingStats } from './stats.js';
 import { checkEnabled, rememberEnabled } from '../voices/load.js';
 
@@ -49,6 +50,7 @@ export async function reviewCounts(
       from transcript_segments s
       join participants p on p.id = s.${link}
       join meetings m on m.id = s.meeting_id
+      join people pe on pe.id = p.person_id and pe.tracking = 'on'
       where m.deleted_at is null and p.person_id is not null ${scope}
         and coalesce(s.speaker_source, '') <> 'user'
         and ${via === 'participant_id' ? sql`(s.speaker_confidence < ${LOW_SPEAKER_CONFIDENCE} or s.voice_doubt)` : sql`true`}
@@ -62,9 +64,26 @@ export async function reviewCounts(
   return counts;
 }
 
+/** For everyone who has a probable double, who that is. Only a hint, nobody is merged on it. */
+export async function loadDuplicates(db: Database): Promise<Map<string, PersonChoiceDto[]>> {
+  const rows = await db
+    .select({ id: people.id, name: people.name, emails: people.emails })
+    .from(people);
+  const names = new Map(rows.map((row) => [row.id, row.name]));
+  return new Map(
+    [...findDuplicates(rows)].map(([id, others]) => [
+      id,
+      others.flatMap((other) => {
+        const name = names.get(other);
+        return name === undefined ? [] : [{ id: other, name }];
+      }),
+    ]),
+  );
+}
+
 export async function loadPeople(db: Database, only?: string): Promise<PersonDto[]> {
   const where = only ? eq(people.id, only) : undefined;
-  const [rows, samples, seen, review] = await Promise.all([
+  const [rows, samples, seen, review, dupes] = await Promise.all([
     db
       .select()
       .from(people)
@@ -81,9 +100,10 @@ export async function loadPeople(db: Database, only?: string): Promise<PersonDto
       .groupBy(voiceSamples.personId),
     loadMeetingStats(db, only ? [only] : undefined),
     reviewCounts(db),
+    loadDuplicates(db),
   ]);
   const sampleOf = new Map(samples.map((s) => [s.personId, s]));
-  return rows.map((person) => toDto(person, sampleOf.get(person.id), seen, review));
+  return rows.map((person) => toDto(person, sampleOf.get(person.id), seen, review, dupes));
 }
 
 export function toDto(
@@ -91,6 +111,7 @@ export function toDto(
   sample: { samples: number; ms: number } | undefined,
   seen: ReadonlyMap<string, MeetingStats>,
   review: ReadonlyMap<string, number>,
+  dupes: ReadonlyMap<string, PersonChoiceDto[]> = new Map(),
 ): PersonDto {
   return {
     id: person.id,
@@ -103,16 +124,18 @@ export function toDto(
     meetings: seen.get(person.id)?.meetings ?? 0,
     lastSeenAt: seen.get(person.id)?.lastSeen?.toISOString() ?? null,
     source: person.source,
+    tracking: person.tracking,
+    duplicates: dupes.get(person.id) ?? [],
   };
 }
 
-export type Select = { limit: number };
+export type Select = { limit: number; meetingId?: string };
 
 export async function personLines(
   db: Database,
   personId: string,
   kind: 'verified' | 'review',
-  { limit }: Select,
+  { limit, meetingId }: Select,
 ): Promise<PersonLineDto[]> {
   const suggested = db
     .select({ id: participants.id })
@@ -164,7 +187,13 @@ export async function personLines(
       voiceSamples,
       and(eq(voiceSamples.segmentId, transcriptSegments.id), eq(voiceSamples.personId, personId)),
     )
-    .where(and(isNull(meetings.deletedAt), condition))
+    .where(
+      and(
+        isNull(meetings.deletedAt),
+        condition,
+        meetingId ? eq(transcriptSegments.meetingId, meetingId) : undefined,
+      ),
+    )
     .orderBy(desc(meetings.createdAt), transcriptSegments.startMs)
     .limit(limit * 2);
   const mine = new Set(
@@ -207,10 +236,12 @@ export async function personLines(
 
 export async function loadChoices(db: Database, exclude?: string): Promise<PersonChoiceDto[]> {
   const rows = await db
-    .select({ id: people.id, name: people.name })
+    .select({ id: people.id, name: people.name, tracking: people.tracking })
     .from(people)
     .orderBy(sql`lower(${people.name})`);
-  return rows.filter((row) => row.id !== exclude);
+  return rows
+    .filter((row) => row.id !== exclude)
+    .map((row) => ({ id: row.id, name: row.name, tracked: row.tracking === 'on' }));
 }
 
 export async function loadPersonDetail(
@@ -222,7 +253,9 @@ export async function loadPersonDetail(
   const [row] = await deps.db.select().from(people).where(eq(people.id, personId));
   const [verified, review, choices] = await Promise.all([
     personLines(deps.db, personId, 'verified', { limit: LINE_LIMIT }),
-    personLines(deps.db, personId, 'review', { limit: LINE_LIMIT }),
+    row?.tracking === 'off'
+      ? Promise.resolve([])
+      : personLines(deps.db, personId, 'review', { limit: LINE_LIMIT }),
     loadChoices(deps.db, personId),
   ]);
   return {

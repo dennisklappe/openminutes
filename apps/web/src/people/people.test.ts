@@ -492,4 +492,308 @@ describe('people', () => {
       expect((await queue()).lines.map((l) => l.id)).toContain(b.id);
     });
   });
+
+  describe('review scopes and order', () => {
+    const queue = async (query = '') => {
+      const response = await call('GET', `/people/review${query}`);
+      expect(response.status).toBe(200);
+      return (await response.json()) as ReviewQueueDto;
+    };
+
+    /** Two meetings a day apart, each with one line of a different person. */
+    async function twoMeetings() {
+      const tag = String(Math.random()).slice(2, 8);
+      const [first, second] = [
+        await create({ name: `Ada ${tag}` }),
+        await create({ name: `Ben ${tag}` }),
+      ];
+      const older = await meeting(`Older ${tag}`);
+      const newer = await meeting(`Newer ${tag}`);
+      await test.db
+        .update(meetings)
+        .set({ createdAt: new Date('2026-01-01T10:00:00Z') })
+        .where(eq(meetings.id, older.meeting.id));
+      await test.db
+        .update(meetings)
+        .set({ createdAt: new Date('2026-01-02T10:00:00Z') })
+        .where(eq(meetings.id, newer.meeting.id));
+      // The older meeting holds the least sure line, the newer one a surer line of another person.
+      await test.db
+        .update(participants)
+        .set({ displayName: first.name, personId: first.id, nameConfirmed: true })
+        .where(eq(participants.id, older.one.id));
+      await test.db
+        .update(participants)
+        .set({ displayName: second.name, personId: second.id, nameConfirmed: true })
+        .where(eq(participants.id, newer.one.id));
+      await test.db
+        .update(transcriptSegments)
+        .set({ speakerConfidence: 0.1 })
+        .where(eq(transcriptSegments.id, older.a.id));
+      await test.db
+        .update(transcriptSegments)
+        .set({ speakerConfidence: 0.6 })
+        .where(eq(transcriptSegments.id, older.b.id));
+      await test.db
+        .update(transcriptSegments)
+        .set({ speakerConfidence: 0.5 })
+        .where(eq(transcriptSegments.id, newer.a.id));
+      await test.db
+        .update(transcriptSegments)
+        .set({ speakerConfidence: 0.55 })
+        .where(eq(transcriptSegments.id, newer.b.id));
+      return { first, second, older, newer };
+    }
+
+    it('goes through all people newest meeting first, then in the order spoken', async () => {
+      const { first, second, older, newer } = await twoMeetings();
+      const ours = new Set([older.a.id, older.b.id, newer.a.id, newer.b.id]);
+      const body = await queue();
+      expect(body.order).toBe('newest');
+      expect(body.lines.map((l) => l.id).filter((id) => ours.has(id))).toEqual([
+        newer.a.id,
+        newer.b.id,
+        older.a.id,
+        older.b.id,
+      ]);
+      expect(body.lines.find((l) => l.id === newer.a.id)?.proposed.id).toBe(second.id);
+      expect(body.lines.find((l) => l.id === older.a.id)?.proposed.id).toBe(first.id);
+      expect(body.lines.find((l) => l.id === newer.a.id)?.meetingDate).toBe(
+        '2026-01-02T10:00:00.000Z',
+      );
+    });
+
+    it('can start with the least sure line instead', async () => {
+      const { older, newer } = await twoMeetings();
+      const ours = new Set([older.a.id, older.b.id, newer.a.id, newer.b.id]);
+      const body = await queue('?order=uncertain');
+      expect(body.order).toBe('uncertain');
+      expect(body.lines.map((l) => l.id).filter((id) => ours.has(id))).toEqual([
+        older.a.id,
+        newer.a.id,
+        newer.b.id,
+        older.b.id,
+      ]);
+      expect((await call('GET', '/people/review?order=sideways')).status).toBe(404);
+    });
+
+    it('scopes to one meeting, one person, or both', async () => {
+      const { first, older, newer } = await twoMeetings();
+      const byMeeting = await queue(`?meetingId=${newer.meeting.id}`);
+      expect(byMeeting.lines.map((l) => l.id)).toEqual([newer.a.id, newer.b.id]);
+      expect(byMeeting.scope.meeting).toMatchObject({ id: newer.meeting.id });
+      expect(byMeeting.scope.person).toBeUndefined();
+
+      const byPerson = await queue(`?personId=${first.id}`);
+      expect(byPerson.lines.map((l) => l.id)).toEqual([older.a.id, older.b.id]);
+      expect(byPerson.scope.person).toMatchObject({ id: first.id, name: first.name });
+
+      const both = await queue(`?personId=${first.id}&meetingId=${newer.meeting.id}`);
+      expect(both.lines).toEqual([]);
+      const other = await queue(`?personId=${first.id}&meetingId=${older.meeting.id}`);
+      expect(other.lines.map((l) => l.id)).toEqual([older.a.id, older.b.id]);
+    });
+
+    it('answers 404 for a meeting that does not exist or an id that is not one', async () => {
+      expect((await call('GET', `/people/review?meetingId=${missing}`)).status).toBe(404);
+      expect((await call('GET', '/people/review?meetingId=nope')).status).toBe(404);
+    });
+  });
+
+  describe('do not track', () => {
+    async function pair() {
+      const tag = String(Math.random()).slice(2, 8);
+      const muted = await create({ name: `Mute ${tag}`, emails: [`mute${tag}@example.com`] });
+      const carl = await create({ name: `Carl ${tag}` });
+      const fixture = await meeting(`Muted ${tag}`);
+      await test.db
+        .update(participants)
+        .set({
+          displayName: muted.name,
+          personId: muted.id,
+          nameConfirmed: true,
+          voiceEmbedding: [1, 0],
+        })
+        .where(eq(participants.id, fixture.one.id));
+      await test.db
+        .update(participants)
+        .set({ displayName: carl.name, personId: carl.id, nameConfirmed: true })
+        .where(eq(participants.id, fixture.two.id));
+      // Carl's line lists the muted person as the runner up and as a speaker in the meeting.
+      await test.db
+        .update(transcriptSegments)
+        .set({
+          speakerConfidence: 0.3,
+          speakerCandidates: [
+            { participantId: fixture.two.id, score: 0.6 },
+            { participantId: fixture.one.id, score: 0.4 },
+          ],
+        })
+        .where(eq(transcriptSegments.id, fixture.c.id));
+      await addVoiceSamples(test.db, muted.id, [
+        { kind: 'imported', embedding: [1, 0] },
+        {
+          kind: 'line',
+          embedding: [0.9, 0.1],
+          segmentId: fixture.a.id,
+          meetingId: fixture.meeting.id,
+        },
+      ]);
+      return { muted, carl, ...fixture };
+    }
+    const off = (id: string) => call('POST', `/people/${id}/tracking`, { tracking: 'off' });
+    const on = (id: string) => call('POST', `/people/${id}/tracking`, { tracking: 'on' });
+
+    it('deletes the voice, keeps the name and says so on the person', async () => {
+      const { muted, one, meeting: row } = await pair();
+      const before = await detail(muted.id);
+      expect(before.person).toMatchObject({ tracking: 'on', samples: 2 });
+      const response = await off(muted.id);
+      expect(response.status).toBe(200);
+      const after = (await response.json()) as PersonDetailDto;
+      expect(after.person).toMatchObject({ tracking: 'off', samples: 0, voiceSeconds: 0 });
+      expect(after.prototypes).toBe(0);
+      expect(after.review).toEqual([]);
+      expect(
+        await test.db.select().from(voiceSamples).where(eq(voiceSamples.personId, muted.id)),
+      ).toEqual([]);
+      const [seat] = await test.db.select().from(participants).where(eq(participants.id, one.id));
+      expect(seat).toMatchObject({
+        displayName: muted.name,
+        personId: muted.id,
+        voiceEmbedding: null,
+      });
+      const segments = await test.db
+        .select()
+        .from(transcriptSegments)
+        .where(eq(transcriptSegments.meetingId, row.id));
+      expect(segments.filter((s) => s.participantId === one.id)).toHaveLength(2);
+    });
+
+    it("keeps their lines out of every review queue and them out of other lines' lists", async () => {
+      const { muted, carl, a, c } = await pair();
+      const mine = async (query = '') =>
+        ((await (await call('GET', `/people/review${query}`)).json()) as ReviewQueueDto).lines;
+      expect((await mine(`?personId=${muted.id}`)).map((l) => l.id)).toContain(a.id);
+      const withHim = (await mine(`?personId=${carl.id}`)).find((l) => l.id === c.id);
+      expect(withHim?.considered.map((x) => x.name)).toContain(muted.name);
+      expect(withHim?.roster.map((r) => r.personId)).toContain(muted.id);
+
+      await off(muted.id);
+
+      expect(await mine(`?personId=${muted.id}`)).toEqual([]);
+      expect((await mine()).some((l) => l.id === a.id)).toBe(false);
+      expect((await mine()).some((l) => l.proposed.id === muted.id)).toBe(false);
+      const after = (await mine(`?personId=${carl.id}`)).find((l) => l.id === c.id);
+      expect(after?.considered.map((x) => x.name)).not.toContain(muted.name);
+      expect(after?.roster.map((r) => r.personId)).not.toContain(muted.id);
+      const body = (await (await call('GET', '/people/review')).json()) as ReviewQueueDto;
+      const listed = body.people.find((p) => p.id === muted.id);
+      expect(listed).toMatchObject({ name: muted.name, tracked: false });
+    });
+
+    it('stays reachable by name in the full list, the filter and on its page', async () => {
+      const { muted } = await pair();
+      await off(muted.id);
+      const names = async (query: string) =>
+        ((await (await call('GET', `/people${query}`)).json()) as PeopleDto).people.map(
+          (p) => p.name,
+        );
+      expect(await names('')).not.toContain(muted.name);
+      expect(await names('?tracking=tracked')).not.toContain(muted.name);
+      expect(await names('?tracking=untracked')).toContain(muted.name);
+      expect(await names('?tracking=all')).toContain(muted.name);
+      const choices = (await detail((await create({ name: `Other ${muted.id.slice(0, 6)}` })).id))
+        .choices;
+      expect(choices.find((c) => c.id === muted.id)).toMatchObject({ tracked: false });
+    });
+
+    it('learns nothing when a line is confirmed or moved to them, and never queues voice learning', async () => {
+      const { muted, carl, b, c } = await pair();
+      await settings.set('voices.remember', 'true');
+      await off(muted.id);
+      sent.length = 0;
+      expect(
+        (await call('POST', `/people/${carl.id}/lines/${c.id}/move`, { personId: muted.id }))
+          .status,
+      ).toBe(200);
+      expect((await call('POST', `/people/${muted.id}/lines/${b.id}/verify`, {})).status).toBe(200);
+      expect(sent.filter((job) => job.name === 'meeting.learn-voice')).toEqual([]);
+      expect(
+        await test.db.select().from(voiceSamples).where(eq(voiceSamples.personId, muted.id)),
+      ).toEqual([]);
+      // The label still moves: it is only the learning that is off.
+      const [moved] = await test.db
+        .select()
+        .from(transcriptSegments)
+        .where(eq(transcriptSegments.id, c.id));
+      expect(moved?.speakerSource).toBe('user');
+      await settings.set('voices.remember', 'false');
+    });
+
+    it('does not train anyone on Not X, unsure who', async () => {
+      const { carl, c, two } = await pair();
+      await settings.set('voices.remember', 'true');
+      sent.length = 0;
+      await test.db
+        .update(transcriptSegments)
+        .set({ participantId: two.id, speakerCandidates: [{ participantId: two.id, score: 0.6 }] })
+        .where(eq(transcriptSegments.id, c.id));
+      const reject = await call('POST', `/people/${carl.id}/lines/${c.id}/reject`, {});
+      expect([200, 409]).toContain(reject.status);
+      expect(sent.filter((job) => job.name === 'meeting.learn-voice')).toEqual([]);
+      const samples = await test.db
+        .select()
+        .from(voiceSamples)
+        .where(eq(voiceSamples.personId, carl.id));
+      expect(samples.every((sample) => sample.rejected && sample.embedding === null)).toBe(true);
+      await settings.set('voices.remember', 'false');
+    });
+
+    it('can track again, and learning resumes from nothing', async () => {
+      const { muted, b } = await pair();
+      await off(muted.id);
+      const back = (await (await on(muted.id)).json()) as PersonDetailDto;
+      expect(back.person).toMatchObject({ tracking: 'on', samples: 0 });
+      await addVoiceSamples(test.db, muted.id, [
+        { kind: 'line', embedding: [1, 0], segmentId: b.id },
+      ]);
+      expect((await detail(muted.id)).person.samples).toBe(1);
+      expect((await call('POST', `/people/${missing}/tracking`, { tracking: 'off' })).status).toBe(
+        404,
+      );
+      expect(
+        (await call('POST', `/people/${muted.id}/tracking`, { tracking: 'maybe' })).status,
+      ).toBe(400);
+    });
+
+    it('keeps them untracked, without a voice, when merged with a tracked person', async () => {
+      const keep = await create({ name: `Keep Tracked ${String(Math.random()).slice(2, 6)}` });
+      const muted = await create({ name: `Mute Merge ${String(Math.random()).slice(2, 6)}` });
+      await addVoiceSamples(test.db, keep.id, [{ kind: 'imported', embedding: [1, 0] }]);
+      await off(muted.id);
+      const merged = (await (
+        await call('POST', `/people/${keep.id}/merge`, { sourceId: muted.id })
+      ).json()) as PersonDetailDto;
+      expect(merged.person).toMatchObject({ tracking: 'off', samples: 0 });
+      expect(
+        await test.db.select().from(voiceSamples).where(eq(voiceSamples.personId, keep.id)),
+      ).toEqual([]);
+    });
+  });
+
+  describe('possible duplicates', () => {
+    it('hints at both people but never merges them', async () => {
+      const tag = String(Math.random()).slice(2, 8);
+      const short = await create({ name: `Dennis${tag}`, emails: [`dennis@${tag}.example.com`] });
+      const long = await create({ name: `Dennis${tag} Klappe`, emails: [`dk@${tag}.example.com`] });
+      const lone = await create({ name: `Lonely ${tag}`, emails: [`l@${tag}.example.org`] });
+      const list = (await (await call('GET', `/people?q=${tag}`)).json()) as PeopleDto;
+      const of = (id: string) => list.people.find((p) => p.id === id);
+      expect(of(short.id)?.duplicates).toEqual([{ id: long.id, name: long.name }]);
+      expect(of(long.id)?.duplicates).toEqual([{ id: short.id, name: short.name }]);
+      expect(of(lone.id)?.duplicates).toEqual([]);
+      expect(list.total).toBe(3);
+    });
+  });
 });

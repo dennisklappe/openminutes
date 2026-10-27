@@ -173,6 +173,22 @@ describe('titles and voices', () => {
       expect(second?.suggestions.map((s) => s.name)).toEqual(['Daan', 'eva@example.com']);
     });
 
+    it('stops suggesting a person marked do not track, whatever the source', async () => {
+      await test.db.insert(people).values({ name: 'Muted Mia', tracking: 'off' });
+      const meeting = await recording({
+        invitees: [{ email: 'mia@example.com', name: 'Muted Mia', declined: false }],
+      });
+      const one = await speaker(meeting.id, 'Speaker 1', {
+        nameSuggestions: [
+          { name: 'muted mia', source: 'voice' },
+          { name: 'Fenna', source: 'voice' },
+        ],
+      });
+      await talk(meeting.id, one.id, 0, 5);
+      const [voice] = (await voicesOf(meeting.id)).voices;
+      expect(voice?.suggestions.map((s) => s.name)).toEqual(['Fenna']);
+    });
+
     it('does not ask for names on other platforms or once everything is named', async () => {
       const meet = await recording({ platform: 'meet', joinUrl: 'https://meet.google.com/a-b-c' });
       const generic = await speaker(meet.id, 'Speaker 1');

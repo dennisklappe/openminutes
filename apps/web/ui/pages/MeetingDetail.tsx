@@ -104,6 +104,7 @@ export function MeetingDetail({ id }: { id: string }) {
     speakerCount: meeting.speakerCount,
     isRecording: meeting.platform === 'recording',
     reprocess,
+    reviewHref: `#/meetings/${id}/review`,
     chooseLanguage: () => {
       setRerun(true);
     },

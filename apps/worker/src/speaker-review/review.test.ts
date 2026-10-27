@@ -123,6 +123,15 @@ describe('replay of a dialog where the diarizer merged two speakers', () => {
     expect(review.lines[2]?.suggestedParticipantId).toBe(ids.two);
   });
 
+  it('never suggests a participant who is marked do not track', async () => {
+    const model = modelAnswering(() => changes([1, 'Speaker 2']));
+    const review = await reviewLines(model, withBothVoices(), people, new Set([ids.two]));
+    expect(review.lines.map((line) => line.suggestedParticipantId)).not.toContain(ids.two);
+    expect(review.lines[1]?.suggestedParticipantId).toBeNull();
+    const heuristic = await reviewLines(undefined, withBothVoices(), people, new Set([ids.two]));
+    expect(heuristic.lines.map((line) => line.suggestedParticipantId)).not.toContain(ids.two);
+  });
+
   it('ignores a speaker the audio scored under 20 percent', async () => {
     const model = modelAnswering(() => changes([1, 'Speaker 2']));
     const input = withBothVoices().map((line, i) =>

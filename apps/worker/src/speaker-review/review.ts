@@ -38,6 +38,7 @@ function capSuspects<T extends ReviewLine>(
 function suggest<T extends ReviewLine>(
   lines: readonly T[],
   changes: ReadonlyMap<number, string>,
+  skip: ReadonlySet<string>,
 ): T[] {
   return lines.map((line, i) => {
     const wanted = changes.get(i);
@@ -49,7 +50,8 @@ function suggest<T extends ReviewLine>(
       choices.includes(line.suggestedParticipantId)
         ? line.suggestedParticipantId
         : null;
-    const suggested = wanted !== undefined && choices.includes(wanted) ? wanted : voiceFound;
+    const found = wanted !== undefined && choices.includes(wanted) ? wanted : voiceFound;
+    const suggested = found !== null && skip.has(found) ? null : found;
     return suggested === line.suggestedParticipantId
       ? line
       : { ...line, suggestedParticipantId: suggested };
@@ -66,6 +68,7 @@ export async function reviewLines<T extends ReviewLine>(
   provider: SummaryProvider | undefined,
   input: readonly T[],
   people: readonly Person[],
+  untracked: ReadonlySet<string> = new Set(),
 ): Promise<Review<T>> {
   const names = new Map(people.map((person) => [person.id, person.name]));
   const lines = capSuspects(input, names);
@@ -77,7 +80,7 @@ export async function reviewLines<T extends ReviewLine>(
       lines.map((line) => toGuessLine(line, names)),
       people.map((person) => person.id),
     );
-    return { lines: suggest(lines, guesses), refined: false, error: null };
+    return { lines: suggest(lines, guesses, untracked), refined: false, error: null };
   }
   const uncertain = lines.flatMap((line, i) =>
     isUncertain(line) && suggestionChoices(line).length > 0 ? [i] : [],
@@ -85,7 +88,7 @@ export async function reviewLines<T extends ReviewLine>(
   const pass = await reviewWithModel(provider, lines, uncertain, people);
   const failedAll = pass.batches > 0 && pass.failed === pass.batches;
   return {
-    lines: suggest(lines, pass.changes),
+    lines: suggest(lines, pass.changes, untracked),
     refined: !failedAll,
     error: failedAll ? 'The model gave no usable answer' : null,
   };

@@ -1,7 +1,8 @@
 // Drives the one-at-a-time Review mode in headless Chromium against the real web app on a
 // throwaway embedded Postgres with synthetic people and lines: approve, disapprove with the
 // meeting roster, the full people fallback, a new person, skip, undo and the empty state, with
-// the keyboard shortcuts. It saves screenshots of the card in light and dark at 1440 and 390 px.
+// the keyboard shortcuts. It also covers the review order and scopes, Do not track and the merge
+// flows. It saves screenshots of the card in light and dark at 1440 and 390 px.
 // Usage: pnpm --filter @openminutes/web build && OUT=/path/to/shots node e2e/ui/review.mjs
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
@@ -13,9 +14,8 @@ import { startRealServer } from '../phone/real-server.mjs';
 const root = new URL('../../', import.meta.url);
 const requireFrom = createRequire(new URL('apps/web/package.json', root));
 const { chromium } = createRequire(new URL('apps/bot/package.json', root))('playwright-core');
-const { audioFiles, eq, meetings, participants, people, transcriptSegments } = await import(
-  pathToFileURL(requireFrom.resolve('@openminutes/db')).href
-);
+const { audioFiles, eq, meetings, participants, people, transcriptSegments, voiceSamples } =
+  await import(pathToFileURL(requireFrom.resolve('@openminutes/db')).href);
 const out = process.env.OUT ?? join(process.env.TMPDIR ?? '.', 'review-shots');
 mkdirSync(out, { recursive: true });
 const step = (name) => console.log(`== ${name}`);
@@ -198,6 +198,213 @@ for (const [size, width, height] of [
     await page.screenshot({ path: join(out, `${size}-${scheme}-card.png`), fullPage: true });
     await page.keyboard.press('d');
     await page.screenshot({ path: join(out, `${size}-${scheme}-picker.png`), fullPage: true });
+    await context.close();
+  }
+}
+
+step('order, meeting scope, do not track and merging');
+const [mia, dennisShort, dennisLong, pimA, pimB, quinn, quincy] = await db
+  .insert(people)
+  .values([
+    { name: 'Mia Mute' },
+    { name: 'Dennis', emails: ['dennis@klappe.example'] },
+    { name: 'Dennis Klappe', emails: ['dk@klappe.example'] },
+    { name: 'Pim Alpha' },
+    { name: 'Pim Beta' },
+    { name: 'Quinn Source' },
+    { name: 'Quincy Target' },
+  ])
+  .returning();
+const [older] = await db
+  .insert(meetings)
+  .values({
+    title: 'Older sync',
+    platform: 'meet',
+    joinUrl: 'https://meet.google.com/ddd-eeee-fff',
+    status: 'transcribed',
+    createdAt: new Date('2026-09-01T09:00:00Z'),
+  })
+  .returning();
+const olderSeats = await db
+  .insert(participants)
+  .values([
+    { meetingId: older.id, displayName: mia.name, personId: mia.id, nameConfirmed: true },
+    { meetingId: older.id, displayName: anna.name, personId: anna.id, nameConfirmed: true },
+  ])
+  .returning();
+await db.insert(transcriptSegments).values([
+  {
+    meetingId: older.id,
+    participantId: olderSeats[0].id,
+    startMs: 1000,
+    endMs: 5000,
+    text: 'Mia walks through the roadmap for the next quarter.',
+    speakerConfidence: 0.05,
+    speakerSource: 'diarization',
+    speakerCandidates: [{ participantId: olderSeats[1].id, score: 0.4 }],
+  },
+  {
+    meetingId: older.id,
+    participantId: olderSeats[1].id,
+    startMs: 6000,
+    endMs: 9000,
+    text: 'Anna answers that the quarter plan is fine.',
+    speakerConfidence: 0.3,
+    speakerSource: 'diarization',
+    speakerCandidates: [{ participantId: olderSeats[0].id, score: 0.4 }],
+  },
+]);
+await db.insert(voiceSamples).values({
+  personId: mia.id,
+  kind: 'imported',
+  embedding: [1, 0],
+  weight: 2,
+});
+const confirmDialog = (page) => page.locator('dialog.confirm-dialog[open]');
+{
+  const { context, page } = await newPage(1440, 900, 'light');
+  await page.goto(`${server.url}/#/people/review`);
+  await card(page).waitFor();
+  assert.match(await card(page).innerText(), /Weekly planning/, 'newest meeting first by default');
+  const order = page.getByLabel('Order');
+  assert.equal(await order.inputValue(), 'newest');
+  await order.selectOption('uncertain');
+  await page.waitForFunction(() =>
+    globalThis.document.querySelector('.review-card')?.textContent?.includes('roadmap'),
+  );
+  assert.match(await card(page).innerText(), /Older sync/, 'least sure first crosses meetings');
+
+  step('scope to one meeting, the chip leaves it');
+  await page.goto(`${server.url}/#/meetings/${older.id}/review`);
+  await page.locator('.scope-chip').waitFor();
+  assert.match(await page.locator('.scope-chip').innerText(), /Meeting: Older sync/);
+  assert.match(await page.locator('.review-progress').innerText(), /1 of 2/);
+  assert.ok(!(await card(page).innerText()).includes('Weekly planning'));
+  await page.screenshot({ path: join(out, 'desktop-light-scope.png'), fullPage: true });
+  await page.getByRole('link', { name: 'Review everyone instead' }).click();
+  await page.waitForFunction(() => location.hash === '#/people/review');
+
+  step('do not track from the review card');
+  await page.goto(`${server.url}/#/meetings/${older.id}/review`);
+  await card(page).waitFor();
+  assert.match(await card(page).innerText(), /Mia Mute/);
+  await page.getByRole('button', { name: 'Do not track Mia Mute' }).click();
+  const dialog = confirmDialog(page);
+  await dialog.waitFor();
+  assert.match(await dialog.innerText(), /voice samples and voice profile are deleted/);
+  await page.screenshot({ path: join(out, 'desktop-light-untrack-confirm.png') });
+  await dialog.getByRole('button', { name: 'Stop tracking' }).click();
+  await page.waitForFunction(
+    () => !globalThis.document.querySelector('.review-card')?.textContent?.includes('Mia walks'),
+  );
+  const [muted] = await db.select().from(people).where(eq(people.id, mia.id));
+  assert.equal(muted.tracking, 'off');
+  assert.equal(
+    (await db.select().from(voiceSamples).where(eq(voiceSamples.personId, mia.id))).length,
+    0,
+  );
+
+  step('hidden from the list, shown by the filter, tracked again from the person page');
+  await page.goto(`${server.url}/#/people`);
+  await page.getByLabel('Search people').fill('Mia');
+  await page.getByText('Nobody matches').waitFor();
+  await page.getByLabel('Tracking').selectOption('untracked');
+  const row = page.getByRole('row', { name: /Mia Mute/ });
+  await row.waitFor();
+  assert.match(await row.innerText(), /Not tracked/);
+  await row.getByRole('link', { name: 'Mia Mute' }).click();
+  await page.getByRole('button', { name: 'Track again' }).first().waitFor();
+  assert.match(await page.locator('h1').innerText(), /Mia Mute\s*Not tracked/);
+  await page.screenshot({ path: join(out, 'desktop-light-untracked-person.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Track again' }).first().click();
+  await page.getByRole('button', { name: 'Do not track' }).waitFor();
+  assert.equal((await db.select().from(people).where(eq(people.id, mia.id)))[0].tracking, 'on');
+
+  step('possible duplicate hint opens the merge dialog');
+  await page.goto(`${server.url}/#/people`);
+  await page.getByLabel('Search people').fill('Dennis');
+  const hints = page.locator('.duplicate-hint');
+  await hints.nth(1).waitFor();
+  assert.equal(await hints.count(), 2, 'both rows carry the hint');
+  await page.screenshot({ path: join(out, 'desktop-light-duplicates.png'), fullPage: true });
+  await hints.first().getByRole('button', { name: 'Merge' }).click();
+  const merge = page.locator('dialog[open]');
+  await merge.getByText('is then removed').waitFor();
+  assert.equal(
+    await merge.getByRole('radio', { name: /Dennis Klappe/ }).isChecked(),
+    true,
+    'the fuller name is kept by default',
+  );
+  await page.screenshot({ path: join(out, 'desktop-light-merge.png') });
+  await merge.getByRole('button', { name: /Merge into Dennis Klappe/ }).click();
+  await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
+  const dennis = (await db.select().from(people)).filter((p) => p.name.startsWith('Dennis'));
+  assert.deepEqual(
+    dennis.map((p) => p.name),
+    ['Dennis Klappe'],
+  );
+  assert.deepEqual(dennis[0].emails.sort(), ['dennis@klappe.example', 'dk@klappe.example']);
+  assert.ok(dennisShort.id !== dennisLong.id);
+
+  step('select two in the list and merge, choosing the name');
+  await page.getByLabel('Search people').fill('Pim');
+  await page.getByLabel('Select Pim Alpha').check();
+  assert.equal(await page.getByRole('button', { name: 'Merge 2 selected' }).isDisabled(), true);
+  await page.getByLabel('Select Pim Beta').check();
+  await page.getByRole('button', { name: 'Merge 2 selected' }).click();
+  const pimDialog = page.locator('dialog[open]');
+  await pimDialog.getByRole('radio', { name: /Pim Beta/ }).check();
+  await pimDialog.getByRole('button', { name: /Merge into Pim Beta/ }).click();
+  await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
+  assert.deepEqual(
+    (await db.select().from(people)).filter((p) => p.name.startsWith('Pim')).map((p) => p.name),
+    ['Pim Beta'],
+  );
+  assert.ok(pimA.id !== pimB.id);
+
+  step('merge into another person from the person page');
+  await page.goto(`${server.url}/#/people/${quinn.id}`);
+  await page.getByRole('button', { name: 'Merge into another person' }).click();
+  await page.getByLabel('Search people').fill('Quincy');
+  await page.getByRole('button', { name: 'Quincy Target' }).click();
+  const intoDialog = page.locator('dialog[open]');
+  await intoDialog.getByText('is then removed').waitFor();
+  await intoDialog.getByRole('radio', { name: /Quincy Target/ }).check();
+  await intoDialog.getByRole('button', { name: /Merge into Quincy Target/ }).click();
+  await page.waitForFunction((id) => location.hash === `#/people/${id}`, quincy.id);
+  assert.equal((await db.select().from(people).where(eq(people.id, quinn.id))).length, 0);
+  await context.close();
+}
+
+step('screenshots of the new screens');
+for (const [size, width, height] of [
+  ['desktop', 1440, 900],
+  ['phone', 390, 844],
+]) {
+  for (const scheme of ['light', 'dark']) {
+    const { context, page } = await newPage(width, height, scheme);
+    for (const [name, route, ready] of [
+      ['scope', `#/meetings/${older.id}/review`, '.scope-chip'],
+      ['people', '#/people', '.people-table'],
+      ['person', `#/people/${mia.id}`, '.person-grid'],
+    ]) {
+      await page.goto(`${server.url}/${route}`);
+      await page.locator(ready).waitFor();
+      await page.waitForTimeout(200);
+      if (name === 'people')
+        await page
+          .getByLabel(/^Select /)
+          .first()
+          .check();
+      const overflow = await page.evaluate(
+        () => globalThis.document.documentElement.scrollWidth - globalThis.innerWidth,
+      );
+      assert.ok(
+        overflow <= 0,
+        `${size} ${scheme} ${name}: horizontal overflow ${String(overflow)}`,
+      );
+      await page.screenshot({ path: join(out, `${size}-${scheme}-${name}.png`), fullPage: true });
+    }
     await context.close();
   }
 }
