@@ -64,6 +64,14 @@ describe.each(themes)('%s tokens', (_name, theme) => {
     );
   });
 
+  it('keeps the muted text readable on every surface it sits on', () => {
+    for (const background of ['paper', 'surface', 'sunken']) {
+      expect(contrast(colour(theme, 'muted'), colour(theme, background))).toBeGreaterThanOrEqual(
+        4.5,
+      );
+    }
+  });
+
   it('keeps speaker colours readable on cards and away from the accent hue', () => {
     const accentHue = hue(colour(theme, 'accent'));
     for (let i = 1; i <= 8; i++) {
@@ -75,5 +83,20 @@ describe.each(themes)('%s tokens', (_name, theme) => {
         expect(Math.min(distance, 360 - distance)).toBeGreaterThan(35);
       }
     }
+  });
+});
+
+describe('small text', () => {
+  const rule = (file: string, selector: string) => {
+    const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+    const start = source.indexOf(`\n${selector} {`);
+    return source.slice(start, source.indexOf('}', start));
+  };
+
+  it('uses the muted colour, not the faint one that fails AA in light mode', () => {
+    expect(rule('../ui/styles.css', '.version')).toContain('color: var(--muted)');
+    expect(rule('../ui/participants/participants.css', '.people-heading')).toContain(
+      'color: var(--muted)',
+    );
   });
 });
