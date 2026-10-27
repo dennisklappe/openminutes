@@ -8,6 +8,7 @@ import {
   invitedOptions,
   inviteeChoices,
   needsMove,
+  withoutTileEmail,
   type InviteeChoice,
 } from '../sharedRoom.js';
 import { inviteeLabel, validEmail } from './names.js';
@@ -47,7 +48,7 @@ function useVoiceContext(meetingId: string, tileId: string, setError: (message: 
         const tile = roster.participants.find((person) => person.id === tileId);
         // Nobody is this voice yet, so every invitee that is linked anywhere counts as taken.
         const choices = inviteeChoices(
-          roster.invitees,
+          tile ? withoutTileEmail(roster.invitees, tile) : roster.invitees,
           { voiceId: '', inviteeEmails: [] },
           tile?.room?.subs ?? [],
           holdersOf(roster.participants.filter((person) => person.id !== tileId)),
@@ -202,11 +203,7 @@ export function VoiceFlow({
   if (!target) {
     return (
       <div className="voice-flow">
-        {from && preview && (
-          <p className="muted">
-            {label} is {from.name} now. Pick who it really is.
-          </p>
-        )}
+        {from && preview && <p className="muted">Currently: {from.name}. Pick who it really is.</p>}
         {context ? (
           <NamePicker
             roster={context.review.roster.filter((entry) => entry.personId !== fromId)}

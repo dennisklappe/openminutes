@@ -11,6 +11,7 @@ import {
   noteText,
   personHref,
   voiceLabel,
+  withoutTileEmail,
   voiceSlot,
   splitOptions,
   subMeta,
@@ -104,7 +105,7 @@ function EmailDialog({
   const [error, setError] = useState<string>();
   if (!room) return null;
   const choices = inviteeChoices(
-    invitees,
+    withoutTileEmail(invitees, tile),
     { ...sub, inviteeEmails: links },
     room.subs,
     holdersOf(others),

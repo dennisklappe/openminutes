@@ -299,6 +299,7 @@ export function MeetingDetail({ id }: { id: string }) {
               meetingId={id}
               summaries={summaries}
               speakersChanged={speakersChangedSinceSummary}
+              waitingFor={roomNotices}
               options={summaryOptions}
               hasTranscript={segments.length > 0}
               onRequested={refresh}
