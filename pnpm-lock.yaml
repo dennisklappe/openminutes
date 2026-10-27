@@ -157,6 +157,9 @@ importers:
       '@openminutes/db':
         specifier: workspace:^
         version: link:../db
+      '@openminutes/minutes':
+        specifier: workspace:^
+        version: link:../minutes
       '@openminutes/platforms':
         specifier: workspace:^
         version: link:../platforms

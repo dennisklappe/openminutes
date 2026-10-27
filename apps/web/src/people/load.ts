@@ -16,13 +16,8 @@ import {
   voiceSamples,
   type Database,
 } from '@openminutes/db';
-import type {
-  PeopleDto,
-  PersonChoiceDto,
-  PersonDetailDto,
-  PersonDto,
-  PersonLineDto,
-} from '../dto.js';
+import type { PersonChoiceDto, PersonDetailDto, PersonDto, PersonLineDto } from '../dto.js';
+import { loadMeetingStats, type MeetingStats } from './stats.js';
 import { checkEnabled, rememberEnabled } from '../voices/load.js';
 
 export interface PeopleDeps {
@@ -35,7 +30,17 @@ const LINE_LIMIT = 200;
 
 type Person = typeof people.$inferSelect;
 
-async function reviewCounts(db: Database): Promise<Map<string, number>> {
+export async function reviewCounts(
+  db: Database,
+  only?: readonly string[],
+): Promise<Map<string, number>> {
+  if (only?.length === 0) return new Map();
+  const scope = only
+    ? sql`and p.person_id in (${sql.join(
+        only.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )})`
+    : sql``;
   const counts = new Map<string, number>();
   for (const via of ['participant_id', 'suggested_participant_id']) {
     const link = sql.raw(via);
@@ -44,7 +49,7 @@ async function reviewCounts(db: Database): Promise<Map<string, number>> {
       from transcript_segments s
       join participants p on p.id = s.${link}
       join meetings m on m.id = s.meeting_id
-      where m.deleted_at is null and p.person_id is not null
+      where m.deleted_at is null and p.person_id is not null ${scope}
         and coalesce(s.speaker_source, '') <> 'user'
         and ${via === 'participant_id' ? sql`(s.speaker_confidence < ${LOW_SPEAKER_CONFIDENCE} or s.voice_doubt)` : sql`true`}
         and not exists (
@@ -59,7 +64,7 @@ async function reviewCounts(db: Database): Promise<Map<string, number>> {
 
 export async function loadPeople(db: Database, only?: string): Promise<PersonDto[]> {
   const where = only ? eq(people.id, only) : undefined;
-  const [rows, samples, meetingCounts, review] = await Promise.all([
+  const [rows, samples, seen, review] = await Promise.all([
     db
       .select()
       .from(people)
@@ -74,26 +79,17 @@ export async function loadPeople(db: Database, only?: string): Promise<PersonDto
       .from(voiceSamples)
       .where(and(eq(voiceSamples.rejected, false), sql`${voiceSamples.embedding} is not null`))
       .groupBy(voiceSamples.personId),
-    db
-      .select({
-        personId: participants.personId,
-        n: sql<number>`count(distinct ${participants.meetingId})::int`,
-      })
-      .from(participants)
-      .innerJoin(meetings, eq(meetings.id, participants.meetingId))
-      .where(isNull(meetings.deletedAt))
-      .groupBy(participants.personId),
+    loadMeetingStats(db, only ? [only] : undefined),
     reviewCounts(db),
   ]);
   const sampleOf = new Map(samples.map((s) => [s.personId, s]));
-  const meetingsOf = new Map(meetingCounts.map((m) => [m.personId, m.n]));
-  return rows.map((person) => toDto(person, sampleOf.get(person.id), meetingsOf, review));
+  return rows.map((person) => toDto(person, sampleOf.get(person.id), seen, review));
 }
 
-function toDto(
+export function toDto(
   person: Person,
   sample: { samples: number; ms: number } | undefined,
-  meetingsOf: ReadonlyMap<string | null, number>,
+  seen: ReadonlyMap<string, MeetingStats>,
   review: ReadonlyMap<string, number>,
 ): PersonDto {
   return {
@@ -104,21 +100,15 @@ function toDto(
     samples: sample?.samples ?? 0,
     voiceSeconds: Math.round((sample?.ms ?? 0) / 1000),
     needsReview: review.get(person.id) ?? 0,
-    meetings: meetingsOf.get(person.id) ?? 0,
+    meetings: seen.get(person.id)?.meetings ?? 0,
+    lastSeenAt: seen.get(person.id)?.lastSeen?.toISOString() ?? null,
+    source: person.source,
   };
 }
 
-export async function loadPeopleList(deps: PeopleDeps): Promise<PeopleDto> {
-  return {
-    people: await loadPeople(deps.db),
-    learning: await rememberEnabled(deps.settings),
-    checking: await checkEnabled(deps.settings),
-  };
-}
+export type Select = { limit: number };
 
-type Select = { limit: number };
-
-async function lines(
+export async function personLines(
   db: Database,
   personId: string,
   kind: 'verified' | 'review',
@@ -231,8 +221,8 @@ export async function loadPersonDetail(
   if (!person) return undefined;
   const [row] = await deps.db.select().from(people).where(eq(people.id, personId));
   const [verified, review, choices] = await Promise.all([
-    lines(deps.db, personId, 'verified', { limit: LINE_LIMIT }),
-    lines(deps.db, personId, 'review', { limit: LINE_LIMIT }),
+    personLines(deps.db, personId, 'verified', { limit: LINE_LIMIT }),
+    personLines(deps.db, personId, 'review', { limit: LINE_LIMIT }),
     loadChoices(deps.db, personId),
   ]);
   return {

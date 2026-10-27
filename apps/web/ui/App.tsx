@@ -9,6 +9,7 @@ import { Archive } from './pages/Archive.js';
 import { Bin } from './pages/Bin.js';
 import { Minutes } from './pages/Minutes.js';
 import { People } from './pages/People.js';
+import { Review } from './pages/Review.js';
 import { PersonDetail } from './pages/PersonDetail.js';
 import { minutesView } from './minutes/views.js';
 import { OfflineRecorder, Record } from './pages/Record.js';
@@ -71,10 +72,13 @@ export function App() {
 
   const meetingId = /^\/meetings\/([\w-]+)$/.exec(route)?.[1];
   const personId = /^\/people\/([\w-]+)$/.exec(route)?.[1];
+  const review = /^\/people\/(?:([\w-]+)\/)?review$/.exec(route);
   const page = meetingId ? (
     <MeetingDetail id={meetingId} />
   ) : route.startsWith('/minutes') ? (
     <Minutes view={minutesView(route)} />
+  ) : review ? (
+    <Review personId={review[1]} />
   ) : route === '/people' ? (
     <People />
   ) : personId ? (

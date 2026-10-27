@@ -1,12 +1,14 @@
 import type { JobSender } from '@openminutes/core';
-import { forgetVoices } from '@openminutes/core';
+import { backfillPeople, forgetVoices, type SyncStats } from '@openminutes/core';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import type { PeopleDto, PersonDetailDto } from '../dto.js';
+import type { PeopleDto, PersonDetailDto, ReviewQueueDto } from '../dto.js';
 import { rememberEnabled } from '../voices/load.js';
 import { createPerson, deletePerson, mergePeople, PeopleError, updatePerson } from './edit.js';
 import { rejectLine, removeFromProfile, verifyLine } from './lines.js';
-import { loadPeopleList, loadPersonDetail, type PeopleDeps } from './load.js';
+import { loadReviewQueue } from './review.js';
+import { loadPersonDetail, type PeopleDeps } from './load.js';
+import { loadPeoplePage } from './page.js';
 
 export interface PeopleRouteDeps extends PeopleDeps {
   queue: JobSender;
@@ -34,6 +36,14 @@ const updateInput = z
   .strictObject({ name: name.optional(), emails: emails.optional(), notes: notes.optional() })
   .refine((body) => Object.keys(body).length > 0);
 const mergeInput = z.strictObject({ sourceId: uuid });
+const listQuery = z.object({
+  q: z.string().max(200).optional(),
+  sort: z.enum(['name', 'meetings', 'lastSeen']).optional(),
+  dir: z.enum(['asc', 'desc']).optional(),
+  source: z.enum(['all', 'joined', 'invited']).optional(),
+  page: z.coerce.number().int().min(1).max(100_000).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
 const moveInput = z.strictObject({ personId: uuid });
 
 export function peopleRoutes(deps: PeopleRouteDeps): Hono {
@@ -57,7 +67,21 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     if (await rememberEnabled(deps.settings)) await deps.queue.send('meeting.learn-voice', request);
   };
 
-  routes.get('/', async (c) => c.json<PeopleDto>(await loadPeopleList(deps)));
+  routes.get('/', async (c) => {
+    const query = listQuery.safeParse(c.req.query());
+    if (!query.success) return c.json({ error: 'Invalid list' }, 400);
+    return c.json<PeopleDto>(await loadPeoplePage(deps, query.data));
+  });
+
+  /** Gives everyone from every meeting a profile. Safe to run again, it only adds what is missing. */
+  routes.post('/backfill', async (c) => c.json<SyncStats>(await backfillPeople(deps.db)));
+
+  routes.get('/review', async (c) => {
+    const raw = c.req.query('personId');
+    const id = raw === undefined ? undefined : uuid.safeParse(raw);
+    if (id && !id.success) return c.json({ error: 'Person not found' }, 404);
+    return c.json<ReviewQueueDto>(await loadReviewQueue(deps, id?.data));
+  });
 
   routes.post('/', async (c) => {
     const body = createInput.safeParse(await c.req.json().catch(() => null));
@@ -109,7 +133,7 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     if (!id.success) return c.json({ error: 'Person not found' }, 404);
     return guard(c, async () => {
       await deletePerson(deps.db, id.data);
-      return c.json<PeopleDto>(await loadPeopleList(deps));
+      return c.json<PeopleDto>(await loadPeoplePage(deps));
     });
   });
 

@@ -4,6 +4,7 @@ import {
   archiveAudio,
   detectSpeechRange,
   dropMadeUpLines,
+  linkMeetingPeople,
   dropSilentSpeech,
   looksInvented,
   mergedAudioPath,
@@ -154,6 +155,15 @@ async function startSummary(deps: ProcessDeps, meetingId: string): Promise<void>
   }
 }
 
+/** Everyone in the meeting gets a profile. It never fails the meeting. */
+async function linkPeople(db: Database, meetingId: string): Promise<void> {
+  try {
+    await linkMeetingPeople(db, meetingId);
+  } catch (error) {
+    console.error(`the people of meeting ${meetingId} could not be saved`, error);
+  }
+}
+
 async function archive(db: Database, storage: AudioStorage, meetingId: string): Promise<void> {
   try {
     await archiveAudio(db, storage, meetingId);
@@ -276,6 +286,7 @@ export async function processMeeting(
       .where(eq(meetings.id, meetingId));
     await run.finish();
     await setStatus('transcribed');
+    await linkPeople(deps.db, meetingId);
     await archive(deps.db, storage, meetingId);
     if (segments.length > 0) await startSummary(deps, meetingId);
   } catch (error) {

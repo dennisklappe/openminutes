@@ -1,3 +1,5 @@
+export type PersonSource = 'manual' | 'joined' | 'invited';
+
 export interface PersonDto {
   id: string;
   name: string;
@@ -10,11 +12,35 @@ export interface PersonDto {
   voiceSeconds: number;
   /** Lines that need a look: uncertain ones and ones the voice check doubts. */
   needsReview: number;
+  /** Meetings they were in or were invited to. */
   meetings: number;
+  /** The newest of those meetings, an ISO date. */
+  lastSeenAt: string | null;
+  /** Added by hand, was in a meeting, or only on an invitation. */
+  source: PersonSource;
+}
+
+export type PeopleSort = 'name' | 'meetings' | 'lastSeen';
+export type PeopleFilter = 'all' | 'joined' | 'invited';
+
+export interface PeopleQuery {
+  q?: string | undefined;
+  sort?: PeopleSort | undefined;
+  dir?: 'asc' | 'desc' | undefined;
+  /** joined: everyone who was in a meeting or added by hand. invited: only invited so far. */
+  source?: PeopleFilter | undefined;
+  page?: number | undefined;
+  pageSize?: number | undefined;
 }
 
 export interface PeopleDto {
   people: PersonDto[];
+  /** Everyone matching the search and filter, across all pages. */
+  total: number;
+  /** Lines that need a look across everyone, not only this page. */
+  needsReview: number;
+  page: number;
+  pageSize: number;
   /** Voices are learned from lines a person verified. */
   learning: boolean;
   /** Lines are checked against the saved voices. */
@@ -79,4 +105,44 @@ export interface PersonMergeInput {
 
 export interface PersonLineMoveInput {
   personId: string;
+}
+
+export interface ReviewRosterDto {
+  /** Null when the participant is not linked to a person yet. */
+  personId: string | null;
+  name: string;
+}
+
+export interface ReviewConsideredDto {
+  name: string;
+  /** 0 to 1. */
+  score: number;
+}
+
+export interface ReviewLineDto {
+  id: string;
+  meetingId: string;
+  meetingTitle: string;
+  meetingDate: string;
+  startMs: number;
+  endMs: number;
+  text: string;
+  hasAudio: boolean;
+  speakerConfidence: number | null;
+  voiceScore: number | null;
+  reason: PersonLineReason;
+  /** The person the system thinks said it. */
+  proposed: PersonChoiceDto;
+  /** Others the system weighed, best first. */
+  considered: ReviewConsideredDto[];
+  /** The other people of this meeting, without the proposed person and bots. */
+  roster: ReviewRosterDto[];
+}
+
+export interface ReviewQueueDto {
+  /** Lowest confidence first. */
+  lines: ReviewLineDto[];
+  /** Everyone a line can be moved to. */
+  people: PersonChoiceDto[];
+  learning: boolean;
 }

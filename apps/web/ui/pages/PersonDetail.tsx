@@ -263,18 +263,6 @@ function Line({
         </p>
       </div>
       <div className="line-actions">
-        {!line.verified && (
-          <button
-            type="button"
-            className="primary"
-            disabled={busy}
-            onClick={() => {
-              act(api.verifyLine(id, line.id));
-            }}
-          >
-            Verify
-          </button>
-        )}
         {line.verified && line.inProfile && (
           <button
             type="button"
@@ -511,14 +499,27 @@ export function PersonDetail({ id }: { id: string }) {
           </footer>
         </section>
       </div>
-      <LineList
-        title="Needs review"
-        empty="No lines need a look."
-        lines={detail.review}
-        detail={detail}
-        busy={busy}
-        act={act}
-      />
+      <section className="panel review-entry">
+        <header className="card-head">
+          <div className="card-title">
+            <h3>
+              Needs review <span className="muted">{person.needsReview}</span>
+            </h3>
+          </div>
+        </header>
+        <div className="card-body review-entry-body">
+          <p className="muted">
+            {person.needsReview === 0
+              ? 'No lines need a look.'
+              : 'Go through the uncertain lines one at a time, least sure first.'}
+          </p>
+          {person.needsReview > 0 && (
+            <a className="button primary" href={`#/people/${person.id}/review`}>
+              Review {person.needsReview} {person.needsReview === 1 ? 'line' : 'lines'}
+            </a>
+          )}
+        </div>
+      </section>
       <LineList
         title="Verified lines"
         empty="Verify a line to confirm it is this person."

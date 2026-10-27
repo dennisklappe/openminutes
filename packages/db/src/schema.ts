@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -147,6 +148,10 @@ export interface VoicePrototype {
   samples: number;
 }
 
+/** How a person came to be known: added by hand, was in a meeting, or only on an invitation. */
+export const personSources = ['manual', 'joined', 'invited'] as const;
+export type PersonSource = (typeof personSources)[number];
+
 export const voiceSampleKinds = ['line', 'meeting', 'imported'] as const;
 export type VoiceSampleKind = (typeof voiceSampleKinds)[number];
 
@@ -157,6 +162,7 @@ export const people = pgTable(
     id: id(),
     name: text('name').notNull(),
     notes: text('notes'),
+    source: text('source').$type<PersonSource>().notNull().default('manual'),
     /** Lower case. A person may have none, one or several. */
     emails: jsonb('emails').$type<string[]>().notNull().default([]),
     /** Up to 5 vectors built from the voice samples, matched by the highest cosine. */
@@ -167,24 +173,43 @@ export const people = pgTable(
   (t) => [uniqueIndex('people_name_idx').on(sql`lower(${t.name})`)],
 );
 
-export const participants = pgTable('participants', {
-  id: id(),
-  meetingId: meetingId(),
-  displayName: text('display_name').notNull(),
-  originalName: text('original_name'),
-  isBot: boolean('is_bot').notNull().default(false),
-  email: text('email'),
-  /** Replaced by inviteeEmails, kept so a rollback still finds the data. */
-  inviteeEmail: text('invitee_email'),
-  /** Every calendar invitee this person is, set by the owner. One person may use several emails. */
-  inviteeEmails: jsonb('invitee_emails').$type<string[]>().notNull().default([]),
-  joinedAt: timestamptz('joined_at'),
-  leftAt: timestamptz('left_at'),
-  voiceEmbedding: jsonb('voice_embedding').$type<number[]>(),
-  nameConfirmed: boolean('name_confirmed').notNull().default(false),
-  nameSuggestions: jsonb('name_suggestions').$type<NameSuggestion[]>(),
-  personId: uuid('person_id').references((): AnyPgColumn => people.id, { onDelete: 'set null' }),
-});
+export const participants = pgTable(
+  'participants',
+  {
+    id: id(),
+    meetingId: meetingId(),
+    displayName: text('display_name').notNull(),
+    originalName: text('original_name'),
+    isBot: boolean('is_bot').notNull().default(false),
+    email: text('email'),
+    /** Replaced by inviteeEmails, kept so a rollback still finds the data. */
+    inviteeEmail: text('invitee_email'),
+    /** Every calendar invitee this person is, set by the owner. One person may use several emails. */
+    inviteeEmails: jsonb('invitee_emails').$type<string[]>().notNull().default([]),
+    joinedAt: timestamptz('joined_at'),
+    leftAt: timestamptz('left_at'),
+    voiceEmbedding: jsonb('voice_embedding').$type<number[]>(),
+    nameConfirmed: boolean('name_confirmed').notNull().default(false),
+    nameSuggestions: jsonb('name_suggestions').$type<NameSuggestion[]>(),
+    personId: uuid('person_id').references((): AnyPgColumn => people.id, { onDelete: 'set null' }),
+  },
+  (t) => [index('participants_person_idx').on(t.personId)],
+);
+
+/** A person who was invited to a meeting, whether or not they joined. One row per person and meeting. */
+export const meetingInvitees = pgTable(
+  'meeting_invitees',
+  {
+    meetingId: meetingId(),
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.meetingId, t.personId] }),
+    index('meeting_invitees_person_idx').on(t.personId),
+  ],
+);
 
 export const participantAliases = pgTable(
   'participant_aliases',

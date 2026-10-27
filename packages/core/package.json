@@ -34,6 +34,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1155.0",
     "@openminutes/db": "workspace:^",
+    "@openminutes/minutes": "workspace:^",
     "@openminutes/platforms": "workspace:^",
     "@openminutes/providers": "workspace:^",
     "pg-boss": "^12.38.0",

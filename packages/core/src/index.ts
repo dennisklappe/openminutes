@@ -157,6 +157,14 @@ export {
   type PromptTemplate,
 } from './summary-prompts.js';
 export {
+  backfillPeople,
+  isPlaceholderName,
+  linkMeetingPeople,
+  looksLikeBot,
+  personNameFor,
+  type SyncStats,
+} from './people-sync.js';
+export {
   addVoiceSample,
   addVoiceSamples,
   cleanEmails,
