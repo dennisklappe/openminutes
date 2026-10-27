@@ -109,7 +109,15 @@ flowchart TD
 
 Synthetic voices are cleaner than phone audio, so expect worse on real calls. The indicator alignment scores 98.8% of sentences on a synthetic late-indicator meeting and 19 of 19 on a recorded Teams meeting (`e2e/transcripts/run.sh`).
 
-MEASURE_PLACEHOLDER
+Lines that hold two speakers were measured on 10 real recorded two and three person calls (about 3,200 lines) against hand-checked speaker turns, counting a line as mixed when a second speaker covers it for more than 0.5 s. Before and after the 3.5 s cut:
+
+| Speaker source                 | Mixed lines before | Mixed lines after | Right majority speaker |
+| ------------------------------ | ------------------ | ----------------- | ---------------------- |
+| Diarization (phone recordings) | 4.0%               | 3.5%              | 89.3% to 90.0%         |
+| Simulated speaking indicator   | 2.8%               | 2.4%              | 96.2% to 96.3%         |
+| Exact turns (upper bound)      | 2.1%               | 1.9%              | 96.9% to 97.2%         |
+
+The share was already under 5% and the change lowers it by about a tenth. What is left comes from the sources, not the cutting: diarization turns that start or end up to a second off, and replies of 1 to 3 words that whisper drops or glues to the next sentence. Only about 28% of the short replies in the test calls come out as a line of their own with diarization, 37% with the indicator. Such lines are caught in the [review](voices.md#lines-with-two-speakers).
 
 </details>
 
