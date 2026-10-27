@@ -10,10 +10,12 @@ import { createTestDatabase } from '@openminutes/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   backfillPeople,
+  cleanupSharedMailboxes,
   isPlaceholderName,
   linkMeetingPeople,
   looksLikeBot,
   personNameFor,
+  removeSharedMailboxes,
 } from './people-sync.js';
 
 describe('who counts as a person', () => {
@@ -247,5 +249,109 @@ describe('people marked do not track', () => {
     const everyone = await test.db.select().from(people);
     expect(everyone.filter((p) => p.name === 'Mute Person')).toHaveLength(1);
     expect(everyone.find((p) => p.name === 'Mute Person')?.tracking).toBe('off');
+  });
+});
+
+describe('shared mailboxes and resources', () => {
+  let test: Awaited<ReturnType<typeof createTestDatabase>>;
+  beforeAll(async () => {
+    test = await createTestDatabase();
+  });
+  afterAll(() => test.close());
+
+  const inv = (email: string, name: string | null): CalendarInvitee => ({
+    email,
+    name,
+    declined: false,
+  });
+  const make = async (invitees: CalendarInvitee[]) => {
+    const [row] = await test.db
+      .insert(meetings)
+      .values({
+        title: 'm',
+        platform: 'meet',
+        joinUrl: `https://meet.google.com/${crypto.randomUUID()}`,
+        invitees,
+      })
+      .returning();
+    if (!row) throw new Error('no meeting');
+    return row.id;
+  };
+  const names = async () => (await test.db.select().from(people)).map((p) => p.name).sort();
+
+  it('skips a never-joined invitee with 10 or more invitations, keeps the rest', async () => {
+    // Synthetic fixtures: a mailbox in 15 meetings, a person who joined once in 12, a person in 9.
+    const ids: string[] = [];
+    for (let i = 0; i < 15; i++) {
+      ids.push(
+        await make([
+          inv('team-box@example.com', 'Team Box'),
+          ...(i < 12 ? [inv('joiner@example.com', 'Jo Joiner')] : []),
+          ...(i < 9 ? [inv('rare@example.com', 'Rare Invitee')] : []),
+          ...(i < 11 ? [inv('manual@example.com', 'Mia Manual')] : []),
+        ]),
+      );
+    }
+    await test.db.insert(participants).values({
+      meetingId: ids[0] ?? '',
+      displayName: 'Jo Joiner',
+      email: 'joiner@example.com',
+    });
+    await test.db
+      .insert(people)
+      .values({ name: 'Mia Manual', emails: ['manual@example.com'], source: 'manual' });
+
+    const stats = await backfillPeople(test.db);
+    expect(await names()).toEqual(['Jo Joiner', 'Mia Manual', 'Rare Invitee']);
+    expect(stats.skipped).toBe(15);
+    expect(stats.removed).toBe(0);
+
+    // The same rule applies to a single meeting afterwards.
+    const later = await make([inv('team-box@example.com', 'Team Box')]);
+    await linkMeetingPeople(test.db, later);
+    expect(await names()).toEqual(['Jo Joiner', 'Mia Manual', 'Rare Invitee']);
+  });
+
+  it('cleans up existing invited-only mailboxes, but not edited or joined people, and is idempotent', async () => {
+    const box = await test.db
+      .insert(people)
+      .values({ name: 'Old Box', emails: ['old-box@example.com'], source: 'invited' })
+      .returning();
+    const edited = await test.db
+      .insert(people)
+      .values({
+        name: 'Edited Box',
+        emails: ['edited-box@example.com'],
+        source: 'invited',
+        notes: 'Our lobby',
+      })
+      .returning();
+    const touched = await test.db
+      .insert(people)
+      .values({ name: 'Touched Box', emails: ['touched-box@example.com'], source: 'invited' })
+      .returning();
+    await test.db
+      .update(people)
+      .set({ updatedAt: new Date(Date.now() + 60_000) })
+      .where(eq(people.id, touched[0]?.id ?? ''));
+    const merged = await test.db
+      .insert(people)
+      .values({ name: 'Merged Box', emails: ['merged-box@example.com'], source: 'joined' })
+      .returning();
+    for (const person of [box, edited, touched, merged]) {
+      for (let i = 0; i < 12; i++) {
+        await test.db
+          .insert(meetingInvitees)
+          .values({ meetingId: await make([]), personId: person[0]?.id ?? '' });
+      }
+    }
+    const before = (await names()).length;
+    expect(await removeSharedMailboxes(test.db)).toBe(1);
+    expect(await removeSharedMailboxes(test.db)).toBe(0);
+    expect(await cleanupSharedMailboxes(test.db)).toBe(0);
+    const after = await names();
+    expect(after).toHaveLength(before - 1);
+    expect(after).not.toContain('Old Box');
+    expect(after).toEqual(expect.arrayContaining(['Edited Box', 'Touched Box', 'Merged Box']));
   });
 });

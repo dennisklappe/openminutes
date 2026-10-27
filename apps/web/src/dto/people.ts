@@ -46,6 +46,8 @@ export interface PeopleDto {
   total: number;
   /** Lines that need a look across everyone, not only this page. */
   needsReview: number;
+  /** Tracked people who were only ever invited, whatever the filter. */
+  invitedOnly: number;
   page: number;
   pageSize: number;
   /** Voices are learned from lines a person verified. */

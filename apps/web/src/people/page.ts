@@ -54,6 +54,9 @@ export async function loadPeoplePage(
     total = rows[0]?.total ?? 0;
   }
 
+  const { rows: invited } = await db.execute<{ n: number }>(
+    sql`select count(*)::int as n from people where source = 'invited' and tracking = 'on'`,
+  );
   const allReview = await reviewCounts(db);
   const ids = found.map((row) => row.id);
   const [rows, samples, seen, review, dupes] = await Promise.all([
@@ -88,6 +91,7 @@ export async function loadPeoplePage(
     }),
     total,
     needsReview: [...allReview.values()].reduce((sum, n) => sum + n, 0),
+    invitedOnly: invited[0]?.n ?? 0,
     page,
     pageSize,
     learning: await rememberEnabled(deps.settings),
