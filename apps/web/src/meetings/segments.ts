@@ -46,6 +46,7 @@ export async function loadSegments(db: Database, meetingId: string): Promise<Seg
     suggestedSpeaker: nameOf(row.suggestedParticipantId),
     suggestedSpeakerId: row.suggestedParticipantId,
     viaSpeaker: viaOf(row),
+    mixed: row.mixed,
   }));
 }
 

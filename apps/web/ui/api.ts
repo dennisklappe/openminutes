@@ -289,6 +289,18 @@ export const api = {
       body: { personId },
       keepalive: true,
     }),
+  splitLine: (id: string, segmentId: string, body: { cuts: number[]; personIds: string[] }) =>
+    request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/split`, {
+      method: 'POST',
+      body,
+      keepalive: true,
+    }),
+  markMixed: (id: string, segmentId: string) =>
+    request<PersonDetailDto>(`/people/${id}/lines/${segmentId}/mixed`, {
+      method: 'POST',
+      body: {},
+      keepalive: true,
+    }),
   skipLine: (personId: string, segmentId: string) =>
     request<{ ok: true }>('/people/review/skip', {
       method: 'POST',

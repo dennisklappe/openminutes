@@ -386,3 +386,25 @@ kbd {
     min-height: 36px;
   }
 }
+
+.mixed-marker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.mixed-badge {
+  padding: 1px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.mixed-marker .link {
+  min-height: 0;
+  padding: 0;
+}

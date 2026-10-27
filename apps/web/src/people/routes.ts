@@ -18,7 +18,15 @@ import {
   setTracking,
   updatePerson,
 } from './edit.js';
-import { rejectLine, removeFromProfile, skipLine, undoDecision, verifyLine } from './lines.js';
+import {
+  markMixed,
+  rejectLine,
+  removeFromProfile,
+  skipLine,
+  splitLine,
+  undoDecision,
+  verifyLine,
+} from './lines.js';
 import { deleteProfile } from './profiles.js';
 import { loadReviewCounts, loadReviewQueue } from './review.js';
 import { loadPersonDetail, type PeopleDeps } from './load.js';
@@ -62,6 +70,14 @@ const listQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });
 const moveInput = z.strictObject({ personId: uuid });
+const splitInput = z
+  .strictObject({
+    /** Word indexes to cut before, one or two, in order. */
+    cuts: z.array(z.int().min(1).max(100_000)).min(1).max(2),
+    /** One person per part. */
+    personIds: z.array(uuid).min(2).max(3),
+  })
+  .refine((body) => body.personIds.length === body.cuts.length + 1);
 const trackingInput = z.strictObject({ tracking: z.enum(['on', 'off']) });
 const reviewQuery = z.object({
   personId: uuid.optional(),
@@ -284,6 +300,19 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     if (!body.success) throw new PeopleError('Pick who said it', 400);
     await learn(await verifyLine(deps.db, body.data.personId, segmentId), body.data.personId);
   });
+  lineRoute('/split', 'post', async (personId, segmentId, raw) => {
+    const body = splitInput.safeParse(raw);
+    if (!body.success) throw new PeopleError('Pick where to split and who says each part', 400);
+    const { learn: toLearn } = await splitLine(
+      deps.db,
+      personId,
+      segmentId,
+      body.data.cuts,
+      body.data.personIds,
+    );
+    for (const { personId: owner, request } of toLearn) await learn(request, owner);
+  });
+  lineRoute('/mixed', 'post', (personId, segmentId) => markMixed(deps.db, personId, segmentId));
   lineRoute('/profile', 'delete', (personId, segmentId) =>
     removeFromProfile(deps.db, personId, segmentId),
   );
