@@ -139,9 +139,16 @@ describe('assignSpeakers', () => {
       expect(result.map((r) => r.text).join(' ')).toBe(spanning.text);
     });
 
-    it('falls back to segment overlap when there are no words', () => {
+    it('cuts a segment without word times by characters at the turn change', () => {
       const plain = { startMs: spanning.startMs, endMs: spanning.endMs, text: spanning.text };
-      expect(ids(assignSpeakers([plain], turns))).toEqual(['alice']);
+      expect(ids(assignSpeakers([plain], turns))).toEqual(['bob', 'alice']);
+    });
+
+    it('falls back to segment overlap when a cut would leave too little in a part', () => {
+      const plain = { startMs: spanning.startMs, endMs: spanning.endMs, text: spanning.text };
+      expect(ids(assignSpeakers([plain], [span('bob', 0, 600), span('alice', 600, 6500)]))).toEqual(
+        ['alice'],
+      );
     });
 
     it('falls back to the diarization label when no word is covered', () => {

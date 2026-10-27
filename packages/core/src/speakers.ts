@@ -3,6 +3,7 @@ import { estimateLag, removeLag } from './speaker-lag.js';
 import { cohereSentences } from './speaker-sentences.js';
 import { groupWords, joinWords, type OwnedWord } from './speaker-segments.js';
 import { overlap, type SpeakerSpan, type Timed, type TimedWord } from './speaker-types.js';
+import { splitAtChanges } from './speaker-split.js';
 import { assignWords } from './speaker-words.js';
 
 export type { SpeakerSpan, TimedWord } from './speaker-types.js';
@@ -121,7 +122,8 @@ function attributeByOverlap<T extends Attributable>(
  * the platform's active-speaker events, corrected for how late the indicator lights up and
  * clears and smoothed so flicker and one-word glitches do not split turns, and the words are
  * cut into new segments at speaker changes, pauses and sentence ends. Items without word times
- * go to the speaker whose events overlap them most, and items with a diarization label fall back
+ * go to the speaker whose events overlap them most, unless one speaker alone is lit in two
+ * stretches of it (see `splitAtChanges`), and items with a diarization label fall back
  * to that label, mapped to a participant by how much that label's items overlap each
  * participant's events, where the events do not cover them.
  */
@@ -142,7 +144,10 @@ export function assignSpeakers<T extends Attributable>(
       run.push(item);
     } else {
       flush();
-      result.push(attributeByOverlap(item, spans, labels));
+      const parts =
+        item.text === undefined ? undefined : splitAtChanges({ ...item, text: item.text }, spans);
+      if (parts) result.push(...parts.map((part) => ({ ...item, ...part })));
+      else result.push(attributeByOverlap(item, spans, labels));
     }
   }
   flush();
