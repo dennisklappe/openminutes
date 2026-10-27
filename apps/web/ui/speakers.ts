@@ -62,7 +62,8 @@ function percents(values: readonly number[]): number[] {
  * Talk time per person, once each. A person with a seat and a voice is one row when both are the
  * same person (same linked person or same participant), never by name. A shared tile is not a
  * speaker next to its own voices: what only the tile has (overlap, short lines, unassigned) is one
- * muted row, left out when it is small. A tile without voices stays a normal row.
+ * muted row, left out when it is small. A tile without voices stays a normal row. The most talk
+ * comes first.
  */
 export function talkTime(segments: readonly SegmentDto[]): TalkRow[] {
   const slots = speakerSlots(segments);
@@ -107,6 +108,7 @@ export function talkTime(segments: readonly SegmentDto[]): TalkRow[] {
         ms,
       })),
   ];
+  rows.sort((a, b) => b.ms - a.ms);
   const shown = rows.reduce((sum, row) => sum + row.ms, 0) || 1;
   const whole = percents(rows.map((row) => row.ms));
   return rows.map((row, i) => ({ ...row, percent: whole[i] ?? 0, share: row.ms / shown }));

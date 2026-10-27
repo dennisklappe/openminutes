@@ -39,6 +39,26 @@ describe('talkTime', () => {
   });
 });
 
+describe('talkTime order', () => {
+  it('lists the most talkative first while keeping each colour slot', () => {
+    const segment = (speaker: string, startMs: number, endMs: number) =>
+      makeSegment({ id: String(startMs), speaker, startMs, endMs });
+    const result = talkTime([
+      segment('A', 0, 1000),
+      segment('B', 1000, 4000),
+      segment('C', 4000, 6000),
+    ]);
+    expect(result.map((r) => [r.name, r.slot])).toEqual([
+      ['B', 1],
+      ['C', 2],
+      ['A', 0],
+    ]);
+    expect(result.map((r) => r.share)).toEqual(
+      [...result.map((r) => r.share)].sort((a, b) => b - a),
+    );
+  });
+});
+
 describe('speakerSlots for a shared tile', () => {
   it('keeps the voices of one tile on different colours even after the palette wrapped', () => {
     const filler = Array.from({ length: SPEAKER_COLORS - 1 }, (_, i) => ({ speaker: `P${i}` }));
@@ -79,10 +99,10 @@ describe('talkTime with a shared tile', () => {
     expect(rows.map((r) => [r.name, r.percent, r.unassigned])).toEqual([
       ['Dennis', 40, false],
       ['Bart', 34, false],
-      ['Pieter', 4, false],
       ['Unassigned (Ann and Sam)', 22, true],
+      ['Pieter', 4, false],
     ]);
-    expect(rows.at(-1)?.slot).toBeNull();
+    expect(rows.find((r) => r.unassigned)?.slot).toBeNull();
     expect(rows.reduce((sum, r) => sum + r.percent, 0)).toBe(100);
   });
 
