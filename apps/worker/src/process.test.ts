@@ -18,6 +18,7 @@ import {
   eq,
   meetings,
   participants,
+  roomVoices,
   speakerEvents,
   transcriptSegments,
 } from '@openminutes/db';
@@ -339,6 +340,32 @@ describe('processMeeting', () => {
           suggestedParticipantId: bob.id,
         });
         expect(flagged?.speakerConfidence).toBeLessThan(0.7);
+      });
+
+      it('saves the room voices of a tile with two distinct voices', async () => {
+        const lines = 8;
+        reset(
+          Array.from({ length: lines }, (_, i) => ({
+            startMs: i * 5000,
+            endMs: i * 5000 + 4000,
+            text: `Line ${i}.`,
+          })),
+        );
+        const id = await insertMeeting('ended', ['000.opus']);
+        const [room] = await test.db
+          .insert(participants)
+          .values({ meetingId: id, displayName: 'Two at a screen' })
+          .returning();
+        if (!room) throw new Error('insert failed');
+        await test.db
+          .insert(speakerEvents)
+          .values({ meetingId: id, participantId: room.id, startMs: 0, endMs: lines * 5000 });
+        const one = [1, 0, 0];
+        const two = [0, 1, 0];
+        const embeddings = Array.from({ length: lines }, (_, i) => (i < lines / 2 ? one : two));
+        await processMeeting(withRecording(true, embeddings), id);
+        const voices = await test.db.select().from(roomVoices).where(eq(roomVoices.meetingId, id));
+        expect(voices.map((v) => v.lines).toSorted()).toEqual([4, 4]);
       });
 
       it('opens the real original audio for the voice check, then publishes it', async () => {
