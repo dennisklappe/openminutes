@@ -190,6 +190,7 @@ export {
   type Person,
 } from './people.js';
 export * from './voice-anchors.js';
+export * from './mixed-line.js';
 export * from './voice-auto.js';
 export * from './voice-rooms.js';
 export * from './shared-accounts.js';
