@@ -4,7 +4,9 @@ import {
   asc,
   eq,
   meetings,
+  inArray,
   participants,
+  people as peopleTable,
   roomVoices,
   transcriptSegments,
   type Database,
@@ -45,14 +47,48 @@ export async function assembleMinutes(
     loadChatLines(db, meetingId),
     sharedTilesNamed(db, meetingId),
   ]);
+  const known = await knownEmails(db, people, hidden);
   return buildMinutes({
     meeting,
-    participants: people.map((seat) => ({ ...seat, hidden: hidden.has(seat.id) })),
+    participants: people.map((seat) => ({
+      ...seat,
+      email: seat.email ?? known.get(seat.id) ?? null,
+      hidden: hidden.has(seat.id),
+    })),
     botName: botName?.trim() || BOT_DEFAULTS.name,
     summary: summary?.content ?? null,
     segments,
     chat: chat.map(({ sender, text, links, offsetMs }) => ({ sender, text, links, offsetMs })),
   });
+}
+
+/**
+ * The first email of the person behind a seat that has no address typed on the meeting, so a voice
+ * named as someone who already has an email still gets the minutes. The address of a shared tile
+ * never counts, even when the person has it on record.
+ */
+async function knownEmails(
+  db: Database,
+  seats: readonly { id: string; email: string | null; personId: string | null }[],
+  hidden: ReadonlySet<string>,
+): Promise<Map<string, string>> {
+  const linked = seats.filter((seat) => seat.personId && !seat.email && !hidden.has(seat.id));
+  if (linked.length === 0) return new Map();
+  const owners = await db
+    .select({ id: peopleTable.id, emails: peopleTable.emails })
+    .from(peopleTable)
+    .where(inArray(peopleTable.id, [...new Set(linked.map((seat) => seat.personId ?? ''))]));
+  const tileEmails = new Set(
+    seats.flatMap((seat) => (hidden.has(seat.id) && seat.email ? [seat.email.toLowerCase()] : [])),
+  );
+  const result = new Map<string, string>();
+  for (const seat of linked) {
+    const own = owners
+      .find((owner) => owner.id === seat.personId)
+      ?.emails.find((email) => !tileEmails.has(email.toLowerCase()));
+    if (own) result.set(seat.id, own);
+  }
+  return result;
 }
 
 /**

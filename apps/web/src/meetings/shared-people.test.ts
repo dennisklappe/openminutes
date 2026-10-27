@@ -390,6 +390,27 @@ describe('the people of a shared account', () => {
     expect(candidates.map((c) => c.email)).not.toContain('minutes-tile@example.com');
   });
 
+  it('mails a voice named as someone with an email, never the tile address', async () => {
+    const [rita] = await test.db
+      .insert(people)
+      .values({ name: 'Rita Known', emails: ['rita.known@example.com'] })
+      .returning();
+    if (!rita) throw new Error('insert failed');
+    const { meeting, tile, tileEmail } = await fixture({ tileName: 'Known Tile' });
+    await call('POST', `/meetings/${meeting.id}/room/${tile.id}/count`, { unsure: true });
+    const [first] = (await roster(meeting.id)).participants[0]?.room?.subs ?? [];
+    if (!first) throw new Error('no subs');
+    const named = await call('POST', `/people/${first.personId}/name-voice`, { personId: rita.id });
+    expect(named.status).toBe(200);
+    const minutes = await assembleMinutes({ db: test.db, settings }, meeting.id);
+    const emails = recipientCandidates(
+      minutes ?? ({ attendees: [], absent: [] } as never),
+      new Map(),
+    ).map((r) => [r.name, r.email]);
+    expect(emails).toContainEqual(['Rita Known', 'rita.known@example.com']);
+    expect(emails.map(([, email]) => email)).not.toContain(tileEmail);
+  });
+
   it('gives each sub-person their own emails, an invitee to one only', async () => {
     const { meeting, tile, tileEmail } = await fixture({ tileName: 'Email Tile' });
     await call('POST', `/meetings/${meeting.id}/room/${tile.id}/count`, { unsure: true });
