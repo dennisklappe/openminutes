@@ -12,13 +12,16 @@ export const GUARD_MIN_LINE_MS = 4000;
 /** Each half must be at least this long, a shorter print cannot tell speakers apart. */
 export const GUARD_MIN_HALF_MS = 1500;
 /**
- * Halves of one line that score under this cosine are probably two speakers. Chosen from the
- * other thresholds on the same eres2net prints: two prints are called the same voice from 0.6
- * (recording speakers) and a saved voice matches from 0.55. Halves are short, so the prints are
- * noisier and genuine same-speaker halves dip lower, hence a lower bar here: a false alarm only
- * costs one skipped sample, a miss trains a profile with the wrong voice. Not tuned on real audio.
+ * Halves of one line that score under this cosine are probably two speakers. Measured on real
+ * recorded Dutch calls with the default ERes2Net prints (single-speaker lines of 4 to 9 s against
+ * lines across a handover, halves cut at the middle): same-speaker halves have a median cosine of
+ * 0.57, so the guard is weak. At 0.45 it flags 23% of single-speaker lines to catch 45% of mixed
+ * ones, at 0.30 it flags about 10% to catch about 28%. A flagged line costs one skipped sample and
+ * one review card, so the bar is set low: a tripwire for the clear cases, not a detector. Other
+ * embedders and window layouts (thirds, sliding windows) scored no better. Splitting at the source
+ * (see `assignSpeakers`) does the real work.
  */
-export const GUARD_SAME_VOICE = 0.45;
+export const GUARD_SAME_VOICE = 0.3;
 
 export interface HalfRange {
   startMs: number;
