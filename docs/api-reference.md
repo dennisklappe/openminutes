@@ -75,6 +75,8 @@ Generated from the route table by `apps/web/src/api-reference.test.ts`. Run `UPD
 | `GET` | `/api/meetings/:id/minutes` | Read or full key |
 | `GET` | `/api/meetings/:id/participants` | Read or full key |
 | `PUT` | `/api/meetings/:id/participants/:participantId` | Full key |
+| `GET` | `/api/meetings/:id/participants/:participantId/identity` | Read or full key |
+| `PUT` | `/api/meetings/:id/participants/:participantId/identity` | Full key |
 | `PUT` | `/api/meetings/:id/participants/:participantId/invitee` | Full key |
 | `PUT` | `/api/meetings/:id/people/:personId/invitee` | Full key |
 | `POST` | `/api/meetings/:id/rejoin` | Full key |
