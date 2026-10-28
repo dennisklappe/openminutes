@@ -18,6 +18,7 @@ const PUBLIC = new Set([
   'GET /api/oauth/callback',
   'GET /api/oauth/:provider/callback',
 ]);
+const pathOf = (entry: string) => entry.split(' ')[1] ?? '';
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
 describe('docs/api-reference.md', () => {
@@ -42,9 +43,7 @@ describe('docs/api-reference.md', () => {
       }
     }
     const groups = new Map<string, string[]>();
-    for (const entry of [...seen].sort((a, b) =>
-      a.split(' ')[1]!.localeCompare(b.split(' ')[1]!),
-    )) {
+    for (const entry of [...seen].sort((a, b) => pathOf(a).localeCompare(pathOf(b)))) {
       const [method = '', path = ''] = entry.split(' ');
       const group = path.split('/')[2] ?? '';
       const note = PUBLIC.has(entry)
