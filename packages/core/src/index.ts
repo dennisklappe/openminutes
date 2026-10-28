@@ -216,6 +216,19 @@ export {
   PROTOTYPE_JOIN_SIMILARITY,
   type ProfileSample,
 } from './voice-profile.js';
+export {
+  assignVoices,
+  companyHint,
+  fillFromCalendar,
+  SURE_MARGIN,
+  SURE_SCORE,
+  type Attendee,
+  type Certainty,
+  type CheckPerson,
+  type CheckVoice,
+  type CompanyHint,
+  type VoiceFit,
+} from './check-people.js';
 export { cosineSimilarity, matchVoices, mergeEmbeddings, VOICE_MATCH_THRESHOLD } from './voices.js';
 export {
   assembleChunks,
