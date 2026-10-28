@@ -28,6 +28,11 @@ export interface LearnVoiceJobPayload extends MeetingJobPayload {
   segmentIds: string[];
 }
 
+export interface RerunSpeakersJobPayload extends MeetingJobPayload {
+  /** How many people speak, the fixed number of voices to find. */
+  speakers: number;
+}
+
 export interface SplitRoomJobPayload extends MeetingJobPayload {
   participantId: string;
   /** How many people sit in the tile, 2 to 4. */
@@ -50,6 +55,8 @@ export interface JobPayloads {
   'meeting.process': ProcessJobPayload;
   'meeting.import': ImportJobPayload;
   'meeting.review-speakers': MeetingJobPayload;
+  'meeting.rerun-speakers': RerunSpeakersJobPayload;
+  'meeting.check-voices': MeetingJobPayload;
   'meeting.learn-voice': LearnVoiceJobPayload;
   'meeting.split-room': SplitRoomJobPayload;
   'calendar.sync': CalendarSyncPayload;
@@ -71,6 +78,8 @@ export const jobNames: readonly JobName[] = [
   'meeting.process',
   'meeting.import',
   'meeting.review-speakers',
+  'meeting.rerun-speakers',
+  'meeting.check-voices',
   'meeting.learn-voice',
   'meeting.split-room',
   'calendar.sync',

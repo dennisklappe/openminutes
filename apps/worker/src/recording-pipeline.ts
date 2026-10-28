@@ -1,4 +1,10 @@
-import type { Database, NameSuggestion } from '@openminutes/db';
+import {
+  eq,
+  participants,
+  transcriptSegments,
+  type Database,
+  type NameSuggestion,
+} from '@openminutes/db';
 import type { SummaryProvider } from '@openminutes/providers';
 import {
   conversationSuggestions,
@@ -67,6 +73,33 @@ export async function finishRecording(
   if (!recording || labels.speakers.length === 0) return;
   try {
     await suggest(db, recording, labels, rows);
+  } catch (error) {
+    console.error(`name suggestions for meeting ${meetingId} failed, storing none`, error);
+  }
+}
+
+/** Stores name suggestions again for the speakers and lines a meeting has now. Best effort. */
+export async function suggestForMeeting(
+  db: Database,
+  recording: RecordingDeps,
+  meetingId: string,
+): Promise<void> {
+  try {
+    const people = await db
+      .select()
+      .from(participants)
+      .where(eq(participants.meetingId, meetingId));
+    const rows = await db
+      .select()
+      .from(transcriptSegments)
+      .where(eq(transcriptSegments.meetingId, meetingId))
+      .orderBy(transcriptSegments.startMs, transcriptSegments.id);
+    const speakers = people.map((row) => ({
+      id: row.id,
+      name: row.displayName,
+      embedding: row.voiceEmbedding,
+    }));
+    await suggest(db, recording, { spans: [], speakers, staleIds: [] }, rows);
   } catch (error) {
     console.error(`name suggestions for meeting ${meetingId} failed, storing none`, error);
   }

@@ -289,7 +289,9 @@ export async function embedInBatches(
  * participants (see `voice-anchors`). It changes nothing when the check is off, there is neither
  * a saved voice nor a usable pair of meeting voices, or the voice service is unavailable. Lines a
  * person set are never touched. A doubted line gets the better fitting speaker as a suggestion.
- * Meeting voices are temporary: nothing about them is saved.
+ * Meeting voices are temporary: nothing about them is saved. The range moves the lines to the
+ * time of the speaking events, `audioOffsetMs` to the time of the audio file: they differ when the
+ * file is already cut to the range.
  */
 export async function checkVoices(
   deps: VoiceCheckDeps,
@@ -297,6 +299,7 @@ export async function checkVoices(
   rows: readonly TranscriptRow[],
   audioPath: string,
   range: SpeechRange | null,
+  audioOffsetMs = range?.startMs ?? 0,
 ): Promise<TranscriptRow[]> {
   try {
     if (!(await deps.enabled())) return [...rows];
@@ -326,8 +329,8 @@ export async function checkVoices(
       diarizer,
       audioPath,
       checked.map((i) => ({
-        startMs: (rows[i]?.startMs ?? 0) + offset,
-        endMs: (rows[i]?.endMs ?? 0) + offset,
+        startMs: (rows[i]?.startMs ?? 0) + audioOffsetMs,
+        endMs: (rows[i]?.endMs ?? 0) + audioOffsetMs,
       })),
     );
     if (!embedded) return [...rows];

@@ -29,6 +29,7 @@ import { learnVoice } from './learn-voice.js';
 import { createRecordingDeps } from './recording-deps.js';
 import { deleteExpiredAudio } from './retention.js';
 import { scheduleMeeting } from './schedule.js';
+import { checkMeetingVoices, rerunSpeakers } from './rerun.js';
 import { reviewMeetingSpeakers } from './speaker-review/job.js';
 import { runSummary } from './summary-job.js';
 
@@ -121,6 +122,14 @@ await queue.work('meeting.split-room', (job) =>
 await queue.work('meeting.review-speakers', ({ meetingId }) =>
   reviewMeetingSpeakers(processDeps, meetingId),
 );
+const rerunDeps = {
+  db,
+  queue,
+  loadStorage: processDeps.loadStorage,
+  recording: processDeps.recording,
+};
+await queue.work('meeting.rerun-speakers', (job) => rerunSpeakers(rerunDeps, job));
+await queue.work('meeting.check-voices', (job) => checkMeetingVoices(rerunDeps, job));
 await queue.work('calendar.sync', ({ accountId }) => syncAccounts(calendar, accountId));
 await queue.schedule('calendar.sync', SYNC_CRON, {});
 await queue.work('meeting.summarize', ({ summaryId }) => runSummary(summaryDeps, summaryId));
