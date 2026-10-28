@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { ImportConfigDto, ImportPreviewDto } from '../../src/dto.js';
 import { api, errorMessage } from '../api.js';
+import { uuid } from '../uuid.js';
 import { archiveProblem, uploadChunks } from './upload.js';
 
 export type UploadState =
@@ -21,7 +22,7 @@ export function useUpload(
       const problem = archiveProblem(file, config.maxBytes);
       setError(problem);
       if (problem) return;
-      const id = crypto.randomUUID();
+      const id = uuid();
       setState({ kind: 'uploading', name: file.name, sent: 0, total: file.size });
       try {
         const chunks = await uploadChunks(file, config.chunkBytes, {

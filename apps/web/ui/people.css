@@ -499,3 +499,27 @@ button.link.quiet {
   border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
   color: var(--accent);
 }
+
+/* The pager under the table keeps clear of the card edge and of the last row. */
+.table-wrap > .toolbar {
+  margin: 0;
+  padding: 16px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 600px) {
+  /* Email under the name on its own line, cut off with an ellipsis; the voice status below it. */
+  .people-table tbody tr td:nth-child(2),
+  .people-table tbody tr td:nth-child(3) {
+    grid-column: 1 / -1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .people-table .name-cell > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}

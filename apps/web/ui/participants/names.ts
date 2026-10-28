@@ -64,8 +64,10 @@ export function nameFromEmail(email: string): string {
   return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || email;
 }
 
-export const inviteeLabel = (invitee: InviteeDto) =>
-  invitee.name ? `${invitee.name} (${invitee.email})` : invitee.email;
+export const inviteeLabel = (invitee: InviteeDto) => {
+  const email = invitee.email.toLowerCase();
+  return invitee.name ? `${invitee.name} (${email})` : email;
+};
 
 /** The email of the only invitee sharing a first name with one of these names, or '' when unclear. */
 export function likelyInvitee(

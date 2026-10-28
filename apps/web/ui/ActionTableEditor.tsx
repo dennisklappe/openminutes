@@ -21,7 +21,9 @@ export function ActionTableEditor(props: {
             {table.header.map((name) => (
               <th key={name}>{name}</th>
             ))}
-            <th aria-label="Remove" />
+            <th>
+              <span className="visually-hidden">Remove</span>
+            </th>
           </tr>
         </thead>
         <tbody>

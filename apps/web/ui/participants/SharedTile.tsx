@@ -10,12 +10,14 @@ import {
   needsMove,
   noteText,
   personHref,
+  voiceLabel,
+  withoutTileEmail,
+  voiceSlot,
   splitOptions,
   subMeta,
   tileEmailState,
 } from '../sharedRoom.js';
 import { SnippetPlayer } from '../SnippetPlayer.js';
-import { SPEAKER_COLORS } from '../speakers.js';
 import { inviteeLabel, presence, validEmail } from './names.js';
 import { VoiceFlow } from './VoiceFlow.js';
 
@@ -103,7 +105,7 @@ function EmailDialog({
   const [error, setError] = useState<string>();
   if (!room) return null;
   const choices = inviteeChoices(
-    invitees,
+    withoutTileEmail(invitees, tile),
     { ...sub, inviteeEmails: links },
     room.subs,
     holdersOf(others),
@@ -225,6 +227,7 @@ export function VoiceRow({
   sub,
   invitees,
   others,
+  slots,
   onChanged,
 }: {
   meetingId: string;
@@ -232,6 +235,8 @@ export function VoiceRow({
   sub: SubPersonDto;
   invitees: InviteeDto[];
   others: ParticipantDto[];
+  /** The colour slot per speaker name, as in the transcript legend. */
+  slots?: ReadonlyMap<string, number>;
   onChanged: () => void;
 }) {
   const [dialog, setDialog] = useState<'name' | 'change' | 'email'>();
@@ -244,7 +249,7 @@ export function VoiceRow({
   return (
     <li
       className="sub-person voice-row"
-      data-speaker-slot={(sub.number - 1) % SPEAKER_COLORS}
+      data-speaker-slot={voiceSlot(sub, slots)}
       data-unnamed={sub.unnamed || undefined}
     >
       <div className="people-name">
@@ -253,10 +258,10 @@ export function VoiceRow({
             <span className="voice-dot" aria-hidden="true" />
             {href ? (
               <a className="sub-link" href={href}>
-                {sub.name}
+                {voiceLabel(sub)}
               </a>
             ) : (
-              <strong className="sub-label">{sub.name}</strong>
+              <strong className="sub-label">{voiceLabel(sub)}</strong>
             )}
           </span>
           <span className="shared-marker" title={`Joined from the shared account ${tile.name}`}>

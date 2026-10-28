@@ -116,6 +116,7 @@ flowchart LR
 - the **summary** waits for the answer. The transcript and everything else go on. Under Settings, Summaries, **Wait for how many people on shared accounts** sets the time (15 minutes by default, 0 never waits). When it runs out the summary goes on with the number of voices found, and the notice that speakers changed since the summary covers a later change. The summary job looks again every 20 seconds through the job queue, it does not hold a worker
 - the answer is **remembered per shared account**: its email when it has one, else its normalised name. The next meeting from the same account skips the question and clusters with that number. Under Settings, Summaries, **Remembered shared accounts** lists them with **Remove**, which makes the next meeting ask again and keeps the people already made
 - nothing is asked for a tile of one person, and nothing happens for a tile nobody flags and nobody remembered. Where detection missed it, use **Split into 2 people** or **Split into 3 people** on the participant in the People card. This uses the same clustering with a fixed number and the same data
+- two voices that follow each other with less than about a second of silence between them can be merged by the transcription into one line, and that line is then given to one voice. Splitting such a line is covered by the Split line feature in the next release
 
 ### People under the tile
 
@@ -158,7 +159,7 @@ The voice of each group is kept in the table `room_voices` with the meeting, as 
 
 ## Deleting
 
-Delete the voice data of one person on their page, mark them Do not track to stop it for good, or delete everyone's under Settings, Summaries, Voices. People, names and emails stay. Turning an option off stops learning or checking and keeps what is saved.
+Delete the voice data of one person on their page or in the list under Settings, Summaries, Voices (both ask first), mark them Do not track to stop it for good, or delete everyone's under Settings, Summaries, Voices. People, names and emails stay. Turning an option off stops learning or checking and keeps what is saved.
 
 > [!NOTE]
 > Deleting a meeting removes its speakers' voiceprints from the meeting, not the saved voices. Delete those separately.

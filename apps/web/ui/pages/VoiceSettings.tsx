@@ -45,6 +45,22 @@ function VoiceForm({
     if (confirmed) run(api.forgetAllVoices());
   };
 
+  const forgetOne = async (voice: VoiceSettingsDto['known'][number]) => {
+    const confirmed = await confirm({
+      title: `Delete the voice data of ${voice.name}?`,
+      body: (
+        <p>
+          The saved voice samples and the voice profile of {voice.name} are deleted. The person,
+          their name and emails stay. Their name will no longer be suggested for a returning voice.
+          This cannot be undone.
+        </p>
+      ),
+      confirmLabel: 'Delete voice data',
+      destructive: true,
+    });
+    if (confirmed) run(api.forgetVoice(voice.id));
+  };
+
   return (
     <SettingsCard
       form={form}
@@ -126,7 +142,7 @@ function VoiceForm({
                 className="danger"
                 aria-label={`Delete the voice data of ${voice.name}`}
                 onClick={() => {
-                  run(api.forgetVoice(voice.id));
+                  void forgetOne(voice);
                 }}
               >
                 Delete

@@ -8,6 +8,7 @@ import type {
 } from '../src/dto.js';
 import { formatLength } from './format.js';
 import type { InvitedOption, PickerOption } from './review.js';
+import { SPEAKER_COLORS } from './speakers.js';
 import { nameFromEmail } from './participants/names.js';
 
 /** The counts offered by the "how many people?" question. 1 means "it is one person". */
@@ -21,6 +22,12 @@ export function splitOptions(room: Pick<RoomGroupDto, 'canSplit' | 'count'>): (2
 /** Whether the tile still waits for "how many people?" (the notice carries the question). */
 export const questionOpen = (room: Pick<RoomGroupDto, 'count' | 'detected'>) =>
   room.count === null && room.detected > 0;
+
+/** What a summary that has not started says while a tile's question is open. */
+export function summaryWaitingText(notices: readonly Pick<RoomNoticeDto, 'name'>[]): string {
+  const tiles = notices.map((notice) => notice.name).join(' and ');
+  return `Waiting for how many people joined from ${tiles}`;
+}
 
 /** "Jo and Sam sounds like several people. How many?" */
 export const questionText = (notice: Pick<RoomNoticeDto, 'name'>) =>
@@ -144,7 +151,29 @@ export interface InviteeChoice {
 export interface InviteeHolder {
   name: string;
   inviteeEmails: readonly string[];
+  /** The address of the participant itself: an invitee with it is that participant. */
+  email?: string | null | undefined;
 }
+
+const sameText = (a: string | null | undefined, b: string | null | undefined) =>
+  !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** Whether an invitee is this participant: linked, the same address, or the same name. */
+const isHeldBy = (invitee: InviteeDto, holder: InviteeHolder) =>
+  holder.inviteeEmails.some((own) => sameText(own, invitee.email)) ||
+  sameText(holder.email, invitee.email) ||
+  sameText(holder.name, invitee.name);
+
+/** The invitees that are not the shared account itself: its own address is no person. */
+export const withoutTileEmail = (
+  invitees: readonly InviteeDto[],
+  tile: Pick<ParticipantDto, 'email' | 'inviteeEmails'> & {
+    room?: Pick<RoomGroupDto, 'tileEmail'> | undefined;
+  },
+): InviteeDto[] => {
+  const own = [tile.email, tile.room?.tileEmail, ...tile.inviteeEmails];
+  return invitees.filter((invitee) => !own.some((email) => sameText(email, invitee.email)));
+};
 
 /**
  * Every invitee of the meeting for one sub-person, whether or not it is in the "Unable to attend"
@@ -162,7 +191,7 @@ export function inviteeChoices(
     const has = (list: readonly string[]) => list.some((own) => own.toLowerCase() === email);
     const owner =
       subs.find((other) => other.voiceId !== sub.voiceId && has(other.inviteeEmails)) ??
-      others.find((other) => has(other.inviteeEmails));
+      others.find((other) => isHeldBy(invitee, other));
     return {
       invitee,
       mine: has(sub.inviteeEmails),
@@ -221,9 +250,13 @@ export function linkTargets(participants: readonly ParticipantDto[]): LinkTarget
 
 /** The participants of the meeting, tiles too, that may hold an invitee link. */
 export const holdersOf = (
-  participants: readonly Pick<ParticipantDto, 'name' | 'inviteeEmails'>[],
+  participants: readonly Pick<ParticipantDto, 'name' | 'inviteeEmails' | 'email'>[],
 ): InviteeHolder[] =>
-  participants.map((person) => ({ name: person.name, inviteeEmails: person.inviteeEmails }));
+  participants.map((person) => ({
+    name: person.name,
+    inviteeEmails: person.inviteeEmails,
+    email: person.email,
+  }));
 
 export type TileEmailState =
   | { kind: 'none' }
@@ -295,3 +328,19 @@ export function invitedOptions(
     ];
   });
 }
+
+/**
+ * The colour slot of a voice: the one the transcript legend and Talk time give its name, so the
+ * dots agree everywhere. Without a transcript match it falls back to the voice number.
+ */
+export const voiceSlot = (
+  sub: Pick<SubPersonDto, 'name' | 'number'>,
+  slots?: ReadonlyMap<string, number>,
+): number => slots?.get(sub.name) ?? (sub.number - 1) % SPEAKER_COLORS;
+
+/**
+ * What the People card calls a voice. A voice nobody named is "Voice 1": the tile it joined from
+ * is in the "via" tag next to it, not repeated in the name.
+ */
+export const voiceLabel = (sub: Pick<SubPersonDto, 'name' | 'number' | 'unnamed'>): string =>
+  sub.unnamed ? `Voice ${String(sub.number)}` : sub.name;

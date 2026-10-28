@@ -8,6 +8,7 @@ import { ReapplyChoice } from './ReapplyChoice.js';
 import { SummaryAiEdit } from './SummaryAiEdit.js';
 import { SummaryEditor } from './SummaryEditor.js';
 import { SummaryHistory } from './SummaryHistory.js';
+import { summaryWaitingText } from './sharedRoom.js';
 
 export function SummaryPanel(props: {
   meetingId: string;
@@ -18,6 +19,8 @@ export function SummaryPanel(props: {
   onPeopleChanged: () => void;
   /** A person changed who said a line after this summary was written. */
   speakersChanged?: boolean;
+  /** Tiles with an open how-many question: the summary waits for the answer. */
+  waitingFor?: readonly { name: string }[];
 }) {
   const {
     meetingId,
@@ -27,6 +30,7 @@ export function SummaryPanel(props: {
     onRequested,
     onPeopleChanged,
     speakersChanged = false,
+    waitingFor = [],
   } = props;
   const [chosen, setChosen] = useState<string>();
   const [promptId, setPromptId] = useState(options.defaultPromptId);
@@ -196,7 +200,13 @@ export function SummaryPanel(props: {
           </button>
         </p>
       )}
-      {pending && <p className="muted">Summarising, this can take a minute.</p>}
+      {pending && (
+        <p className="muted" role="status">
+          {waitingFor.length > 0
+            ? `${summaryWaitingText(waitingFor)}.`
+            : 'Summarising, this can take a minute.'}
+        </p>
+      )}
       {failed && !pending && <p className="error">{failed.error}</p>}
       {undoTarget && active && !pending && (
         <p className="banner" role="status">

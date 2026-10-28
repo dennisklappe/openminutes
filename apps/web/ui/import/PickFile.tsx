@@ -74,6 +74,7 @@ export function PickFile(props: {
         <input
           ref={input}
           id="import-file"
+          aria-label="Choose the export file to import"
           type="file"
           accept=".tar.gz,.tgz,.zip,application/gzip,application/zip"
           className="sr-only"

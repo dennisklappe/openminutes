@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { InviteeDto, ParticipantDto } from '../../src/dto.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { InviteeDto, ParticipantDto, SegmentDto } from '../../src/dto.js';
 import { api, errorMessage } from '../api.js';
 import { useConfirm } from '../Confirm.js';
 import { formatLength } from '../format.js';
 import { MoreIcon, PencilIcon } from '../icons.js';
 import { Menu } from '../Menu.js';
 import { Panel } from '../Panel.js';
+import { speakerSlots } from '../speakers.js';
 import { AbsentList } from './AbsentList.js';
 import { flattenPeople, SPLIT_POLL_MS, splitFailedText, splitProgress } from '../sharedRoom.js';
 import { presence } from './names.js';
@@ -16,6 +17,8 @@ import './participants.css';
 interface Props {
   meetingId: string;
   transcriptSize: number;
+  /** The transcript, for the colour each voice has in it. */
+  segments?: readonly SegmentDto[];
   /** Changes when the people were edited elsewhere on the page. */
   reloadKey?: number;
   hasSummary: boolean;
@@ -28,13 +31,21 @@ const renameCandidates = (person: ParticipantDto, all: InviteeDto[], absent: Inv
       person.inviteeEmails.includes(invitee.email) || absent.some((a) => a.email === invitee.email),
   );
 
-export function PeopleCard({ meetingId, transcriptSize, reloadKey, hasSummary, onChanged }: Props) {
+export function PeopleCard({
+  meetingId,
+  transcriptSize,
+  segments,
+  reloadKey,
+  hasSummary,
+  onChanged,
+}: Props) {
   const [people, setPeople] = useState<ParticipantDto[]>([]);
   const [invitees, setInvitees] = useState<InviteeDto[]>([]);
   const [absent, setAbsent] = useState<InviteeDto[]>([]);
   const [editing, setEditing] = useState<ParticipantDto>();
   const [error, setError] = useState<string>();
   const [splitting, setSplitting] = useState<{ tileId: string; startedAt: number }>();
+  const slots = useMemo(() => speakerSlots(segments ?? []), [segments]);
   const confirm = useConfirm();
   const changed = useRef(onChanged);
   changed.current = onChanged;
@@ -121,6 +132,7 @@ export function PeopleCard({ meetingId, transcriptSize, reloadKey, hasSummary, o
               tile={row.tile}
               sub={row.sub}
               invitees={invitees}
+              slots={slots}
               others={people.filter((other) => other.id !== row.tile.id)}
               onChanged={() => {
                 load();

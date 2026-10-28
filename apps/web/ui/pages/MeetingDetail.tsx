@@ -299,6 +299,7 @@ export function MeetingDetail({ id }: { id: string }) {
               meetingId={id}
               summaries={summaries}
               speakersChanged={speakersChangedSinceSummary}
+              waitingFor={roomNotices}
               options={summaryOptions}
               hasTranscript={segments.length > 0}
               onRequested={refresh}
@@ -365,6 +366,7 @@ export function MeetingDetail({ id }: { id: string }) {
             <PeopleCard
               meetingId={id}
               transcriptSize={segments.length}
+              segments={segments}
               reloadKey={peopleKey}
               hasSummary={summaries.length > 0}
               onChanged={refresh}

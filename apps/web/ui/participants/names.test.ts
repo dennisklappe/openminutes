@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InviteeDto, ParticipantDto } from '../../src/dto.js';
-import { likelyInvitee, nameFromEmail, presence, renameToSave } from './names.js';
+import { inviteeLabel, likelyInvitee, nameFromEmail, presence, renameToSave } from './names.js';
 
 const person: ParticipantDto = {
   id: '1',
@@ -108,5 +108,16 @@ describe('nameFromEmail', () => {
   it('turns the local part into a name', () => {
     expect(nameFromEmail('bart@acme.example')).toBe('Bart');
     expect(nameFromEmail('jo.de-vries+x@example.com')).toBe('Jo De Vries');
+  });
+});
+
+describe('inviteeLabel', () => {
+  it('shows the address in lower case', () => {
+    expect(inviteeLabel({ email: 'Jo@Example.COM', name: 'Jo', declined: false })).toBe(
+      'Jo (jo@example.com)',
+    );
+    expect(inviteeLabel({ email: 'Jo@Example.COM', name: null, declined: false })).toBe(
+      'jo@example.com',
+    );
   });
 });

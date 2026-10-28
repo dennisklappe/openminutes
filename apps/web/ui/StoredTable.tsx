@@ -36,7 +36,9 @@ export function StoredTable(props: {
             </th>
             <th>Date</th>
             <th>{extraHead}</th>
-            <th aria-label="Actions" />
+            <th>
+              <span className="visually-hidden">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>
