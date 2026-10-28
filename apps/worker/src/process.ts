@@ -36,6 +36,7 @@ import { reviewTranscript } from './speaker-review/transcript-review.js';
 import { checkVoices } from './speaker-review/voice-check.js';
 import type { TrimAudio } from './trim-audio.js';
 import { autoLearn } from './auto-learn.js';
+import { createVoiceReviews } from './voice-reviews.js';
 import type { EmbeddedLine, ScoredLine } from './speaker-review/voice-check.js';
 import { saveRoomVoices } from './room-voices.js';
 import { saveTranscript, toTranscriptRows, type TranscriptRow } from './transcript-store.js';
@@ -324,6 +325,7 @@ export async function processMeeting(
           }
         : undefined,
     );
+    await createVoiceReviews(deps.db, meetingId, scored);
     await archive(deps.db, storage, meetingId);
     if (segments.length > 0) await startSummary(deps, meetingId);
   } catch (error) {
