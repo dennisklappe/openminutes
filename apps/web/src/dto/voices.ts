@@ -155,6 +155,8 @@ export interface SpeakerIdentityInput {
   remember?: boolean;
   /** Take an invitee from the person of the same shared account who has it. */
   move?: boolean;
+  /** Fold this person into the speaker's person first, in the same transaction. */
+  mergeFrom?: string;
 }
 
 export interface SpeakerIdentityResultDto {

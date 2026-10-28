@@ -168,6 +168,20 @@ export interface PersonUpdateInput {
   name?: string;
   emails?: string[];
   notes?: string | null;
+  /** Fold this person into the one being saved first, in the same transaction. */
+  mergeFrom?: string;
+}
+
+/** The 409 body when an address already belongs to another person. */
+export interface EmailConflictDto {
+  email: string;
+  /** The person who has the address. */
+  personId: string;
+  name: string;
+  unnamed: boolean;
+  source: 'manual' | 'joined' | 'invited';
+  /** The person being saved, who would keep their name in a merge. Null when there is none yet. */
+  into: { id: string; name: string } | null;
 }
 
 export interface PersonMergeInput {

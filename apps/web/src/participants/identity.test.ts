@@ -8,7 +8,7 @@ import { createTestDatabase } from '@openminutes/db/testing';
 import type { Hono } from 'hono';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
-import type { SpeakerIdentityDto, SpeakerIdentityResultDto } from '../dto.js';
+import type { EmailConflictDto, SpeakerIdentityDto, SpeakerIdentityResultDto } from '../dto.js';
 
 const secret = 'a-long-enough-test-secret';
 const json = { 'content-type': 'application/json' };
@@ -217,5 +217,51 @@ describe('speaker identity', () => {
     const { identity } = (await response.json()) as SpeakerIdentityResultDto;
     expect(identity.participantId).toBe(ann.id);
     expect(identity.emails).toEqual(['ann@acme.example']);
+  });
+
+  it('answers 409 with the conflict, and merges the holder in when asked', async () => {
+    const { meeting, tnf } = await meet();
+    await call('PUT', url(meeting.id, tnf.id), { name: 'Jo Parker', emails: [] });
+    const [holder] = await test.db
+      .insert(people)
+      .values({ name: 'Jolie', emails: ['jo@parker.example'], source: 'invited' })
+      .returning();
+    const body = { name: 'Jo Parker', emails: ['jo@parker.example'] };
+    const refused = await call('PUT', url(meeting.id, tnf.id), body);
+    expect(refused.status).toBe(409);
+    const refusal = (await refused.json()) as { code: string; conflict: EmailConflictDto };
+    expect(refusal.code).toBe('email_taken');
+    expect(refusal.conflict).toMatchObject({
+      email: 'jo@parker.example',
+      personId: holder?.id,
+      name: 'Jolie',
+      source: 'invited',
+      into: { name: 'Jo Parker' },
+    });
+    const merged = await call('PUT', url(meeting.id, tnf.id), {
+      ...body,
+      mergeFrom: holder?.id,
+    });
+    expect(merged.status).toBe(200);
+    const { identity } = (await merged.json()) as SpeakerIdentityResultDto;
+    expect(identity.emails).toEqual(['jo@parker.example']);
+    expect(await test.db.select().from(people).where(eq(people.name, 'Jolie'))).toEqual([]);
+  });
+
+  it('keeps the holder when the identity save fails after the merge', async () => {
+    const { meeting, tnf } = await meet();
+    await call('PUT', url(meeting.id, tnf.id), { name: 'Jo Parker', emails: [] });
+    const [holder] = await test.db
+      .insert(people)
+      .values({ name: 'Jolie', emails: ['jo@parker.example'] })
+      .returning();
+    await test.db.insert(people).values({ name: 'Kim Roe', emails: ['kim@roe.example'] });
+    const response = await call('PUT', url(meeting.id, tnf.id), {
+      name: 'Jo Parker',
+      emails: ['jo@parker.example', 'kim@roe.example'],
+      mergeFrom: holder?.id,
+    });
+    expect(response.status).toBe(409);
+    expect(await test.db.select().from(people).where(eq(people.name, 'Jolie'))).toHaveLength(1);
   });
 });

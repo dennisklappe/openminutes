@@ -10,8 +10,8 @@ import {
   linkInviteeToPerson,
   resolveLinks,
 } from './invitee-links.js';
-import { PeopleError } from '../people/edit.js';
-import { loadIdentity, saveIdentity } from './identity.js';
+import { PeopleError, peopleErrorBody } from '../people/edit.js';
+import { loadIdentity, saveIdentity, saveIdentityMerging } from './identity.js';
 import { rememberEnabled } from '../voices/load.js';
 import { renameParticipant } from './rename.js';
 import { assertSharedLinksFree, isSubSeat } from './shared-rules.js';
@@ -40,6 +40,7 @@ const identityInput = z.object({
   emails: z.array(z.string().trim().max(254).pipe(z.email())).max(20),
   remember: z.boolean().optional(),
   move: z.boolean().optional(),
+  mergeFrom: z.uuid().optional(),
 });
 const linkInput = z.object({ email: z.string().nullable(), move: z.boolean().optional() });
 const personLinkInput = z.object({ email: z.string(), move: z.boolean().optional() });
@@ -92,7 +93,7 @@ export function meetingParticipantRoutes(deps: ParticipantDeps): Hono {
         body.data.move === true,
       );
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
     const { summaryUpdated } = await renameParticipant(
@@ -124,12 +125,15 @@ export function meetingParticipantRoutes(deps: ParticipantDeps): Hono {
     const body = identityInput.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: 'Check the name and the email addresses' }, 400);
     try {
-      const { seatId, summaryUpdated } = await saveIdentity(deps.db, meeting, person, {
+      const change = {
         name: body.data.name,
         emails: body.data.emails,
         remember: body.data.remember === true && (await rememberEnabled(deps.settings)),
         move: body.data.move === true,
-      });
+      };
+      const { seatId, summaryUpdated } = body.data.mergeFrom
+        ? await saveIdentityMerging(deps.db, meeting, person, change, body.data.mergeFrom)
+        : await saveIdentity(deps.db, meeting, person, change);
       const [seat] = await deps.db.select().from(participants).where(eq(participants.id, seatId));
       if (!seat) return c.json({ error: 'Participant not found' }, 404);
       return c.json<SpeakerIdentityResultDto>({
@@ -137,7 +141,7 @@ export function meetingParticipantRoutes(deps: ParticipantDeps): Hono {
         summaryUpdated,
       });
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
   });
@@ -160,7 +164,7 @@ export function meetingParticipantRoutes(deps: ParticipantDeps): Hono {
         body.data.move === true,
       );
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
     await linkInvitee(deps.db, person.id, link[0] ?? null);
@@ -192,7 +196,7 @@ export function meetingParticipantRoutes(deps: ParticipantDeps): Hono {
       );
       await linkInviteeToPerson(deps.db, meeting.id, personId.data, link[0] ?? '');
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
     return c.json<ParticipantsDto>(await read(meeting.id, false));

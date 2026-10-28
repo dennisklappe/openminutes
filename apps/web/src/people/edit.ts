@@ -15,7 +15,7 @@ import {
   voiceSamples,
   type Database,
 } from '@openminutes/db';
-import type { PersonInput, PersonUpdateInput } from '../dto.js';
+import type { EmailConflictDto, PersonInput, PersonUpdateInput } from '../dto.js';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
@@ -29,11 +29,40 @@ export class PeopleError extends Error {
   }
 }
 
+/** An address that another person has; says who, so the UI can offer to merge them. */
+export class EmailTakenError extends PeopleError {
+  constructor(readonly conflict: EmailConflictDto) {
+    super(`${conflict.email} already belongs to ${conflict.name}`, 409);
+    this.name = 'EmailTakenError';
+  }
+}
+
+/** The JSON body of a failed people call: the message, plus the conflict when there is one. */
+export const peopleErrorBody = (error: PeopleError) =>
+  error instanceof EmailTakenError
+    ? { error: error.message, code: 'email_taken', conflict: error.conflict }
+    : { error: error.message };
+
 const sameName = (
   column:
     typeof people.name | typeof participants.displayName | typeof participantAliases.displayName,
   name: string,
 ) => sql`lower(${column}) = lower(${name})`;
+
+export function emailConflict(
+  email: string,
+  owner: typeof people.$inferSelect,
+  into: { id: string; name: string } | undefined,
+): EmailConflictDto {
+  return {
+    email,
+    personId: owner.id,
+    name: owner.name,
+    unnamed: owner.unnamed,
+    source: owner.source,
+    into: into ? { id: into.id, name: into.name } : null,
+  };
+}
 
 async function assertFree(tx: Tx, id: string | null, name: string | undefined, emails: string[]) {
   if (name !== undefined) {
@@ -45,10 +74,12 @@ async function assertFree(tx: Tx, id: string | null, name: string | undefined, e
   }
   for (const email of emails) {
     const [owner] = await tx
-      .select({ name: people.name })
+      .select()
       .from(people)
       .where(and(sql`${people.emails} ? ${email}`, id ? ne(people.id, id) : undefined));
-    if (owner) throw new PeopleError(`${email} already belongs to ${owner.name}`, 409);
+    if (!owner) continue;
+    const [into] = id ? await tx.select().from(people).where(eq(people.id, id)) : [];
+    throw new EmailTakenError(emailConflict(email, owner, into));
   }
 }
 
@@ -67,7 +98,10 @@ export async function createPerson(db: Database, input: PersonInput) {
 
 /** A new name also goes on the labels of this person's lines and on the saved rename rules. */
 export async function updatePerson(db: Database, id: string, input: PersonUpdateInput) {
-  return db.transaction(async (tx) => {
+  return db.transaction((tx) => updatePersonIn(tx, id, input));
+}
+
+async function updatePersonIn(tx: Tx, id: string, input: PersonUpdateInput) {
     const [current] = await tx.select().from(people).where(eq(people.id, id));
     if (!current) throw new PeopleError('Person not found', 404);
     const emails = input.emails === undefined ? undefined : cleanEmails(input.emails);
@@ -88,7 +122,6 @@ export async function updatePerson(db: Database, id: string, input: PersonUpdate
     if (renamed && input.name !== undefined)
       await renameEverywhere(tx, id, current.name, input.name);
     return saved ?? current;
-  });
 }
 
 async function renameEverywhere(tx: Tx, personId: string, from: string, to: string) {
@@ -148,8 +181,11 @@ async function foldSeats(tx: Tx, sourceId: string, targetId: string) {
  * over, the source is removed and the voice profile is built again.
  */
 export async function mergePeople(db: Database, targetId: string, sourceId: string) {
+  return db.transaction((tx) => mergeIn(tx, targetId, sourceId));
+}
+
+async function mergeIn(tx: Tx, targetId: string, sourceId: string) {
   if (targetId === sourceId) throw new PeopleError('Pick two different people', 400);
-  return db.transaction(async (tx) => {
     const [[target], [source]] = await Promise.all([
       tx.select().from(people).where(eq(people.id, targetId)),
       tx.select().from(people).where(eq(people.id, sourceId)),
@@ -229,7 +265,55 @@ export async function mergePeople(db: Database, targetId: string, sourceId: stri
     // Not tracked wins: if either was marked do not track, the merged person keeps no voice.
     if (target.tracking === 'off' || source.tracking === 'off') await stopTracking(tx, targetId);
     else await rebuildProfile(tx, targetId);
+}
+
+/**
+ * Runs a save; when it fails because `sourceId` holds an address, folds that person into the one
+ * being saved and runs it again with the addresses that moved over. One transaction: if the
+ * second run fails the merge is rolled back too.
+ */
+export async function saveMergingFrom<T>(
+  db: Database,
+  sourceId: string,
+  run: (tx: Database, moved: string[]) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    // Savepoint, so the first attempt leaves nothing behind when it fails half way.
+    const first = await tx
+      .transaction((inner) => run(inner as unknown as Database, []))
+      .then(
+        (value) => ({ value }),
+        (error: unknown) => {
+          if (
+            error instanceof EmailTakenError &&
+            error.conflict.personId === sourceId &&
+            error.conflict.into
+          ) {
+            return { into: error.conflict.into.id };
+          }
+          throw error;
+        },
+      );
+    if ('value' in first) return first.value;
+    const [source] = await tx.select().from(people).where(eq(people.id, sourceId));
+    await mergeIn(tx, first.into, sourceId);
+    return run(tx as unknown as Database, source?.emails ?? []);
   });
+}
+
+/** `updatePerson` that first folds `mergeFrom` in when it holds one of the addresses. */
+export function updatePersonMerging(
+  db: Database,
+  id: string,
+  input: PersonUpdateInput,
+  mergeFrom: string,
+) {
+  return saveMergingFrom(db, mergeFrom, (tx, moved) =>
+    updatePerson(tx, id, {
+      ...input,
+      ...(input.emails && { emails: cleanEmails([...input.emails, ...moved]) }),
+    }),
+  );
 }
 
 /** Marks a person do not track (their voice is deleted) or tracks them again. */

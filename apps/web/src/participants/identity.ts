@@ -2,7 +2,13 @@ import { cleanEmails, findPersonByName } from '@openminutes/core';
 import type { meetings } from '@openminutes/db';
 import { and, eq, ne, participants, people, sql, type Database } from '@openminutes/db';
 import type { IdentityInviteeDto, SpeakerIdentityDto } from '../dto.js';
-import { PeopleError, updatePerson } from '../people/edit.js';
+import {
+  EmailTakenError,
+  emailConflict,
+  PeopleError,
+  saveMergingFrom,
+  updatePerson,
+} from '../people/edit.js';
 import { nameVoice } from '../voices/rename.js';
 import { resolveLinks } from './invitee-links.js';
 import { renameParticipant } from './rename.js';
@@ -16,7 +22,7 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 
 async function holderOf(db: Database, email: string, except: string | undefined) {
   const [owner] = await db
-    .select({ id: people.id, name: people.name })
+    .select()
     .from(people)
     .where(and(sql`${people.emails} ? ${email}`, except ? ne(people.id, except) : undefined));
   return owner;
@@ -104,7 +110,7 @@ export async function saveIdentity(
   for (const email of final) {
     if (target?.emails.includes(email)) continue;
     const owner = await holderOf(db, email, target?.id);
-    if (owner) throw new PeopleError(`${email} already belongs to ${owner.name}`, 409);
+    if (owner) throw new EmailTakenError(emailConflict(email, owner, target));
   }
   const invited = (meeting.invitees ?? [])
     .map((invitee) => invitee.email)
@@ -145,4 +151,22 @@ export async function saveIdentity(
     }
   }
   return { seatId, summaryUpdated };
+}
+
+/** `saveIdentity` that first folds `mergeFrom` into the speaker's person when it holds an address. */
+export function saveIdentityMerging(
+  db: Database,
+  meeting: Meeting,
+  seat: Seat,
+  change: IdentityChange,
+  mergeFrom: string,
+) {
+  return saveMergingFrom(db, mergeFrom, async (tx, moved) => {
+    // The merge may have moved the seat to another person, so read it again.
+    const [fresh] = await tx.select().from(participants).where(eq(participants.id, seat.id));
+    return saveIdentity(tx, meeting, fresh ?? seat, {
+      ...change,
+      emails: [...change.emails, ...moved],
+    });
+  });
 }

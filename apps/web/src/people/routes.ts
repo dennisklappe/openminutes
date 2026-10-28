@@ -15,8 +15,10 @@ import {
   deletePerson,
   mergePeople,
   PeopleError,
+  peopleErrorBody,
   setTracking,
   updatePerson,
+  updatePersonMerging,
 } from './edit.js';
 import {
   markMixed,
@@ -57,8 +59,13 @@ const emails = z
 const notes = z.string().max(2000).nullable();
 const createInput = z.strictObject({ name, emails: emails.optional(), notes: notes.optional() });
 const updateInput = z
-  .strictObject({ name: name.optional(), emails: emails.optional(), notes: notes.optional() })
-  .refine((body) => Object.keys(body).length > 0);
+  .strictObject({
+    name: name.optional(),
+    emails: emails.optional(),
+    notes: notes.optional(),
+    mergeFrom: uuid.optional(),
+  })
+  .refine((body) => Object.keys(body).some((key) => key !== 'mergeFrom'));
 const mergeInput = z.strictObject({ sourceId: uuid });
 const nameVoiceInput = z.union([z.strictObject({ name }), z.strictObject({ personId: uuid })]);
 const listQuery = z.object({
@@ -106,7 +113,7 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     try {
       return await run();
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
   };
@@ -204,11 +211,16 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     const body = updateInput.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: 'Invalid person' }, 400);
     return guard(c, async () => {
-      await updatePerson(deps.db, id.data, {
+      const change = {
         ...(body.data.name !== undefined && { name: body.data.name }),
         ...(body.data.emails && { emails: body.data.emails }),
         ...(body.data.notes !== undefined && { notes: body.data.notes }),
-      });
+      };
+      if (body.data.mergeFrom) {
+        await updatePersonMerging(deps.db, id.data, change, body.data.mergeFrom);
+      } else {
+        await updatePerson(deps.db, id.data, change);
+      }
       return c.json<PersonDetailDto | undefined>(await detail(id.data));
     });
   });

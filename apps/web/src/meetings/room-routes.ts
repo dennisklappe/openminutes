@@ -3,7 +3,7 @@ import { eq, meetings, type Database } from '@openminutes/db';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { RoomChangePreviewDto, RoomReviewDto } from '../dto.js';
-import { PeopleError } from '../people/edit.js';
+import { PeopleError, peopleErrorBody } from '../people/edit.js';
 import { rememberEnabled } from '../voices/load.js';
 import { changeRoomVoice, previewVoiceChange } from './room-change.js';
 import { dismissRoom, loadRoomReview, nameRoomVoice, setRoomCount } from './room-voices.js';
@@ -86,7 +86,7 @@ export function roomRoutes(deps: RoomDeps): Hono {
       }
       return c.json({ ok: true });
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
   });
@@ -100,7 +100,7 @@ export function roomRoutes(deps: RoomDeps): Hono {
         await previewVoiceChange(deps.db, meeting.id, voiceId.data),
       );
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
   });
@@ -121,7 +121,7 @@ export function roomRoutes(deps: RoomDeps): Hono {
       }
       return c.json({ ok: true });
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
   });
@@ -142,7 +142,7 @@ export function roomRoutes(deps: RoomDeps): Hono {
       );
       return c.json({ ok: true, splitting });
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
   });
@@ -155,7 +155,7 @@ export function roomRoutes(deps: RoomDeps): Hono {
       await dismissRoom(deps.db, meeting.id, participantId.data);
       return c.json({ ok: true });
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
   });
