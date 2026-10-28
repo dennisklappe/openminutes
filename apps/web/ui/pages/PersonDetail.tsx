@@ -11,7 +11,9 @@ import { useConfirm } from '../Confirm.js';
 import { MergeInto } from '../MergePeople.js';
 import { NameVoiceDialog } from '../NameVoice.js';
 import {
-  coverageText,
+  barPercent,
+  lengthLabel,
+  missingHint,
   parseEmails,
   profileLabels,
   reviewLabel,
@@ -20,9 +22,29 @@ import {
   reasonLabel,
   speechText,
   validEmail,
+  varietyLabel,
 } from '../people.js';
 import { SnippetPlayer } from '../SnippetPlayer.js';
 import '../people.css';
+
+function ReadinessBar({ label, share, text }: { label: string; share: number; text: string }) {
+  return (
+    <>
+      <div
+        className="voice-review-meter"
+        role="progressbar"
+        aria-label={label}
+        aria-valuetext={text}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={barPercent(share)}
+      >
+        <span style={{ width: `${String(barPercent(share))}%` }} />
+      </div>
+      <span className="muted">{text}</span>
+    </>
+  );
+}
 
 const NAME_MAX = 80;
 const NOTES_MAX = 2000;
@@ -598,34 +620,41 @@ export function PersonDetail({ id }: { id: string }) {
             >
               <header className="card-head">
                 <div className="card-title">
-                  <h3>
-                    {profile.languageName}{' '}
-                    <span className="muted">
-                      {coverageText(profile.effectiveSeconds, profile.targetSeconds)}
-                    </span>
-                  </h3>
+                  <h3>{profile.languageName}</h3>
                 </div>
               </header>
               <div className="card-body">
-                <div
-                  className="voice-review-meter"
-                  role="progressbar"
-                  aria-label={`${profile.languageName} voice profile`}
-                  aria-valuemin={0}
-                  aria-valuemax={profile.targetSeconds}
-                  aria-valuenow={Math.min(profile.effectiveSeconds, profile.targetSeconds)}
-                >
-                  <span
-                    style={{
-                      width: `${String(Math.min(100, (100 * profile.effectiveSeconds) / profile.targetSeconds))}%`,
-                    }}
-                  />
-                </div>
+                <dl className="readiness">
+                  <div>
+                    <dt>Length</dt>
+                    <dd>
+                      <ReadinessBar
+                        label={`${profile.languageName} length`}
+                        share={profile.readiness.length}
+                        text={lengthLabel(profile)}
+                      />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Variety</dt>
+                    <dd>
+                      <ReadinessBar
+                        label={`${profile.languageName} variety`}
+                        share={profile.readiness.variety}
+                        text={varietyLabel(profile.readiness)}
+                      />
+                    </dd>
+                  </div>
+                </dl>
                 <p className="muted">
+                  {profile.readiness.ready ? (
+                    <span className="ready-badge">Ready</span>
+                  ) : (
+                    missingHint(profile)
+                  )}{' '}
                   {profileBreakdown(profile)}
                   {' · '}
                   {profile.samples} verified {profile.samples === 1 ? 'sample' : 'samples'}
-                  {profile.effectiveSeconds >= profile.targetSeconds ? ', good enough' : ''}
                 </p>
                 {profile.autoSamples > 0 && (
                   <>

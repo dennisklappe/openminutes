@@ -50,3 +50,30 @@ describe('review routes', () => {
     );
   });
 });
+
+describe('voice card routes', () => {
+  it('parses a voice card in every scope', () => {
+    expect(parseReviewRoute('/people/review/voice/v1')).toEqual({ voiceId: 'v1' });
+    expect(parseReviewRoute('/people/p1/review/voice/v1')).toEqual({
+      personId: 'p1',
+      voiceId: 'v1',
+    });
+    expect(parseReviewRoute('/meetings/m1/review/voice/v1?order=uncertain')).toEqual({
+      meetingId: 'm1',
+      voiceId: 'v1',
+      order: 'uncertain',
+    });
+    expect(parseReviewRoute('/people/review/voice')).toEqual({ lineId: 'voice' });
+  });
+
+  it('builds voice addresses that parse back', () => {
+    expect(buildReviewRoute({ voiceId: 'v1' })).toBe('/people/review/voice/v1');
+    for (const route of [
+      { voiceId: 'v1' },
+      { personId: 'p1', voiceId: 'v1' },
+      { personId: 'p1', meetingId: 'm1', order: 'uncertain' as const, voiceId: 'v1' },
+    ]) {
+      expect(parseReviewRoute(buildReviewRoute(route))).toEqual(route);
+    }
+  });
+});

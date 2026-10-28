@@ -6,17 +6,27 @@ export interface ReviewRoute {
   meetingId?: string | undefined;
   order?: ReviewOrder | undefined;
   lineId?: string | undefined;
+  /** An environment card, a voice that does not match its label. */
+  voiceId?: string | undefined;
 }
 
 const ID = '[\\w-]+';
+/** An optional card: `/voice/<id>` for a voice, `/<id>` for a line. */
+const CARD = `(?:/voice/(${ID})|/(${ID}))?`;
 const PATHS = [
-  new RegExp(`^/people/review(?:/(${ID}))?$`),
-  new RegExp(`^/people/(${ID})/review(?:/(${ID}))?$`),
-  new RegExp(`^/meetings/(${ID})/review(?:/(${ID}))?$`),
+  new RegExp(`^/people/review${CARD}$`),
+  new RegExp(`^/people/(${ID})/review${CARD}$`),
+  new RegExp(`^/meetings/(${ID})/review${CARD}$`),
 ];
+
+const card = (voice: string | undefined, line: string | undefined): ReviewRoute => ({
+  ...(voice && { voiceId: voice }),
+  ...(line && { lineId: line }),
+});
 
 /**
  * Reads a hash route such as `/people/review/<lineId>?personId=...&meetingId=...&order=uncertain`.
+ * A voice card is `/people/review/voice/<voiceId>`.
  * The older forms `/people/<id>/review` and `/meetings/<id>/review` still work, with or without a
  * card. Undefined when the route is not a review route.
  */
@@ -39,16 +49,16 @@ export function parseReviewRoute(route: string): ReviewRoute | undefined {
       ...base,
       ...(personId && { personId }),
       ...(meetingId && { meetingId }),
-      ...(everyone[1] && { lineId: everyone[1] }),
+      ...card(everyone[1], everyone[2]),
     };
   }
   const person = PATHS[1]?.exec(path);
   if (person?.[1]) {
-    return { ...base, personId: person[1], ...(person[2] && { lineId: person[2] }) };
+    return { ...base, personId: person[1], ...card(person[2], person[3]) };
   }
   const meeting = PATHS[2]?.exec(path);
   if (meeting?.[1]) {
-    return { ...base, meetingId: meeting[1], ...(meeting[2] && { lineId: meeting[2] }) };
+    return { ...base, meetingId: meeting[1], ...card(meeting[2], meeting[3]) };
   }
   return undefined;
 }
@@ -57,7 +67,13 @@ export function parseReviewRoute(route: string): ReviewRoute | undefined {
  * The address of a card, or of the start of the review when there is no line. One scope keeps
  * its own path (`/people/<id>/review`, `/meetings/<id>/review`), the rest goes in the query.
  */
-export function buildReviewRoute({ personId, meetingId, order, lineId }: ReviewRoute): string {
+export function buildReviewRoute({
+  personId,
+  meetingId,
+  order,
+  lineId,
+  voiceId,
+}: ReviewRoute): string {
   const params = new URLSearchParams();
   if (order && order !== 'newest') params.set('order', order);
   let path = '/people/review';
@@ -68,5 +84,6 @@ export function buildReviewRoute({ personId, meetingId, order, lineId }: ReviewR
     if (meetingId) params.set('meetingId', meetingId);
   }
   const query = params.toString();
-  return `${path}${lineId ? `/${lineId}` : ''}${query ? `?${query}` : ''}`;
+  const tail = voiceId ? `/voice/${voiceId}` : lineId ? `/${lineId}` : '';
+  return `${path}${tail}${query ? `?${query}` : ''}`;
 }

@@ -1,11 +1,57 @@
 import { useEffect, useState } from 'react';
-import type { VoiceSettingsDto } from '../../src/dto.js';
+import type { VoiceSettingsDto, VoiceTuningDto } from '../../src/dto.js';
 import { api, errorMessage } from '../api.js';
 import { useConfirm } from '../Confirm.js';
 import { formatWhen } from '../format.js';
 import { SettingsCard } from '../SettingsCard.js';
 import { useSettingsForm } from '../useSettingsForm.js';
+import {
+  TUNING_FIELDS,
+  clampAll,
+  clampTuning,
+  tuningIsDefault,
+  type TuningField,
+} from '../voiceTuning.js';
 import '../voices.css';
+
+function TuningInput({
+  field,
+  value,
+  fallback,
+  onChange,
+}: {
+  field: TuningField;
+  value: number;
+  fallback: number;
+  onChange: (value: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+  return (
+    <label className="field">
+      <span>{field.label}</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        min={field.min}
+        max={field.max}
+        step={field.step}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          const typed = e.target.valueAsNumber;
+          if (Number.isFinite(typed)) onChange(clampTuning(field, typed));
+        }}
+        onBlur={() => {
+          setText(String(value));
+        }}
+      />
+      <span className="muted">Default {fallback}</span>
+    </label>
+  );
+}
 
 function VoiceForm({
   settings,
@@ -16,11 +62,15 @@ function VoiceForm({
 }) {
   const confirm = useConfirm();
   const form = useSettingsForm(
-    { remember: settings.remember, check: settings.check },
+    { remember: settings.remember, check: settings.check, tuning: settings.tuning },
     async (draft) => {
-      const next = await api.saveVoiceSettings(draft);
+      const next = await api.saveVoiceSettings({
+        remember: draft.remember,
+        check: draft.check,
+        ...clampAll(draft.tuning, settings.tuningDefaults),
+      });
       onChanged(next);
-      return { remember: next.remember, check: next.check };
+      return { remember: next.remember, check: next.check, tuning: next.tuning };
     },
   );
 
@@ -126,6 +176,34 @@ function VoiceForm({
         names and to flag doubtful lines. Both options are off by default. You can delete the voice
         data of one person on their page under People, or all of it here.
       </p>
+      <fieldset className="tuning">
+        <legend>Readiness and matching</legend>
+        <p className="muted">
+          These numbers decide when a voice profile counts as ready and how voices are matched.
+          Change them only if profiles fill too slowly or match too loosely.
+        </p>
+        {TUNING_FIELDS.map((field) => (
+          <TuningInput
+            key={field.key}
+            field={field}
+            value={form.draft.tuning[field.key]}
+            fallback={settings.tuningDefaults[field.key]}
+            onChange={(value) => {
+              form.patch({ tuning: { ...form.draft.tuning, [field.key]: value } });
+            }}
+          />
+        ))}
+        <button
+          type="button"
+          disabled={tuningIsDefault(form.draft.tuning, settings.tuningDefaults)}
+          onClick={() => {
+            const tuning: VoiceTuningDto = { ...settings.tuningDefaults };
+            form.patch({ tuning });
+          }}
+        >
+          Reset to defaults
+        </button>
+      </fieldset>
       {settings.known.length > 0 && (
         <ul className="voice-settings-list" aria-label="Saved voices">
           {settings.known.map((voice) => (
