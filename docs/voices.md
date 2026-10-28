@@ -1,6 +1,6 @@
 # Voices and speaker names
 
-Phone recordings have no speaking indicator, so voices start as Speaker 1, Speaker 2 and so on. In the **Who is who** panel on the meeting page, listen to a few words of each voice and name it.
+Phone recordings have no speaking indicator, so voices start as Speaker 1, Speaker 2 and so on. In the **Who is who** panel on the meeting page, listen to a few lines of each voice (each has a play button) and name it.
 
 ```mermaid
 flowchart LR
@@ -160,7 +160,7 @@ Each voice gets a name from these sources, best first:
 - **The calendar.** The attendees of the meeting's own invitation (imports), or of the calendar event around the start of the recording (it starts at most 15 minutes after the recording began and at most 2 hours before). You, people who declined and resource calendars are left out. When exactly one voice and exactly one attendee are left after the matching, they are offered as a **probable** pair. With more left, the attendees are only offered as suggestions for a voice without a match. Calendar events without a meeting link are not stored by OpenMinutes, so this works for events that are
 - **A name the voice already has**, for instance from an import, is shown as probable.
 
-Each voice shows up to 3 **sample lines** so you can hear who it is: the longest clean lines of that voice (3 to 12 seconds, one speaker, not just filler), spread over the meeting, in meeting order. Each has a play button and the text of the line, and **Show in transcript** jumps the transcript to it. They play from the audio of the meeting like the snippets of [Who is who](#voices-of-this-meeting): one clip at a time, and a clip stops when you start another or leave the card. When the audio was deleted the lines show as text only. A voice with no clear line says so.
+Each voice shows up to 3 **sample lines** so you can hear who it is: the longest clean lines of that voice (3 to 12 seconds, one speaker, not just filler), spread over the meeting, in meeting order. Each has a play button and the text of the line, and **Show in transcript** jumps the transcript to it. Check the people and [Who is who](#voices-of-this-meeting) use the same voice card and the same sample lines, so a voice looks and plays the same in both: one clip at a time, and a clip stops when you start another or leave the card. When the audio was deleted the lines show as text only. A voice with no clear line says so.
 
 A match reads "Matches Jo Parker (probable)" (or "Invited: ..." and "Already called ..." for the other sources). Under it the card can say "Company: probably Acme". That company is a guess from the work email domain of the person or the attendee (free mail and your own domains are skipped), else from the company most of your earlier meetings with them had. It is only shown, never saved: People have no company field.
 
