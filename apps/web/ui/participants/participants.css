@@ -101,3 +101,183 @@
     min-height: 44px;
   }
 }
+
+/* ---------- A participant tile that holds several people ---------- */
+
+.shared-tile,
+.sub-person {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.shared-tile {
+  gap: 4px;
+}
+
+.sub-name {
+  flex: 1 1 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.sub-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.sub-people {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin: 6px 0 4px 6px;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--line);
+  list-style: none;
+}
+
+.sub-person {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.voice-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--spk, var(--faint));
+}
+
+.sub-person .snippet {
+  flex-wrap: wrap;
+  margin-top: 4px;
+  min-width: 0;
+}
+
+.sub-person .snippet-play {
+  flex: 1 1 8rem;
+  min-height: 36px;
+  padding: 4px 10px;
+}
+
+.sub-person .snippet-nav button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+
+.sub-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.shared-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.email-choices {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.email-choices legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voice-flow {
+  display: grid;
+  gap: 10px;
+}
+
+.voice-effects {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+
+.icon-menu > button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-color: transparent;
+  box-shadow: none;
+  background: none;
+  color: var(--faint);
+}
+
+@media (max-width: 600px) {
+  .shared-actions button,
+  .sub-actions button {
+    min-height: 44px;
+  }
+
+  .icon-menu > button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+.sub-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sub-link {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+/* ---------- A voice of a shared account listed as a person ---------- */
+
+.shared-note {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shared-note summary {
+  cursor: pointer;
+  min-height: 28px;
+}
+
+.shared-note[open] {
+  display: grid;
+  gap: 4px;
+}
+
+.same-person {
+  font-size: 13px;
+}
+
+.link-button {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent, inherit);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

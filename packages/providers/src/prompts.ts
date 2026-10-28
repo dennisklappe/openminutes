@@ -17,7 +17,10 @@ function timestamp(ms: number): string {
 
 export function formatTranscript(segments: Segment[]): string {
   return segments
-    .map((s) => `[${timestamp(s.startMs)}] ${s.speaker ? `${s.speaker}: ` : ''}${s.text}`)
+    .map(
+      (s) =>
+        `[${timestamp(s.startMs)}] ${s.speaker ? `${s.speaker}${s.speakerUncertain ? '?' : ''}: ` : ''}${s.text}`,
+    )
     .join('\n');
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isDoubtful,
   isUncertain,
   LOW_SPEAKER_CONFIDENCE,
   scoreSpeaker,
@@ -99,5 +100,29 @@ describe('suggestionChoices', () => {
     expect(suggestionChoices({ ...line, rejectedSuggestions: ['b'] })).toEqual([]);
     expect(suggestionChoices({ ...line, speakerSource: 'user' })).toEqual([]);
     expect(suggestionChoices({ ...line, speakerCandidates: null })).toEqual([]);
+  });
+});
+
+describe('isDoubtful', () => {
+  const clean = {
+    speakerConfidence: 0.9,
+    speakerSource: 'diarization' as const,
+    suggestedParticipantId: null,
+    voiceDoubt: false,
+    byElimination: false,
+  };
+  it('marks low confidence, guesses, suggestions, voice doubt and elimination', () => {
+    expect(isDoubtful(clean)).toBe(false);
+    expect(isDoubtful({ ...clean, speakerConfidence: null })).toBe(false);
+    expect(isDoubtful({ ...clean, speakerConfidence: 0.4 })).toBe(true);
+    expect(isDoubtful({ ...clean, speakerSource: 'guess' })).toBe(true);
+    expect(isDoubtful({ ...clean, suggestedParticipantId: 'p' })).toBe(true);
+    expect(isDoubtful({ ...clean, voiceDoubt: true })).toBe(true);
+    expect(isDoubtful({ ...clean, byElimination: true })).toBe(true);
+  });
+  it('never doubts a line a person set', () => {
+    expect(
+      isDoubtful({ ...clean, speakerSource: 'user', speakerConfidence: 0.1, voiceDoubt: true }),
+    ).toBe(false);
   });
 });

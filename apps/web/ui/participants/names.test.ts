@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InviteeDto, ParticipantDto } from '../../src/dto.js';
-import { likelyInvitee, presence, renameToSave } from './names.js';
+import { likelyInvitee, nameFromEmail, presence, renameToSave } from './names.js';
 
 const person: ParticipantDto = {
   id: '1',
@@ -101,5 +101,12 @@ describe('presence', () => {
     expect(presence({ joinedAt: '2026-10-20T10:00:00Z', leftAt: '2026-10-20T10:30:00Z' })).toMatch(
       / to /,
     );
+  });
+});
+
+describe('nameFromEmail', () => {
+  it('turns the local part into a name', () => {
+    expect(nameFromEmail('bart@acme.example')).toBe('Bart');
+    expect(nameFromEmail('jo.de-vries+x@example.com')).toBe('Jo De Vries');
   });
 });

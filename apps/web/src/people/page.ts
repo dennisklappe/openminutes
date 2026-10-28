@@ -1,7 +1,7 @@
 import { inArray, people, sql } from '@openminutes/db';
 import type { PeopleDto, PeopleQuery } from '../dto.js';
 import { checkEnabled, rememberEnabled } from '../voices/load.js';
-import { loadDuplicates, toDto, type PeopleDeps } from './load.js';
+import { loadDuplicates, loadSharedLabels, toDto, type PeopleDeps } from './load.js';
 import { loadProfileRows } from './profiles.js';
 import { loadReviewCounts } from './review.js';
 import { SESSION_CAP } from './useful.js';
@@ -30,6 +30,7 @@ export async function loadPeoplePage(
       : sql`(p.name ilike ${likePattern(needle)} or p.emails::text ilike ${likePattern(needle)} or coalesce(p.notes, '') ilike ${likePattern(needle)})`,
     query.source === 'joined' ? sql`p.source <> 'invited'` : undefined,
     query.source === 'invited' ? sql`p.source = 'invited'` : undefined,
+    query.source === 'unnamed' ? sql`p.unnamed` : undefined,
     query.tracking === 'untracked' ? sql`p.tracking = 'off'` : undefined,
     query.tracking === 'all' || query.tracking === 'untracked' ? undefined : sql`p.tracking = 'on'`,
   ].filter((filter) => filter !== undefined);
@@ -62,11 +63,12 @@ export async function loadPeoplePage(
   );
   const review = await loadReviewCounts(deps);
   const ids = found.map((row) => row.id);
-  const [rows, samples, seen, dupes] = await Promise.all([
+  const [rows, samples, seen, dupes, shared] = await Promise.all([
     ids.length === 0 ? [] : db.select().from(people).where(inArray(people.id, ids)),
     loadProfileRows(db, ids),
     loadMeetingStats(db, ids),
     loadDuplicates(db),
+    loadSharedLabels(db),
   ]);
   const byId = new Map(rows.map((row) => [row.id, row]));
   return {
@@ -80,6 +82,7 @@ export async function loadPeoplePage(
               seen,
               review.byPerson,
               dupes,
+              shared,
             ),
           ]
         : [];

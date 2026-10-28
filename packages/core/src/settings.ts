@@ -21,6 +21,8 @@ const definitions = {
   'summary.prompts': { secret: false, default: '[]' },
   'summary.default_prompt': { secret: false, default: 'default' },
   'summary.include_chat': { secret: false, default: 'true' },
+  /** Minutes the summary waits for how many people sit in a shared account, 0: never wait. */
+  'summary.shared_wait_minutes': { secret: false, default: '15' },
   'speakers.refine': { secret: false, default: 'true' },
   'phone.enabled': { secret: false, default: 'true' },
   'phone.consent_text': { secret: false, default: undefined },

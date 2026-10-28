@@ -16,6 +16,7 @@ import {
   skipSeries,
   SummaryNotConfiguredError,
   UnsupportedMeetingUrlError,
+  waitMinutes,
   type JobSender,
   type LocalStorage,
   type SettingsStore,
@@ -269,7 +270,11 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
         activeSummary && new Date(activeSummary.createdAt),
       ),
       summaryOptions: await loadSummaryOptions(meeting.id),
-      roomNotices: await loadRoomNotices(deps.db, meeting.id),
+      roomNotices: await loadRoomNotices(
+        deps.db,
+        meeting.id,
+        waitMinutes(await deps.settings.get('summary.shared_wait_minutes')),
+      ),
     });
   });
 

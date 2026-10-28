@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { InviteeDto, ParticipantDto } from '../../src/dto.js';
 import { api, errorMessage } from '../api.js';
 import { useConfirm } from '../Confirm.js';
 import { formatLength } from '../format.js';
-import { PencilIcon } from '../icons.js';
+import { MoreIcon, PencilIcon } from '../icons.js';
+import { Menu } from '../Menu.js';
 import { Panel } from '../Panel.js';
 import { AbsentList } from './AbsentList.js';
+import { flattenPeople, SPLIT_POLL_MS, splitFailedText, splitProgress } from '../sharedRoom.js';
 import { presence } from './names.js';
 import { RenameDialog } from './RenameDialog.js';
+import { SharedNote, VoiceRow } from './SharedTile.js';
 import './participants.css';
 
 interface Props {
@@ -31,7 +34,10 @@ export function PeopleCard({ meetingId, transcriptSize, reloadKey, hasSummary, o
   const [absent, setAbsent] = useState<InviteeDto[]>([]);
   const [editing, setEditing] = useState<ParticipantDto>();
   const [error, setError] = useState<string>();
+  const [splitting, setSplitting] = useState<{ tileId: string; startedAt: number }>();
   const confirm = useConfirm();
+  const changed = useRef(onChanged);
+  changed.current = onChanged;
 
   const load = useCallback(() => {
     api.participants(meetingId).then(
@@ -47,6 +53,43 @@ export function PeopleCard({ meetingId, transcriptSize, reloadKey, hasSummary, o
     );
   }, [meetingId]);
   useEffect(load, [load, transcriptSize, reloadKey]);
+
+  // While a split runs in the worker, look again until the tile has its people or time is up.
+  useEffect(() => {
+    if (!splitting) return;
+    const tile = people.find((person) => person.id === splitting.tileId);
+    const progress = splitProgress(tile?.room, splitting.startedAt, Date.now());
+    if (progress === 'done') {
+      setSplitting(undefined);
+      changed.current();
+      return;
+    }
+    if (progress === 'failed') {
+      setSplitting(undefined);
+      setError(splitFailedText);
+      return;
+    }
+    const timer = setTimeout(load, SPLIT_POLL_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [splitting, people, load]);
+
+  const split = (tileId: string, count: 2 | 3) => {
+    setError(undefined);
+    api.roomCount(meetingId, tileId, { count }).then(
+      (answer) => {
+        if (answer.splitting) setSplitting({ tileId, startedAt: Date.now() });
+        else {
+          load();
+          onChanged();
+        }
+      },
+      (failure: unknown) => {
+        setError(errorMessage(failure));
+      },
+    );
+  };
 
   const regenerate = async () => {
     const confirmed = await confirm({
@@ -66,35 +109,94 @@ export function PeopleCard({ meetingId, transcriptSize, reloadKey, hasSummary, o
   };
 
   if (people.length === 0) return null;
+  const { rows, notes } = flattenPeople(people);
   return (
     <Panel title="People">
       <ul className="participant-list">
-        {people.map((person) => (
-          <li key={person.id}>
-            <div className="people-name">
-              <strong className="truncate">{person.name}</strong>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={`Rename ${person.name}`}
-                onClick={() => {
-                  setEditing(person);
-                }}
-              >
-                <PencilIcon />
-              </button>
-            </div>
-            {person.originalName && (
-              <span className="muted people-original">Joined as {person.originalName}</span>
-            )}
-            <span className="muted people-meta">
-              {[presence(person), person.talkMs > 0 && `${formatLength(person.talkMs)} talking`]
-                .filter(Boolean)
-                .join(', ')}
-            </span>
-          </li>
-        ))}
+        {rows.map((row) =>
+          row.kind === 'voice' ? (
+            <VoiceRow
+              key={row.sub.voiceId}
+              meetingId={meetingId}
+              tile={row.tile}
+              sub={row.sub}
+              invitees={invitees}
+              others={people.filter((other) => other.id !== row.tile.id)}
+              onChanged={() => {
+                load();
+                onChanged();
+              }}
+            />
+          ) : (
+            <li key={row.person.id}>
+              <div className="people-name">
+                <strong className="truncate">{row.person.name}</strong>
+                <span className="sub-actions">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={`Rename ${row.person.name}`}
+                    onClick={() => {
+                      setEditing(row.person);
+                    }}
+                  >
+                    <PencilIcon />
+                  </button>
+                  {row.person.canSplit && (
+                    <Menu
+                      trigger={<MoreIcon />}
+                      label={`More for ${row.person.name}`}
+                      align="end"
+                      className="icon-menu"
+                      items={[2, 3].map((count) => ({
+                        label: `Split into ${String(count)} people`,
+                        onSelect: () => {
+                          split(row.person.id, count as 2 | 3);
+                        },
+                      }))}
+                    />
+                  )}
+                </span>
+              </div>
+              {row.person.originalName && (
+                <span className="muted people-original">Joined as {row.person.originalName}</span>
+              )}
+              <span className="muted people-meta">
+                {[
+                  presence(row.person),
+                  row.person.talkMs > 0 && `${formatLength(row.person.talkMs)} talking`,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </span>
+              {splitting?.tileId === row.person.id && (
+                <span className="muted people-meta" role="status">
+                  Looking for the voices
+                </span>
+              )}
+            </li>
+          ),
+        )}
       </ul>
+      {notes.map((tile) => (
+        <SharedNote
+          key={tile.id}
+          meetingId={meetingId}
+          tile={tile}
+          splitting={splitting?.tileId === tile.id || !!tile.room?.splitting}
+          onRename={() => {
+            setEditing(tile);
+          }}
+          onSplit={(count) => {
+            split(tile.id, count);
+          }}
+          onChanged={() => {
+            load();
+            onChanged();
+          }}
+          onError={setError}
+        />
+      ))}
       <AbsentList
         meetingId={meetingId}
         absent={absent}
@@ -111,6 +213,7 @@ export function PeopleCard({ meetingId, transcriptSize, reloadKey, hasSummary, o
         <RenameDialog
           meetingId={meetingId}
           person={editing}
+          shared={editing.room !== undefined}
           invitees={renameCandidates(editing, invitees, absent)}
           onClose={() => {
             setEditing(undefined);

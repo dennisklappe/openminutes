@@ -1,4 +1,6 @@
-import { eq, meetings, participants, type Database } from '@openminutes/db';
+import { and, eq, meetings, participants, people, sql, type Database } from '@openminutes/db';
+import { cleanEmails } from '@openminutes/core';
+import { PeopleError } from '../people/edit.js';
 
 type Meeting = typeof meetings.$inferSelect;
 
@@ -52,4 +54,50 @@ export async function dismissInvitee(db: Database, meeting: Meeting, email: stri
     .update(meetings)
     .set({ dismissedInvitees: [...dismissed, email] })
     .where(eq(meetings.id, meeting.id));
+}
+
+/**
+ * Says an invitee is a person from People: their seat in the meeting (made when they have none)
+ * gets the invitee, and the address joins the person's own unless another person has it.
+ */
+export async function linkInviteeToPerson(
+  db: Database,
+  meetingId: string,
+  personId: string,
+  email: string,
+): Promise<typeof participants.$inferSelect> {
+  const [person] = await db.select().from(people).where(eq(people.id, personId));
+  if (!person) throw new PeopleError('Person not found', 404);
+  const [seat] = await db
+    .select()
+    .from(participants)
+    .where(and(eq(participants.meetingId, meetingId), eq(participants.personId, personId)));
+  const [saved] = seat
+    ? await db
+        .update(participants)
+        .set({ inviteeEmails: cleanEmails([...seat.inviteeEmails, email]) })
+        .where(eq(participants.id, seat.id))
+        .returning()
+    : await db
+        .insert(participants)
+        .values({
+          meetingId,
+          displayName: person.name,
+          personId,
+          nameConfirmed: true,
+          inviteeEmails: [email],
+        })
+        .returning();
+  if (!saved) throw new PeopleError('Could not link the invitee', 400);
+  const taken = await db
+    .select({ id: people.id })
+    .from(people)
+    .where(sql`${people.emails} ? ${email}`);
+  if (taken.length === 0) {
+    await db
+      .update(people)
+      .set({ emails: cleanEmails([...person.emails, email]), updatedAt: new Date() })
+      .where(eq(people.id, personId));
+  }
+  return saved;
 }

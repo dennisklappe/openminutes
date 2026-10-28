@@ -32,6 +32,11 @@ export interface MinutesSource {
     originalName?: string | null;
     email: string | null;
     inviteeEmails?: readonly string[] | null;
+    /**
+     * A shared account whose people are listed on their own. It is not an attendee and gives no
+     * email, but an invitee that matches it is still not absent.
+     */
+    hidden?: boolean;
   }[];
   botName: string;
   summary: string | null;
@@ -54,17 +59,20 @@ function presentPeople(source: MinutesSource, invitees: readonly MinutesInvitee[
   const present = presentParticipants(source);
   const matches = matchInvitees(invitees, present);
   return dedupePeople(
-    present.map((participant, index): MinutesPerson => {
+    present.flatMap((participant, index): MinutesPerson[] => {
+      if (participant.hidden) return [];
       const joinedAs =
         participant.originalName &&
         !sameParticipant(participant.originalName, participant.displayName)
           ? participant.originalName
           : undefined;
-      return {
-        name: participant.displayName,
-        email: participant.email ?? matches[index]?.email ?? null,
-        ...(joinedAs && { joinedAs }),
-      };
+      return [
+        {
+          name: participant.displayName,
+          email: participant.email ?? matches[index]?.email ?? null,
+          ...(joinedAs && { joinedAs }),
+        },
+      ];
     }),
   );
 }

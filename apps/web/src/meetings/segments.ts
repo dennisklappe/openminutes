@@ -38,6 +38,7 @@ export async function loadSegments(db: Database, meetingId: string): Promise<Seg
     text: row.text,
     speaker: nameOf(row.participantId),
     speakerId: row.participantId,
+    speakerPersonId: row.participantId ? (personOf.get(row.participantId) ?? null) : null,
     speakerConfidence: row.speakerConfidence,
     speakerSource: row.speakerSource,
     uncertain: isUncertain(row),

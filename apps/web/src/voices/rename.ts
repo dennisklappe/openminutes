@@ -1,4 +1,4 @@
-import { linkParticipant, rememberVoice } from '@openminutes/core';
+import { isSharedTile, linkParticipant, rememberVoice } from '@openminutes/core';
 import {
   and,
   desc,
@@ -10,6 +10,7 @@ import {
   type Database,
 } from '@openminutes/db';
 import { personEmail } from '../participants/invitee-links.js';
+import { isSubSeat } from '../participants/shared-rules.js';
 import { replaceName } from './names.js';
 
 type Participant = typeof participants.$inferSelect;
@@ -67,8 +68,11 @@ export async function nameVoice(
       .where(eq(participants.id, survivor.id))
       .returning();
     await rewriteSummary(tx, voice.meetingId, voice.displayName, name);
-    if (saved) await linkParticipant(tx, saved);
-    if (remember && embedding) {
+    // A shared tile mixes several people and a sub-person already has theirs: no person or
+    // voice is made from either.
+    const shared = saved ? (await isSharedTile(tx, saved)) || (await isSubSeat(tx, saved)) : false;
+    if (saved && !shared) await linkParticipant(tx, saved);
+    if (remember && embedding && !shared) {
       await rememberVoice(tx, name, embedding, personEmail(survivor), voice.meetingId);
     }
   });

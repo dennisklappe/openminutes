@@ -193,6 +193,8 @@ export async function rejectLine(db: Database, personId: string, segmentId: stri
         })
         .where(eq(transcriptSegments.id, segmentId));
     } else if (segment.suggestedParticipantId && mine.has(segment.suggestedParticipantId)) {
+      // The suggestion made the line doubtful in the summary, turning it down settles that.
+      await markSpeakersChanged(tx, segment.meetingId);
       await tx
         .update(transcriptSegments)
         .set({

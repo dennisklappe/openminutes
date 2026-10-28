@@ -11,9 +11,18 @@ interface Props {
   invitees: InviteeDto[];
   onClose: () => void;
   onSaved: (renamed: boolean) => void;
+  /** Several people share this participant: its voice is never remembered as one person's. */
+  shared?: boolean;
 }
 
-export function RenameDialog({ meetingId, person, invitees, onClose, onSaved }: Props) {
+export function RenameDialog({
+  meetingId,
+  person,
+  invitees,
+  onClose,
+  onSaved,
+  shared = false,
+}: Props) {
   const [draft, setDraft] = useState(person.name);
   const [chosen, setChosen] = useState<string[]>();
   const [email, setEmail] = useState(person.email ?? '');
@@ -31,16 +40,18 @@ export function RenameDialog({ meetingId, person, invitees, onClose, onSaved }: 
     event.preventDefault();
     if (change === undefined || busy) return;
     setBusy(true);
-    api.renameParticipant(meetingId, person.id, { ...change, remember }).then(
-      () => {
-        onSaved(true);
-        onClose();
-      },
-      (failure: unknown) => {
-        setBusy(false);
-        setError(errorMessage(failure));
-      },
-    );
+    api
+      .renameParticipant(meetingId, person.id, { ...change, remember: shared ? false : remember })
+      .then(
+        () => {
+          onSaved(true);
+          onClose();
+        },
+        (failure: unknown) => {
+          setBusy(false);
+          setError(errorMessage(failure));
+        },
+      );
   };
 
   return (
@@ -105,16 +116,22 @@ export function RenameDialog({ meetingId, person, invitees, onClose, onSaved }: 
             />
           </label>
         )}
-        <label className="check people-remember">
-          <input
-            type="checkbox"
-            checked={remember}
-            onChange={(e) => {
-              setRemember(e.target.checked);
-            }}
-          />
-          <span>Remember for next time</span>
-        </label>
+        {shared ? (
+          <p className="muted people-remember">
+            Several people share this participant, so its voice is not remembered.
+          </p>
+        ) : (
+          <label className="check people-remember">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => {
+                setRemember(e.target.checked);
+              }}
+            />
+            <span>Remember for next time</span>
+          </label>
+        )}
         {error && (
           <p className="error" role="alert">
             {error}

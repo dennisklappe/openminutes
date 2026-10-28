@@ -140,7 +140,13 @@ describe('meeting rooms: several people in one participant tile', () => {
   it('shows a quiet notice and the voices with a few lines to listen to', async () => {
     const { meeting, room } = await fixture();
     expect((await detail(meeting.id)).roomNotices).toEqual([
-      { participantId: room.id, name: 'Meeting room', voices: 2, unnamed: 2 },
+      {
+        participantId: room.id,
+        name: 'Meeting room',
+        voices: 2,
+        unnamed: 2,
+        waitsUntil: null,
+      },
     ]);
     const review = (await (
       await call('GET', `/meetings/${meeting.id}/room/${room.id}`)
@@ -177,8 +183,12 @@ describe('meeting rooms: several people in one participant tile', () => {
     const byText = (text: string) => after.segments.find((s) => s.text === text);
     expect(byText('One a')).toMatchObject({ speaker: 'Anna Room', viaSpeaker: 'Meeting room' });
     expect(byText('One a')?.speakerSource).toBe('user');
-    // The other voice is still the tile, and the owner's edit is untouched.
-    expect(byText('Two a')).toMatchObject({ speaker: 'Meeting room', viaSpeaker: null });
+    // The owner's edit is untouched.
+    // The other voice is a person of its own now, still without a name.
+    expect(byText('Two a')).toMatchObject({
+      speaker: 'Voice 2 (Meeting room)',
+      viaSpeaker: 'Meeting room',
+    });
     expect(byText('Edited by the owner')).toMatchObject({
       speaker: 'Remote Rita',
       viaSpeaker: null,
@@ -191,10 +201,9 @@ describe('meeting rooms: several people in one participant tile', () => {
     const learn = sent.find((s) => s.name === 'meeting.learn-voice');
     expect(learn?.payload).toMatchObject({ meetingId: meeting.id });
     expect((learn?.payload as { segmentIds: string[] }).segmentIds).toHaveLength(3);
-    // One voice is named, one is not: the notice stays, with one left.
-    expect(after.roomNotices).toEqual([
-      { participantId: room.id, name: 'Meeting room', voices: 2, unnamed: 1 },
-    ]);
+    // The number of people is known now, so the question is gone.
+    expect(after.roomNotices).toEqual([]);
+    expect(room.id).toBeTruthy();
     expect(
       (
         await call('POST', `/meetings/${meeting.id}/room-voices/${one.id}/name`, {
@@ -207,6 +216,7 @@ describe('meeting rooms: several people in one participant tile', () => {
 
   it('creates a new person and does not queue learning while voice learning is off', async () => {
     const { meeting, two } = await fixture();
+    await settings.set('voices.remember', 'false');
     sent.length = 0;
     const named = await call('POST', `/meetings/${meeting.id}/room-voices/${two.id}/name`, {
       newName: 'Bram Newcomer',

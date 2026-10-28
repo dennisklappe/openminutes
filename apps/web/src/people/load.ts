@@ -11,6 +11,8 @@ import {
   or,
   participants,
   people,
+  sharedAccounts,
+  sharedAccountVoices,
   sql,
   transcriptSegments,
   voiceSamples,
@@ -83,20 +85,41 @@ export async function loadDuplicates(db: Database): Promise<Map<string, PersonCh
     .select({ id: people.id, name: people.name, emails: people.emails })
     .from(people);
   const names = new Map(rows.map((row) => [row.id, row.name]));
+  const accountOf = await sharedAccountOf(db);
   return new Map(
     [...findDuplicates(rows)].map(([id, others]) => [
       id,
       others.flatMap((other) => {
         const name = names.get(other);
-        return name === undefined ? [] : [{ id: other, name }];
+        // Two people of one shared account are different people, whatever they share.
+        const together =
+          accountOf.get(id) !== undefined && accountOf.get(id) === accountOf.get(other);
+        return name === undefined || together ? [] : [{ id: other, name }];
       }),
     ]),
   );
 }
 
+/** The shared account each person was made for, by person, as its account id. */
+async function sharedAccountOf(db: Database): Promise<Map<string, string>> {
+  const rows = await db
+    .select({ personId: sharedAccountVoices.personId, accountId: sharedAccountVoices.accountId })
+    .from(sharedAccountVoices);
+  return new Map(rows.map((row) => [row.personId, row.accountId]));
+}
+
+/** The label of the shared account each person was heard in, such as "Ann and Sam". */
+export async function loadSharedLabels(db: Database): Promise<Map<string, string>> {
+  const rows = await db
+    .select({ personId: sharedAccountVoices.personId, label: sharedAccounts.label })
+    .from(sharedAccountVoices)
+    .innerJoin(sharedAccounts, eq(sharedAccounts.id, sharedAccountVoices.accountId));
+  return new Map(rows.map((row) => [row.personId, row.label]));
+}
+
 export async function loadPeople(db: Database, only?: string): Promise<PersonDto[]> {
   const where = only ? eq(people.id, only) : undefined;
-  const [rows, samples, seen, review, dupes] = await Promise.all([
+  const [rows, samples, seen, review, dupes, shared] = await Promise.all([
     db
       .select()
       .from(people)
@@ -106,6 +129,7 @@ export async function loadPeople(db: Database, only?: string): Promise<PersonDto
     loadMeetingStats(db, only ? [only] : undefined),
     reviewCounts(db),
     loadDuplicates(db),
+    loadSharedLabels(db),
   ]);
   return rows.map((person) =>
     toDto(
@@ -114,6 +138,7 @@ export async function loadPeople(db: Database, only?: string): Promise<PersonDto
       seen,
       review,
       dupes,
+      shared,
     ),
   );
 }
@@ -124,6 +149,7 @@ export function toDto(
   seen: ReadonlyMap<string, MeetingStats>,
   review: ReadonlyMap<string, number>,
   dupes: ReadonlyMap<string, PersonChoiceDto[]> = new Map(),
+  shared: ReadonlyMap<string, string> = new Map(),
 ): PersonDto {
   return {
     id: person.id,
@@ -139,6 +165,8 @@ export function toDto(
     source: person.source,
     tracking: person.tracking,
     duplicates: dupes.get(person.id) ?? [],
+    unnamed: person.unnamed,
+    sharedAccount: shared.get(person.id) ?? null,
   };
 }
 
@@ -196,6 +224,9 @@ export async function personLines(
       rejected: voiceSamples.rejected,
       language: sql<string | null>`coalesce(${transcriptSegments.language}, ${meetings.language})`,
       hasAudio: sql<boolean>`exists (select 1 from ${audioFiles} where ${audioFiles.meetingId} = ${meetings.id})`,
+      via: sql<
+        string | null
+      >`(select tile.display_name from room_voices rv join participants tile on tile.id = rv.participant_id where rv.id = ${transcriptSegments.roomVoiceId})`,
     })
     .from(transcriptSegments)
     .innerJoin(meetings, eq(meetings.id, transcriptSegments.meetingId))
@@ -251,6 +282,7 @@ export async function personLines(
         inProfile: row.sampleId !== null && row.sampleEmbedded && !row.rejected,
         language: normalizeLanguage(row.language),
         hasAudio: row.hasAudio,
+        sharedVia: row.via,
       } satisfies PersonLineDto;
     });
 }
@@ -324,11 +356,17 @@ export async function trainingLines(
 
 export async function loadChoices(db: Database, exclude?: string): Promise<PersonChoiceDto[]> {
   const rows = await db
-    .select({ id: people.id, name: people.name, tracking: people.tracking })
+    .select({
+      id: people.id,
+      name: people.name,
+      tracking: people.tracking,
+      unnamed: people.unnamed,
+    })
     .from(people)
     .orderBy(sql`lower(${people.name})`);
+  // A voice nobody named yet is not somebody to pick.
   return rows
-    .filter((row) => row.id !== exclude)
+    .filter((row) => row.id !== exclude && !row.unnamed)
     .map((row) => ({ id: row.id, name: row.name, tracked: row.tracking === 'on' }));
 }
 

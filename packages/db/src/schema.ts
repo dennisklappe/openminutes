@@ -178,6 +178,8 @@ export const people = pgTable(
     tracking: text('tracking').$type<PersonTracking>().notNull().default('on'),
     /** Added to the margin a line needs to be learned by itself, raised when an auto sample is rejected. */
     autoMargin: real('auto_margin').notNull().default(0),
+    /** A voice of a shared account that nobody gave a name yet, named "Voice 1 (Ann and Sam)". */
+    unnamed: boolean('unnamed').notNull().default(false),
     /** Lower case. A person may have none, one or several. */
     emails: jsonb('emails').$type<string[]>().notNull().default([]),
     /** Up to 5 vectors built from the voice samples, matched by the highest cosine. */
@@ -209,6 +211,10 @@ export const participants = pgTable(
     personId: uuid('person_id').references((): AnyPgColumn => people.id, { onDelete: 'set null' }),
     /** The owner said this tile is one person, so it is not offered as a shared room again. */
     roomDismissedAt: timestamptz('room_dismissed_at'),
+    /** How many people the owner (or a remembered account) says are in this tile. Null: not known. */
+    roomCount: integer('room_count'),
+    /** When the question how many people was raised, the summary waits for the answer from then. */
+    roomAskedAt: timestamptz('room_asked_at'),
   },
   (t) => [index('participants_person_idx').on(t.personId)],
 );
@@ -239,6 +245,40 @@ export const roomVoices = pgTable(
     createdAt: timestamptz('created_at').notNull().defaultNow(),
   },
   (t) => [index('room_voices_meeting_idx').on(t.meetingId)],
+);
+
+/**
+ * A participant tile that holds several people, known by its email or else its normalised name,
+ * so the next meeting from it skips the question. `count` is what the owner answered and stays
+ * null while the row only anchors the people made for its voices.
+ */
+export const sharedAccounts = pgTable('shared_accounts', {
+  id: id(),
+  /** `email:<address>` or `name:<lower case name>`. */
+  key: text('key').notNull().unique(),
+  label: text('label').notNull(),
+  count: integer('count'),
+  createdAt: timestamptz('created_at').notNull().defaultNow(),
+});
+
+/** The person that stands for voice `number` of a shared account, the same in every meeting. */
+export const sharedAccountVoices = pgTable(
+  'shared_account_voices',
+  {
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => sharedAccounts.id, { onDelete: 'cascade' }),
+    number: integer('number').notNull(),
+    personId: uuid('person_id')
+      .notNull()
+      .references((): AnyPgColumn => people.id, { onDelete: 'cascade' }),
+    /** How this voice sounded last time, so the next meeting finds the same person by ear. */
+    centroid: jsonb('centroid').$type<number[]>(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.accountId, t.number] }),
+    index('shared_account_voices_person_idx').on(t.personId),
+  ],
 );
 
 /** A person who was invited to a meeting, whether or not they joined. One row per person and meeting. */

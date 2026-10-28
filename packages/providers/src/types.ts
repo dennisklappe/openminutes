@@ -10,6 +10,8 @@ export interface Segment {
   text: string;
   confidence?: number;
   speaker?: string;
+  /** The speaker label is a guess: the transcript shows it with a question mark. */
+  speakerUncertain?: boolean;
   /** The language of this segment, when the provider names one per segment. */
   language?: string;
   words?: SegmentWord[];

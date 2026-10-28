@@ -1558,6 +1558,16 @@ legend {
   background: var(--spk);
 }
 
+.talk .talk-unassigned {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.talk .talk-unassigned i {
+  background: var(--muted);
+  opacity: 0.45;
+}
+
 .empty {
   padding: 24px 0;
   color: var(--muted);
@@ -3347,6 +3357,20 @@ th .cell-select {
   font-size: 12px;
 }
 
-.room-notice a.button {
-  flex: none;
+.room-notice .room-answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.room-notice .room-wait {
+  display: block;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .room-notice .room-answers button {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }

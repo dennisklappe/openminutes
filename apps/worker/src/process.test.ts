@@ -48,6 +48,12 @@ describe('processMeeting', () => {
   let outcome: Segment[] | Error;
   let summaryRequests: string[];
   let summaryError: Error | undefined;
+  let atSummary: {
+    status: string | undefined;
+    reviewed: boolean;
+    saved: number;
+    suggestions: number;
+  };
   let refiner: SummaryProvider | undefined;
   let silences: SilentRange[];
   let fallback: Segment[] | undefined;
@@ -67,8 +73,19 @@ describe('processMeeting', () => {
     },
     detectSilence: () => Promise.resolve(silences),
     detectLanguage: () => Promise.resolve(detected),
-    requestSummary: (meetingId) => {
+    requestSummary: async (meetingId) => {
       summaryRequests.push(meetingId);
+      const [row] = await test.db.select().from(meetings).where(eq(meetings.id, meetingId));
+      const lines = await test.db
+        .select()
+        .from(transcriptSegments)
+        .where(eq(transcriptSegments.meetingId, meetingId));
+      atSummary = {
+        status: row?.status,
+        reviewed: row?.speakerCheckedAt instanceof Date,
+        saved: lines.length,
+        suggestions: lines.filter((line) => line.suggestedParticipantId).length,
+      };
       return summaryError ? Promise.reject(summaryError) : Promise.resolve();
     },
     createRefiner: () => Promise.resolve(refiner),
@@ -261,6 +278,22 @@ describe('processMeeting', () => {
       expect(meeting.speakerCheckedAt).toBeInstanceOf(Date);
     });
 
+    it('starts the summary only after the speaker review has been saved', async () => {
+      const { id, bob } = await twoSpeakers();
+      refiner = answering(() =>
+        Promise.resolve(JSON.stringify({ changes: [{ index: 1, speaker: 'Bob' }] })),
+      );
+      await processMeeting(deps(), id);
+      expect(summaryRequests).toEqual([id]);
+      expect(atSummary).toEqual({
+        status: 'transcribed',
+        reviewed: true,
+        saved: 2,
+        suggestions: 1,
+      });
+      expect(bob.id).toBeTruthy();
+    });
+
     it('keeps the aligned labels when the model fails or names a stranger', async () => {
       const { id, alice } = await twoSpeakers();
       refiner = answering(() => Promise.reject(new Error('rate limited')));
@@ -342,7 +375,7 @@ describe('processMeeting', () => {
         expect(flagged?.speakerConfidence).toBeLessThan(0.7);
       });
 
-      it('saves the room voices of a tile with two distinct voices', async () => {
+      it('saves the room voices of a tile whose number of people is known', async () => {
         const lines = 8;
         reset(
           Array.from({ length: lines }, (_, i) => ({
@@ -354,18 +387,21 @@ describe('processMeeting', () => {
         const id = await insertMeeting('ended', ['000.opus']);
         const [room] = await test.db
           .insert(participants)
-          .values({ meetingId: id, displayName: 'Two at a screen' })
+          .values({ meetingId: id, displayName: 'Two at a screen', roomCount: 2 })
           .returning();
         if (!room) throw new Error('insert failed');
         await test.db
           .insert(speakerEvents)
           .values({ meetingId: id, participantId: room.id, startMs: 0, endMs: lines * 5000 });
+        // Two voices about 0.8 apart: closer than the automatic bar, so only the known count splits them.
         const one = [1, 0, 0];
-        const two = [0, 1, 0];
+        const two = [0.8, 0.6, 0];
         const embeddings = Array.from({ length: lines }, (_, i) => (i < lines / 2 ? one : two));
         await processMeeting(withRecording(true, embeddings), id);
         const voices = await test.db.select().from(roomVoices).where(eq(roomVoices.meetingId, id));
         expect(voices.map((v) => v.lines).toSorted()).toEqual([4, 4]);
+        const { segments } = await load(id);
+        expect(segments.filter((s) => s.roomVoiceId !== null)).toHaveLength(lines);
       });
 
       it('opens the real original audio for the voice check, then publishes it', async () => {

@@ -88,6 +88,8 @@ export interface SegmentDto {
   text: string;
   speaker: string | null;
   speakerId: string | null;
+  /** The person behind the speaker, when linked to one: a seat and a voice of one person share it. */
+  speakerPersonId?: string | null;
   speakerConfidence: number | null;
   speakerSource: SpeakerSourceDto | null;
   uncertain: boolean;

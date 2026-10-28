@@ -4,6 +4,7 @@ import {
   eq,
   meetings,
   participants,
+  roomVoices,
   summaries,
   transcriptSegments,
 } from '@openminutes/db';
@@ -117,6 +118,56 @@ describe('runSummary', () => {
       content: '## Summary\n\nDone.',
       error: null,
     });
+  });
+
+  it('marks a guessed speaker with a question mark and adds the rule, only then', async () => {
+    received = [];
+    failure = undefined;
+    const clean = await insertSummary(true);
+    await runSummary(deps(), clean);
+    expect(received[0]?.prompt).not.toContain('followed by a question mark');
+
+    received = [];
+    const id = await insertSummary(true);
+    const [summary] = await test.db.select().from(summaries).where(eq(summaries.id, id));
+    const [bob] = await test.db
+      .insert(participants)
+      .values({ meetingId: summary?.meetingId ?? '', displayName: 'Bob' })
+      .returning();
+    await test.db.insert(transcriptSegments).values([
+      {
+        meetingId: summary?.meetingId ?? '',
+        participantId: bob?.id ?? null,
+        startMs: 10_000,
+        endMs: 12_000,
+        text: 'I will send it.',
+        speakerConfidence: 0.4,
+        speakerSource: 'diarization',
+      },
+      {
+        meetingId: summary?.meetingId ?? '',
+        participantId: bob?.id ?? null,
+        startMs: 20_000,
+        endMs: 22_000,
+        text: 'Confirmed.',
+        speakerConfidence: 0.4,
+        speakerSource: 'user',
+      },
+      {
+        meetingId: summary?.meetingId ?? '',
+        participantId: bob?.id ?? null,
+        startMs: 30_000,
+        endMs: 32_000,
+        text: 'Sure.',
+        speakerConfidence: 0.95,
+        speakerSource: 'diarization',
+      },
+    ]);
+    await runSummary(deps(), id);
+    expect(received[0]?.input).toBe(
+      '[00:00:00] Alice: Hi.\n[00:00:10] Bob?: I will send it.\n[00:00:20] Bob: Confirmed.\n[00:00:30] Bob: Sure.\n[00:01:01] Bye.',
+    );
+    expect(received[0]?.prompt).toContain('A speaker name followed by a question mark is a guess.');
   });
 
   it('gives the model the chat unless summary.include_chat is off', async () => {
@@ -243,6 +294,98 @@ describe('runSummary', () => {
     failure = undefined;
     await runSummary(deps(), empty);
     expect(received).toEqual([]);
+  });
+
+  describe('shared accounts', () => {
+    type Sent = { name: string; payload: unknown; options?: { startAfter?: Date } | undefined };
+    const queueOf = (sent: Sent[]) => ({
+      send: (name: string, payload: unknown, options?: { startAfter?: Date }) => {
+        sent.push({ name, payload, options });
+        return Promise.resolve();
+      },
+    });
+
+    /** A summary of a meeting whose tile "Jo and Sam" was asked how many people, `askedMinutesAgo`. */
+    async function asked(askedMinutesAgo: number) {
+      const id = await insertSummary(true);
+      const meetingId = (await load(id))?.meetingId ?? '';
+      const [tile] = await test.db
+        .insert(participants)
+        .values({
+          meetingId,
+          displayName: 'Jo and Sam',
+          roomAskedAt: new Date(Date.now() - askedMinutesAgo * 60_000),
+        })
+        .returning();
+      await test.db.insert(roomVoices).values(
+        [1, 2].map((number) => ({
+          meetingId,
+          participantId: tile?.id ?? '',
+          number,
+          centroid: [number],
+          lines: 3,
+          durationMs: 9000,
+        })),
+      );
+      return { id, meetingId, tileId: tile?.id ?? '' };
+    }
+    const tileOf = async (id: string) =>
+      (await test.db.select().from(participants).where(eq(participants.id, id)))[0];
+
+    it('waits for the answer with a delayed job, without summarising', async () => {
+      received = [];
+      const { id } = await asked(1);
+      const sent: Sent[] = [];
+      await runSummary({ ...deps(), queue: queueOf(sent) }, id);
+      expect((await load(id))?.status).toBe('pending');
+      expect(received).toEqual([]);
+      expect(sent).toHaveLength(1);
+      expect(sent[0]).toMatchObject({ name: 'meeting.summarize', payload: { summaryId: id } });
+      const delay = (sent[0]?.options?.startAfter?.getTime() ?? 0) - Date.now();
+      expect(delay).toBeGreaterThan(0);
+      expect(delay).toBeLessThanOrEqual(21_000);
+    });
+
+    it('goes on with the detected count once the time is up', async () => {
+      received = [];
+      const { id, tileId } = await asked(20);
+      const sent: Sent[] = [];
+      await runSummary({ ...deps(), queue: queueOf(sent) }, id);
+      expect((await load(id))?.status).toBe('done');
+      expect(sent.filter((s) => s.name === 'meeting.summarize')).toEqual([]);
+      expect((await tileOf(tileId))?.roomCount).toBe(2);
+    });
+
+    it('goes on at once when the answer is in', async () => {
+      received = [];
+      const { id, tileId } = await asked(1);
+      await test.db.update(participants).set({ roomCount: 2 }).where(eq(participants.id, tileId));
+      const sent: Sent[] = [];
+      await runSummary({ ...deps(), queue: queueOf(sent) }, id);
+      expect((await load(id))?.status).toBe('done');
+      expect(sent).toEqual([]);
+    });
+
+    it('never waits when the wait is 0', async () => {
+      received = [];
+      await settings.set('summary.shared_wait_minutes', '0');
+      const { id, tileId } = await asked(0);
+      const sent: Sent[] = [];
+      await runSummary({ ...deps(), queue: queueOf(sent) }, id);
+      await settings.delete('summary.shared_wait_minutes');
+      expect((await load(id))?.status).toBe('done');
+      expect(sent).toEqual([]);
+      expect((await tileOf(tileId))?.roomCount).toBe(2);
+    });
+
+    it('does not wait for a meeting with no open question', async () => {
+      received = [];
+      const id = await insertSummary(true);
+      const sent: Sent[] = [];
+      await runSummary({ ...deps(), queue: queueOf(sent) }, id);
+      expect((await load(id))?.status).toBe('done');
+      expect(sent).toEqual([]);
+    });
   });
 
   describe('re-applying earlier AI edits', () => {

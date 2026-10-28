@@ -1,4 +1,13 @@
-import { eq, meetings, participants, roomVoices, transcriptSegments } from '@openminutes/db';
+import { addVoiceSamples, rememberCount } from '@openminutes/core';
+import {
+  eq,
+  meetings,
+  participants,
+  people,
+  roomVoices,
+  transcriptSegments,
+  voiceSamples,
+} from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { detect, saveRoomVoices } from './room-voices.js';
@@ -153,5 +162,128 @@ describe('shared tiles', () => {
     expect(detect([...rita, ...room], new Set())).toEqual([]);
     expect(detect([...room], new Set())).toHaveLength(1);
     expect(detect([...room], new Set(['room']))).toEqual([]);
+  });
+
+  describe('how many people', () => {
+    const askedOf = async (id: string) => {
+      const [row] = await test.db.select().from(participants).where(eq(participants.id, id));
+      return row;
+    };
+    const unnamed = () => test.db.select().from(people).where(eq(people.unnamed, true));
+
+    it('raises the question for a flagged tile that is not remembered, and makes nobody yet', async () => {
+      const { meeting, room, lines } = await setup([ANNA, BRAM], [5, 4]);
+      const before = (await unnamed()).length;
+      await saveRoomVoices(test.db, meeting.id, lines);
+      const tile = await askedOf(room.id);
+      expect(tile?.roomAskedAt).not.toBeNull();
+      expect(tile?.roomCount).toBeNull();
+      expect((await unnamed()).length).toBe(before);
+      expect((await stored(meeting.id)).every((v) => v.personId === null)).toBe(true);
+    });
+
+    it('does not ask about a tile with one voice', async () => {
+      const { meeting, room, lines } = await setup([ANNA], [9]);
+      await saveRoomVoices(test.db, meeting.id, lines);
+      expect((await askedOf(room.id))?.roomAskedAt).toBeNull();
+    });
+
+    it('skips the question for a remembered account and uses its count right away', async () => {
+      const { meeting, room, lines } = await setup([ANNA, BRAM], [5, 4]);
+      await rememberCount(test.db, { email: null, displayName: 'Meeting room' }, 2);
+      expect(await saveRoomVoices(test.db, meeting.id, lines)).toBe(2);
+      const tile = await askedOf(room.id);
+      expect(tile?.roomAskedAt).toBeNull();
+      expect(tile?.roomCount).toBe(2);
+      const voices = await stored(meeting.id);
+      expect(voices.every((v) => v.personId !== null)).toBe(true);
+      const made = await test.db.select().from(people).where(eq(people.unnamed, true));
+      expect(made.map((p) => p.name)).toEqual(
+        expect.arrayContaining(['Voice 1 (Meeting room)', 'Voice 2 (Meeting room)']),
+      );
+      // The tile's own voice is not stored for either of them.
+      const seats = await test.db
+        .select()
+        .from(participants)
+        .where(eq(participants.meetingId, meeting.id));
+      expect(seats.filter((s) => s.personId).every((s) => s.voiceEmbedding === null)).toBe(true);
+      // Processing again keeps the same people.
+      const ids = voices.map((v) => v.personId).toSorted();
+      await saveRoomVoices(test.db, meeting.id, lines);
+      expect((await stored(meeting.id)).map((v) => v.personId).toSorted()).toEqual(ids);
+      await test.db.delete(people).where(eq(people.unnamed, true));
+    });
+
+    it('uses the remembered count as the number of clusters, even for voices that sound alike', async () => {
+      const close = [1, 0.5, 0, 0];
+      const { meeting, room, lines } = await setup([ANNA, close], [5, 4]);
+      await test.db.update(participants).set({ roomCount: 2 }).where(eq(participants.id, room.id));
+      expect(await saveRoomVoices(test.db, meeting.id, lines)).toBe(2);
+      expect(await stored(meeting.id)).toHaveLength(2);
+      await test.db.delete(people).where(eq(people.unnamed, true));
+    });
+
+    it('does nothing for a remembered account of one person', async () => {
+      const { meeting, lines } = await setup([ANNA, BRAM], [5, 4]);
+      await test.db.delete(participants).where(eq(participants.displayName, 'Remote Rita'));
+      await rememberCount(test.db, { email: null, displayName: 'Meeting room' }, 1);
+      expect(await saveRoomVoices(test.db, meeting.id, lines)).toBe(0);
+      await rememberCount(test.db, { email: null, displayName: 'Meeting room' }, 2);
+    });
+
+    it('gives the same person to the same voice in the next meeting, even when the order flips', async () => {
+      const tileKey = { email: null, displayName: 'Meeting room' };
+      await rememberCount(test.db, tileKey, 2);
+      const first = await setup([ANNA, BRAM], [5, 4]);
+      await saveRoomVoices(test.db, first.meeting.id, first.lines);
+      // Bram talks more in the second meeting, so his cluster is the biggest one now.
+      const second = await setup([BRAM, ANNA], [6, 4]);
+      await saveRoomVoices(test.db, second.meeting.id, second.lines);
+      const idxA = ANNA.indexOf(1);
+      const nearest = async (meetingId: string, index: number) =>
+        (await stored(meetingId)).toSorted(
+          (a, b) => (b.centroid[index] ?? 0) - (a.centroid[index] ?? 0),
+        )[0]?.personId;
+      expect(await nearest(second.meeting.id, idxA)).toBe(await nearest(first.meeting.id, idxA));
+      expect(await nearest(second.meeting.id, BRAM.indexOf(1))).toBe(
+        await nearest(first.meeting.id, BRAM.indexOf(1)),
+      );
+      expect(await nearest(first.meeting.id, idxA)).not.toBe(
+        await nearest(first.meeting.id, BRAM.indexOf(1)),
+      );
+      await test.db.delete(people).where(eq(people.unnamed, true));
+    });
+
+    it('keeps separate samples and profiles for two sub-people', async () => {
+      const { meeting, lines } = await setup([ANNA, BRAM], [5, 4]);
+      await saveRoomVoices(test.db, meeting.id, lines);
+      const [one, two] = (await stored(meeting.id)).toSorted((a, b) => a.number - b.number);
+      expect(one?.personId).toBeTruthy();
+      await addVoiceSamples(test.db, one?.personId ?? '', [
+        { kind: 'imported', embedding: [1, 0, 0, 0] },
+      ]);
+      await addVoiceSamples(test.db, two?.personId ?? '', [
+        { kind: 'imported', embedding: [0, 1, 0, 0] },
+      ]);
+      const a = await test.db
+        .select()
+        .from(voiceSamples)
+        .where(eq(voiceSamples.personId, one?.personId ?? ''));
+      const b = await test.db
+        .select()
+        .from(voiceSamples)
+        .where(eq(voiceSamples.personId, two?.personId ?? ''));
+      expect(a.map((x) => x.embedding)).toEqual([[1, 0, 0, 0]]);
+      expect(b.map((x) => x.embedding)).toEqual([[0, 1, 0, 0]]);
+      const [pa] = await test.db
+        .select()
+        .from(people)
+        .where(eq(people.id, one?.personId ?? ''));
+      const [pb] = await test.db
+        .select()
+        .from(people)
+        .where(eq(people.id, two?.personId ?? ''));
+      expect(JSON.stringify(pa?.voicePrototypes)).not.toBe(JSON.stringify(pb?.voicePrototypes));
+    });
   });
 });

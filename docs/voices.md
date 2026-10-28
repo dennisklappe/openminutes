@@ -101,14 +101,60 @@ The labels are never changed by the check. Lines you set yourself are skipped. T
 
 A meeting room, or two people in front of one screen, shows up as one participant, so the speaking indicator cannot tell them apart. With **Check lines against saved voices** on, the check looks at the clean lines of each participant (the same lines as the [voices of this meeting](#voices-of-this-meeting), up to 60 per participant) and groups them by voice. A participant whose lines fall into two or more clear groups (each with at least 3 lines and 12 seconds of speech, at most 4 groups) is flagged as probably several people. A group that sounds like another participant of the meeting is ignored, and so are bots and people marked do not track.
 
-- the meeting page shows a quiet notice, for example "Meeting room appears to have 2 voices", with **Name them** and **It is one person**
-- **Name them** opens a page scoped to that participant with one card per voice. Listen to a few lines and answer **Who is this?** with someone from the meeting, from People (**People...**) or **New person**
-- naming a voice gives its lines to that person as lines you verified: the transcript shows their name with a small "via Meeting room" note, the lines count as the person's verified samples (when **Learn voices** is on), and the next meeting recognises them even from a shared microphone. Lines you set yourself are never taken over
-- a line that overlaps someone, is shorter than 1.5 seconds or fits no voice clearly (0.5 or more, 0.1 ahead of the second voice) is not given to a voice. After you name a voice these lines of the tile become uncertain, so they show up in review
-- **It is one person** removes the voices and the notice, and is remembered for that participant when the meeting is processed again. It is not offered once a voice is named
-- nothing is ever split by itself: until you name a voice the transcript keeps the label of the participant
+```mermaid
+flowchart LR
+    A["Tile flagged,<br/>or a remembered<br/>shared account"] --> B{"How many<br/>people?"}
+    B -->|"1"| C["It is one person"]
+    B -->|"2, 3 or Not sure"| D["One person per voice,<br/>Voice 1 (tile), Voice 2 (tile)"]
+    D --> E["Name each:<br/>pick a person or type a name"]
+    B -.->|"no answer in time"| D
+```
 
-The voice of each group is kept in the table `room_voices` with the meeting, as a list of numbers like a voice sample, so you can name it later. It is deleted with the meeting, with **Delete everyone's voices**, with the voice data of the person it was named as, and when you say it is one person. Processing a meeting again rebuilds the groups, so a voice may have to be named again, lines you already named keep their label.
+### How many people
+
+- the meeting page shows a quiet card, for example "Ann and Sam sounds like several people. How many?", with **1**, **2**, **3** and **Not sure**. 1 says it is one person. **Not sure** takes the number of voices found. A number other than the voices found clusters the lines of that tile again into exactly that many voices (the closest groups join until that many are left, each voice needs at least 2 lines), which runs in the background
+- the **summary** waits for the answer. The transcript and everything else go on. Under Settings, Summaries, **Wait for how many people on shared accounts** sets the time (15 minutes by default, 0 never waits). When it runs out the summary goes on with the number of voices found, and the notice that speakers changed since the summary covers a later change. The summary job looks again every 20 seconds through the job queue, it does not hold a worker
+- the answer is **remembered per shared account**: its email when it has one, else its normalised name. The next meeting from the same account skips the question and clusters with that number. Under Settings, Summaries, **Remembered shared accounts** lists them with **Remove**, which makes the next meeting ask again and keeps the people already made
+- nothing is asked for a tile of one person, and nothing happens for a tile nobody flags and nobody remembered. Where detection missed it, use **Split into 2 people** or **Split into 3 people** on the participant in the People card. This uses the same clustering with a fixed number and the same data
+
+### People under the tile
+
+As soon as the number is known, each voice becomes a **real person** (source joined) called **Voice 1 (Ann and Sam)**, **Voice 2 (Ann and Sam)**, marked **Unnamed**. They are not merged with anybody and not made for a tile of one voice. The same voice number of the same account is the same person in every meeting and after the meeting is processed again with the same number, so naming a voice once names it everywhere.
+
+- in the **People** card of the meeting every voice is a person of the list like everyone else, in the place of the tile, with its speaking time, line count (its own lines only), a few clear lines to play, a small "via <tile>" tag and, once named, a link to their page. The tile is no row: a quiet note under the list says "Joined from one shared account: <tile>, N voices" and opens to **It is one person** (removes them again, as long as none is named), **Split into 2 people** / **Split into 3 people** (shown while none is named) and renaming the account. The note is hidden when the tile has one voice or was dismissed. An unnamed voice has a **Name** button
+- a person who also joined by themselves keeps their own participant row and is never merged into the voice row. The voice sits right under them with its own lines and time, and a hint "Same person as the participant above. Wrong? Change who this is". When the participant has no lines other than the voice's (the seat only exists for the voice) it is one row. The transcript legend, talk time, minutes and share page already list seats and voices flat
+- an invitee belongs to one person of a meeting: linking it to someone else (rename, **They were there**, a person from People) answers 409 naming who has it, or moves it with `move` so it leaves the previous person
+- **Name** on a person (also on the People tab and the person page) opens "Who is this?": someone from the meeting, from People, or a new name. A new name keeps the person and all their meetings. Picking someone who exists moves the voice, its lines, voice samples and meetings to them and removes the placeholder. Nothing is ever merged by itself
+- the transcript, the speakers filter and the talk time list each person as their own speaker, with the small "via Ann and Sam" note and a colour of their own, also while still unnamed. Lines that overlap someone, are shorter than 1.5 seconds or fit no voice clearly (0.5 or more, 0.1 ahead of the second voice) stay with the tile and become uncertain, so they show up in review. Lines you set yourself are never taken over
+- on the **People** tab they are normal people with the **Unnamed** tag and a small "via shared account" tag. The **Unnamed voices** filter lists only them, and a person's lines show the same tag. Each has a voice profile of their own, built only from lines assigned to their voice
+- **Name them** (the naming page of a tile) lists the voices with a few lines to listen to and does the same as **Name**
+
+### Naming with emails, and changing who a voice is
+
+**Name** is two steps in one dialog: pick a person (someone from the meeting, from People, or a new name), then optionally the emails. The emails step lists every invitee of the meeting, also the ones under "Unable to attend", plus a field for another address, and shows the addresses the picked person has already. An invitee that someone else has says "taken by X, tick to move it here": ticking it moves it (the server needs `move`, else it answers 409). The addresses go to that person only, never to the tile, and never to two people of the same tile.
+
+A voice that is named can be changed: **Change who this is** in the menu of the person under the tile, or on the naming page. It is for a voice that was given to the wrong person, and the person pencil is not for that (it only edits the person). The dialog says what happens before it does it:
+
+- the lines of the voice move to the new person (or to an unnamed person again) and are verified for them as when naming. Lines you set by hand stay where they are
+- the voice samples learned from this voice in this meeting are removed from the old person and their voice profile is built again. Samples of their other meetings are not touched
+- the emails that are linked on the old person's seat in this meeting are listed, and you tick the ones to remove from them. They are ticked for you only when the seat existed for this voice alone. Nothing else is deleted
+- a person who was made only for this voice (nothing else is theirs) is removed. A person who existed before stays, with everything else they have
+- the voice number of the account points to the new person (or a new unnamed person) from now on
+
+It is one transaction: `GET /meetings/:id/room-voices/:voiceId/change` gives the preview, `POST` on the same path does it with `{ personId | newName | unnamed, removeEmails?, inviteeEmails?, email?, move? }`. Limit: when a voice was named as a person who already existed, what that person had before (samples of earlier meetings under the same voice number) cannot be told apart from their own afterwards and stays with them.
+
+**They were there** (Unable to attend) offers the people of a shared tile under the tile's name, not the tile, then the other participants, then **Someone else...** to pick anyone from People, who gets a seat with the invitee.
+
+### Emails and the voice library
+
+Each person has their own emails. They share a tile, not an address.
+
+- the email of the tile is **not** copied to anybody. On a person you can type an address, link an invitee of the meeting, or give the address of the account to one person. An invitee, and the account address, can belong to only one person of the same tile. The dialog shows who has it, the server refuses a second one
+- minutes and the share and email recipients use these addresses: each person gets the minutes at their own address, and nobody at an address they do not own. The tile itself is not listed as an attendee while its voices are people, and its email is not a recipient unless you gave it to someone
+- the voice of the tile as a whole (a mix of several people) is never saved: not on the participant, not in a profile, not as **Remember for next time**. Voice learning and name suggestions skip a tile with voices, and the voice check scores each person against their own profile. Voice samples and prototypes belong to exactly one person
+- people made from a tile are not offered as a possible duplicate of each other, and merging two of them is always your decision
+
+The voice of each group is kept in the table `room_voices` with the meeting, as a list of numbers like a voice sample, so you can name it later. It is deleted with the meeting, with **Delete everyone's voices**, with the voice data of the person it belongs to, and when you say it is one person. Processing a meeting again rebuilds the groups. A count you gave stays for that participant and the people stay the same.
 
 ## Deleting
 

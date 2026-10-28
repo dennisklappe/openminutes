@@ -12,6 +12,7 @@ import { Dialog } from '../Dialog.js';
 import { MoreIcon, PlusIcon, SearchIcon } from '../icons.js';
 import { Menu } from '../Menu.js';
 import { MergeDialog } from '../MergePeople.js';
+import { NameVoiceDialog } from '../NameVoice.js';
 import {
   coverageText,
   parseEmails,
@@ -156,6 +157,7 @@ export function People() {
   const [tracking, setTracking] = useState<TrackingFilter>('tracked');
   const [selected, setSelected] = useState<Map<string, PersonDto>>(new Map());
   const [merging, setMerging] = useState<[PersonDto | string, PersonDto | string]>();
+  const [naming, setNaming] = useState<PersonDto>();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -295,6 +297,7 @@ export function People() {
           <option value="all">Everyone</option>
           <option value="joined">Was in a meeting</option>
           <option value="invited">Invited only</option>
+          <option value="unnamed">Unnamed voices</option>
         </select>
         <button
           type="button"
@@ -422,6 +425,15 @@ export function People() {
                           <a className="row-link" href={`#/people/${person.id}`}>
                             {person.name}
                           </a>
+                          {person.unnamed && <span className="unnamed-tag">Unnamed</span>}
+                          {person.sharedAccount && (
+                            <span
+                              className="shared-marker"
+                              title={`Heard in the shared account ${person.sharedAccount}`}
+                            >
+                              via shared account
+                            </span>
+                          )}
                           {person.source === 'invited' && <span className="muted"> Invited</span>}
                           {person.tracking === 'off' && <span className="muted"> Not tracked</span>}
                           {person.duplicates[0] && (
@@ -481,6 +493,16 @@ export function People() {
                         align="end"
                         items={[
                           { label: 'Open', href: `#/people/${person.id}` },
+                          ...(person.unnamed
+                            ? [
+                                {
+                                  label: 'Name',
+                                  onSelect: () => {
+                                    setNaming(person);
+                                  },
+                                },
+                              ]
+                            : []),
                           ...(person.needsReview > 0
                             ? [{ label: 'Review lines', href: `#/people/${person.id}/review` }]
                             : []),
@@ -531,6 +553,18 @@ export function People() {
           onMerged={() => {
             setMerging(undefined);
             setSelected(new Map());
+            setReload((n) => n + 1);
+          }}
+        />
+      )}
+      {naming && (
+        <NameVoiceDialog
+          person={naming}
+          onClose={() => {
+            setNaming(undefined);
+          }}
+          onNamed={() => {
+            setNaming(undefined);
             setReload((n) => n + 1);
           }}
         />

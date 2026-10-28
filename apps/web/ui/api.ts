@@ -62,7 +62,12 @@ import type {
   ReviewOrder,
   ReviewQueueDto,
   PersonInput,
+  SharedAccountsDto,
+  SharedAccountsInput,
   PersonUpdateInput,
+  RoomCountInput,
+  RoomChangeInput,
+  RoomChangePreviewDto,
   RoomNameInput,
   RoomReviewDto,
   VoiceNameInput,
@@ -200,10 +205,16 @@ export const api = {
       method: 'PUT',
       body,
     }),
-  linkInvitee: (id: string, participantId: string, email: string | null) =>
+  linkInvitee: (id: string, participantId: string, email: string | null, move = false) =>
     request<ParticipantsDto>(`/meetings/${id}/participants/${participantId}/invitee`, {
       method: 'PUT',
-      body: { email },
+      body: move ? { email, move } : { email },
+    }),
+  /** "They were there" for someone from People, who gets a seat in the meeting. */
+  linkInviteeToPerson: (id: string, personId: string, email: string, move = false) =>
+    request<ParticipantsDto>(`/meetings/${id}/people/${personId}/invitee`, {
+      method: 'PUT',
+      body: move ? { email, move } : { email },
     }),
   dismissInvitee: (id: string, email: string) =>
     request<ParticipantsDto>(`/meetings/${id}/dismissed-invitees`, {
@@ -326,8 +337,30 @@ export const api = {
     request<ShareEmailResultDto>(`/meetings/${id}/share-email`, { method: 'POST', body }),
   roomReview: (id: string, participantId: string) =>
     request<RoomReviewDto>(`/meetings/${id}/room/${participantId}`),
+  roomChangePreview: (id: string, voiceId: string) =>
+    request<RoomChangePreviewDto>(`/meetings/${id}/room-voices/${voiceId}/change`),
+  /** Gives a named voice to someone else, or back to unnamed. */
+  changeRoomVoice: (id: string, voiceId: string, body: RoomChangeInput) =>
+    request(`/meetings/${id}/room-voices/${voiceId}/change`, { method: 'POST', body }),
   nameRoomVoice: (id: string, voiceId: string, body: RoomNameInput) =>
     request(`/meetings/${id}/room-voices/${voiceId}/name`, { method: 'POST', body }),
+  /** Answers "how many people?", or asks for a split with a fixed count. */
+  roomCount: (id: string, participantId: string, body: RoomCountInput) =>
+    request<{ ok: true; splitting: boolean }>(`/meetings/${id}/room/${participantId}/count`, {
+      method: 'POST',
+      body,
+    }),
+  /** Names an unnamed person of a shared account, or folds it into an existing person. */
+  nameVoicePerson: (personId: string, body: { name: string } | { personId: string }) =>
+    request<{ ok: true; personId: string }>(`/people/${personId}/name-voice`, {
+      method: 'POST',
+      body,
+    }),
+  sharedAccounts: () => request<SharedAccountsDto>('/settings/shared-accounts'),
+  saveSharedAccounts: (body: SharedAccountsInput) =>
+    request<SharedAccountsDto>('/settings/shared-accounts', { method: 'PUT', body }),
+  removeSharedAccount: (id: string) =>
+    request<SharedAccountsDto>(`/settings/shared-accounts/${id}`, { method: 'DELETE' }),
   dismissRoom: (id: string, participantId: string) =>
     request(`/meetings/${id}/room/${participantId}/dismiss`, { method: 'POST' }),
   dismissSpeakersNotice: (id: string) =>

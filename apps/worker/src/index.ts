@@ -24,6 +24,7 @@ import { trimAudio } from './trim-audio.js';
 import { importMeeting } from './import-meeting.js';
 import { processMeeting } from './process.js';
 import { probeDuration } from './probe-duration.js';
+import { splitRoom } from './split-room.js';
 import { learnVoice } from './learn-voice.js';
 import { createRecordingDeps } from './recording-deps.js';
 import { deleteExpiredAudio } from './retention.js';
@@ -99,6 +100,16 @@ await queue.work('meeting.process', ({ meetingId, language }) =>
 await queue.work('meeting.import', (job) => importMeeting(importDeps, job));
 await queue.work('meeting.learn-voice', (job) =>
   learnVoice(
+    {
+      db,
+      loadStorage: processDeps.loadStorage,
+      createDiarizer: processDeps.recording.createDiarizer,
+    },
+    job,
+  ),
+);
+await queue.work('meeting.split-room', (job) =>
+  splitRoom(
     {
       db,
       loadStorage: processDeps.loadStorage,

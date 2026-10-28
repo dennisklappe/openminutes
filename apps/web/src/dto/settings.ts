@@ -175,3 +175,21 @@ export interface WizardDto {
   completed: boolean;
   step: WizardStep;
 }
+
+/** A shared account the owner said holds several people, remembered for the next meeting. */
+export interface SharedAccountDto {
+  id: string;
+  label: string;
+  count: number;
+  voices: { number: number; personId: string; name: string; unnamed: boolean }[];
+}
+
+export interface SharedAccountsDto {
+  /** Minutes the summary waits for "how many people?", 0 never waits. */
+  waitMinutes: number;
+  accounts: SharedAccountDto[];
+}
+
+export interface SharedAccountsInput {
+  waitMinutes: number;
+}
