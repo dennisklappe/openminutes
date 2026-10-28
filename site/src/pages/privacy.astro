@@ -91,11 +91,13 @@ import { company, supportEmail } from '../lib/site';
       are stored encrypted.
     </li>
     <li>
-      Voiceprints (numbers describing how a voice sounds), only if you switch on learning voices from
-      lines you verify. Checking lines against saved voices is a separate switch. Both are off by
-      default. A voiceprint stores no audio and is used only to suggest a name or flag a doubtful
-      line that you decide on. You can delete the voice data of one person or of everyone, and mark a person Do not track so no voice is ever learned or suggested for them.
-      A voiceprint can be biometric data: you are responsible for having a valid basis before you
+      Voiceprints (numbers describing how a voice sounds), only if you switch on Learn voices.
+      Checking lines against saved voices is a separate switch. Both are off by default. A
+      voiceprint stores no audio. It is kept in your own database, is not sent to your
+      transcription or summary providers or to any other service, and is used only to suggest a
+      name or flag a doubtful line that you decide on. You can delete the voice data of one person
+      or of everyone, and mark a person Do not track so no voice is ever learned or suggested for
+      them. A voiceprint can be biometric data: you are responsible for having a valid basis before you
       switch it on.
     </li>
     <li>Your name and email address, to run the account.</li>
