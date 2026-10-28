@@ -1,7 +1,7 @@
 import { and, eq, meetings, participants } from '@openminutes/db';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { ParticipantsDto } from '../dto.js';
+import type { ParticipantsDto, SpeakerIdentityDto, SpeakerIdentityResultDto } from '../dto.js';
 import { loadParticipants, type ParticipantDeps } from './load.js';
 import {
   dismissInvitee,
@@ -11,6 +11,8 @@ import {
   resolveLinks,
 } from './invitee-links.js';
 import { PeopleError } from '../people/edit.js';
+import { loadIdentity, saveIdentity } from './identity.js';
+import { rememberEnabled } from '../voices/load.js';
 import { renameParticipant } from './rename.js';
 import { assertSharedLinksFree, isSubSeat } from './shared-rules.js';
 
@@ -32,6 +34,12 @@ const input = z.object({
     .union([z.email().max(254), z.literal('')])
     .nullable()
     .optional(),
+});
+const identityInput = z.object({
+  name: input.shape.name,
+  emails: z.array(z.string().trim().max(254).pipe(z.email())).max(20),
+  remember: z.boolean().optional(),
+  move: z.boolean().optional(),
 });
 const linkInput = z.object({ email: z.string().nullable(), move: z.boolean().optional() });
 const personLinkInput = z.object({ email: z.string(), move: z.boolean().optional() });
@@ -98,6 +106,40 @@ export function meetingParticipantRoutes(deps: ParticipantDeps): Hono {
       },
     );
     return c.json<ParticipantsDto>(await read(meeting.id, summaryUpdated));
+  });
+
+  routes.get('/:id/participants/:participantId/identity', async (c) => {
+    const meeting = await findMeeting(c.req.param('id'));
+    const person = meeting && (await findParticipant(meeting.id, c.req.param('participantId')));
+    if (!meeting || !person) return c.json({ error: 'Participant not found' }, 404);
+    const typed = c.req.query('name');
+    return c.json<SpeakerIdentityDto>(await loadIdentity(deps.db, meeting, person, typed));
+  });
+
+  /** Renames a speaker and sets the addresses of its person in one go. */
+  routes.put('/:id/participants/:participantId/identity', async (c) => {
+    const meeting = await findMeeting(c.req.param('id'));
+    const person = meeting && (await findParticipant(meeting.id, c.req.param('participantId')));
+    if (!meeting || !person) return c.json({ error: 'Participant not found' }, 404);
+    const body = identityInput.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: 'Check the name and the email addresses' }, 400);
+    try {
+      const { seatId, summaryUpdated } = await saveIdentity(deps.db, meeting, person, {
+        name: body.data.name,
+        emails: body.data.emails,
+        remember: body.data.remember === true && (await rememberEnabled(deps.settings)),
+        move: body.data.move === true,
+      });
+      const [seat] = await deps.db.select().from(participants).where(eq(participants.id, seatId));
+      if (!seat) return c.json({ error: 'Participant not found' }, 404);
+      return c.json<SpeakerIdentityResultDto>({
+        identity: await loadIdentity(deps.db, meeting, seat),
+        summaryUpdated,
+      });
+    } catch (error) {
+      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      throw error;
+    }
   });
 
   routes.put('/:id/participants/:participantId/invitee', async (c) => {
