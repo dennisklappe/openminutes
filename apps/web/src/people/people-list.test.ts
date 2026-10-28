@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createProviders } from '@openminutes/calendar';
 import { LocalStorage, SettingsStore } from '@openminutes/core';
-import { meetings, participants, people } from '@openminutes/db';
+import { eq, meetings, participants, people } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import type { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -102,6 +102,23 @@ describe('the paged people list', () => {
     expect((await list('?q=100%25')).total).toBe(0);
     expect((await list('?source=invited')).people.map((p) => p.name)).toEqual(['Zed Invited']);
     expect((await list('?source=joined')).total).toBe(3);
+  });
+
+  it('counts an invited person who spoke in a meeting as joined', async () => {
+    const [meeting] = await test.db.select().from(meetings).limit(1);
+    const [who] = await test.db
+      .insert(people)
+      .values({ name: 'Dee Spoke', emails: ['dee@example.com'], source: 'invited' })
+      .returning();
+    if (!meeting || !who) throw new Error('insert failed');
+    await test.db
+      .insert(participants)
+      .values({ meetingId: meeting.id, displayName: 'Dee Spoke', personId: who.id });
+    expect((await list('?source=joined')).people.map((p) => p.name)).toContain('Dee Spoke');
+    expect((await list('?source=invited')).people.map((p) => p.name)).not.toContain('Dee Spoke');
+    expect((await list()).people.find((p) => p.name === 'Dee Spoke')?.source).toBe('joined');
+    await test.db.delete(participants).where(eq(participants.personId, who.id));
+    await test.db.delete(people).where(eq(people.id, who.id));
   });
 
   it('pages and rejects a bad query', async () => {
