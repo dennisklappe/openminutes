@@ -45,6 +45,7 @@ export const companySources = ['calendar', 'ai', 'manual'] as const;
 export const speakerSources = ['indicator', 'diarization', 'user', 'ai', 'guess'] as const;
 /** marked: a person said the line has two speakers. probable: the voice guard thinks so. */
 export const mixedStates = ['marked', 'probable'] as const;
+export const apiKeyScopes = ['read', 'full'] as const;
 export const shareEmailStatuses = ['sent', 'failed'] as const;
 
 export type CompanySource = (typeof companySources)[number];
@@ -690,4 +691,22 @@ export const chatMessages = pgTable(
     uniqueIndex('chat_messages_dedupe_idx').on(t.meetingId, t.dedupeKey),
     index('chat_messages_meeting_offset_idx').on(t.meetingId, t.offsetMs),
   ],
+);
+
+/** Only the sha256 of the secret is stored. `prefix` is the first characters, for display. */
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    keyHash: text('key_hash').notNull(),
+    prefix: text('prefix').notNull(),
+    scope: text('scope', { enum: apiKeyScopes }).notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    lastUsedAt: timestamptz('last_used_at'),
+    lastUsedIp: text('last_used_ip'),
+    revokedAt: timestamptz('revoked_at'),
+    expiresAt: timestamptz('expires_at'),
+  },
+  (t) => [uniqueIndex('api_keys_key_hash_idx').on(t.keyHash)],
 );
