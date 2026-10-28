@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/dennisklappe/openminutes/compare/v0.2.2...v0.2.3) (2026-10-28)
+
+
+### Features
+
+* voice profiles that learn from review, Check the people, speaker count and Re-run, API keys, speaker edit ([#29](https://github.com/dennisklappe/openminutes/issues/29)) ([8a1f9b8](https://github.com/dennisklappe/openminutes/commit/8a1f9b83849b7e0d1c0783b98869b28378bbe173))
+
 ## [0.2.2](https://github.com/dennisklappe/openminutes/compare/v0.2.1...v0.2.2) (2026-10-28)
 
 
