@@ -16,6 +16,7 @@ import { createTestDatabase } from '@openminutes/db/testing';
 import type { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
+import { oggFile } from './ogg-clip.fixture.js';
 import { LoginRateLimiter } from './auth/rate-limit.js';
 import type { MeetingDetailDto, MeetingDto, MeetingListItemDto, SessionDto } from './dto.js';
 
@@ -208,6 +209,26 @@ describe('web API', () => {
     expect(download.headers.get('content-disposition')).toBe(
       'attachment; filename="weekly-sync.opus"',
     );
+  });
+
+  it('serves a short clip of the audio and refuses bad requests', async () => {
+    const meeting = await insertMeeting();
+    const url = `/api/meetings/${meeting.id}/audio/clip`;
+    expect((await app.request(`${url}?from=0&to=1000`, { headers: authed() })).status).toBe(404);
+    const directory = await storage.ensureDirectory(`meetings/${meeting.id}`);
+    await writeFile(join(directory, 'merged.opus'), oggFile(120));
+    const clip = await app.request(`${url}?from=60000&to=63000`, { headers: authed() });
+    expect(clip.status).toBe(200);
+    expect(clip.headers.get('content-type')).toBe('audio/ogg');
+    expect(clip.headers.get('cache-control')).toBe('private, max-age=3600');
+    expect(Number(clip.headers.get('x-clip-offset-ms'))).toBe(1000);
+    expect((await clip.arrayBuffer()).byteLength).toBeLessThan(2000);
+    for (const bad of ['', '?from=5&to=5', '?from=-1&to=5', '?from=a&to=5']) {
+      expect((await app.request(`${url}${bad}`, { headers: authed() })).status).toBe(400);
+    }
+    expect((await app.request(`${url}?from=0&to=1000`)).status).toBe(401);
+    await writeFile(join(directory, 'merged.opus'), 'not ogg');
+    expect((await app.request(`${url}?from=0&to=1000`, { headers: authed() })).status).toBe(422);
   });
 
   it('lists transcript segments in order and exports them', async () => {
