@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/dennisklappe/openminutes/compare/v0.2.3...v0.2.4) (2026-10-28)
+
+
+### Features
+
+* link a recording to a calendar meeting for its invitees, title and date ([#31](https://github.com/dennisklappe/openminutes/issues/31)) ([6b9a075](https://github.com/dennisklappe/openminutes/commit/6b9a075184523d613e31153ff2bf8925ac2caa17))
+
 ## [0.2.3](https://github.com/dennisklappe/openminutes/compare/v0.2.2...v0.2.3) (2026-10-28)
 
 
