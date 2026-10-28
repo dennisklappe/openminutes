@@ -102,26 +102,25 @@ export async function updatePerson(db: Database, id: string, input: PersonUpdate
 }
 
 async function updatePersonIn(tx: Tx, id: string, input: PersonUpdateInput) {
-    const [current] = await tx.select().from(people).where(eq(people.id, id));
-    if (!current) throw new PeopleError('Person not found', 404);
-    const emails = input.emails === undefined ? undefined : cleanEmails(input.emails);
-    const renamed = input.name !== undefined && input.name !== current.name;
-    await assertFree(tx, id, renamed ? input.name : undefined, emails ?? []);
-    const [saved] = await tx
-      .update(people)
-      .set({
-        ...(input.name !== undefined && { name: input.name }),
-        // Giving a voice of a shared account a name of its own makes it a person like any other.
-        ...(renamed && current.unnamed && { unnamed: false }),
-        ...(emails && { emails }),
-        ...(input.notes !== undefined && { notes: input.notes }),
-        updatedAt: new Date(),
-      })
-      .where(eq(people.id, id))
-      .returning();
-    if (renamed && input.name !== undefined)
-      await renameEverywhere(tx, id, current.name, input.name);
-    return saved ?? current;
+  const [current] = await tx.select().from(people).where(eq(people.id, id));
+  if (!current) throw new PeopleError('Person not found', 404);
+  const emails = input.emails === undefined ? undefined : cleanEmails(input.emails);
+  const renamed = input.name !== undefined && input.name !== current.name;
+  await assertFree(tx, id, renamed ? input.name : undefined, emails ?? []);
+  const [saved] = await tx
+    .update(people)
+    .set({
+      ...(input.name !== undefined && { name: input.name }),
+      // Giving a voice of a shared account a name of its own makes it a person like any other.
+      ...(renamed && current.unnamed && { unnamed: false }),
+      ...(emails && { emails }),
+      ...(input.notes !== undefined && { notes: input.notes }),
+      updatedAt: new Date(),
+    })
+    .where(eq(people.id, id))
+    .returning();
+  if (renamed && input.name !== undefined) await renameEverywhere(tx, id, current.name, input.name);
+  return saved ?? current;
 }
 
 async function renameEverywhere(tx: Tx, personId: string, from: string, to: string) {
@@ -186,85 +185,80 @@ export async function mergePeople(db: Database, targetId: string, sourceId: stri
 
 async function mergeIn(tx: Tx, targetId: string, sourceId: string) {
   if (targetId === sourceId) throw new PeopleError('Pick two different people', 400);
-    const [[target], [source]] = await Promise.all([
-      tx.select().from(people).where(eq(people.id, targetId)),
-      tx.select().from(people).where(eq(people.id, sourceId)),
-    ]);
-    if (!target || !source) throw new PeopleError('Person not found', 404);
-    const taken = await tx
-      .select({
-        segmentId: voiceSamples.segmentId,
-        meetingId: voiceSamples.meetingId,
-        kind: voiceSamples.kind,
-      })
-      .from(voiceSamples)
-      .where(eq(voiceSamples.personId, targetId));
-    const doubles = (
-      await tx.select().from(voiceSamples).where(eq(voiceSamples.personId, sourceId))
-    ).filter((sample) =>
-      taken.some(
-        (own) =>
-          (sample.segmentId !== null && own.segmentId === sample.segmentId) ||
-          (sample.kind === 'meeting' &&
-            own.kind === 'meeting' &&
-            own.meetingId === sample.meetingId),
+  const [[target], [source]] = await Promise.all([
+    tx.select().from(people).where(eq(people.id, targetId)),
+    tx.select().from(people).where(eq(people.id, sourceId)),
+  ]);
+  if (!target || !source) throw new PeopleError('Person not found', 404);
+  const taken = await tx
+    .select({
+      segmentId: voiceSamples.segmentId,
+      meetingId: voiceSamples.meetingId,
+      kind: voiceSamples.kind,
+    })
+    .from(voiceSamples)
+    .where(eq(voiceSamples.personId, targetId));
+  const doubles = (
+    await tx.select().from(voiceSamples).where(eq(voiceSamples.personId, sourceId))
+  ).filter((sample) =>
+    taken.some(
+      (own) =>
+        (sample.segmentId !== null && own.segmentId === sample.segmentId) ||
+        (sample.kind === 'meeting' && own.kind === 'meeting' && own.meetingId === sample.meetingId),
+    ),
+  );
+  if (doubles.length > 0) {
+    await tx.delete(voiceSamples).where(
+      inArray(
+        voiceSamples.id,
+        doubles.map((sample) => sample.id),
       ),
     );
-    if (doubles.length > 0) {
-      await tx.delete(voiceSamples).where(
-        inArray(
-          voiceSamples.id,
-          doubles.map((sample) => sample.id),
-        ),
-      );
-    }
-    await tx
-      .update(voiceSamples)
-      .set({ personId: targetId })
-      .where(eq(voiceSamples.personId, sourceId));
-    await tx
-      .update(participants)
-      .set({ displayName: target.name })
-      .where(
-        and(eq(participants.personId, sourceId), sameName(participants.displayName, source.name)),
-      );
-    await foldSeats(tx, sourceId, targetId);
-    await tx
-      .update(participants)
-      .set({ personId: targetId })
-      .where(eq(participants.personId, sourceId));
-    await tx
-      .update(participantAliases)
-      .set({ displayName: target.name })
-      .where(sameName(participantAliases.displayName, source.name));
-    // The voices of a shared tile that were this person are the target now.
-    await tx
-      .update(roomVoices)
-      .set({ personId: targetId })
-      .where(eq(roomVoices.personId, sourceId));
-    await tx
-      .update(sharedAccountVoices)
-      .set({ personId: targetId })
-      .where(eq(sharedAccountVoices.personId, sourceId));
-    await tx.execute(sql`
+  }
+  await tx
+    .update(voiceSamples)
+    .set({ personId: targetId })
+    .where(eq(voiceSamples.personId, sourceId));
+  await tx
+    .update(participants)
+    .set({ displayName: target.name })
+    .where(
+      and(eq(participants.personId, sourceId), sameName(participants.displayName, source.name)),
+    );
+  await foldSeats(tx, sourceId, targetId);
+  await tx
+    .update(participants)
+    .set({ personId: targetId })
+    .where(eq(participants.personId, sourceId));
+  await tx
+    .update(participantAliases)
+    .set({ displayName: target.name })
+    .where(sameName(participantAliases.displayName, source.name));
+  // The voices of a shared tile that were this person are the target now.
+  await tx.update(roomVoices).set({ personId: targetId }).where(eq(roomVoices.personId, sourceId));
+  await tx
+    .update(sharedAccountVoices)
+    .set({ personId: targetId })
+    .where(eq(sharedAccountVoices.personId, sourceId));
+  await tx.execute(sql`
       insert into meeting_invitees (meeting_id, person_id)
       select meeting_id, ${targetId}::uuid from meeting_invitees where person_id = ${sourceId}::uuid
       on conflict do nothing`);
-    const notes = [target.notes, source.notes].filter((note): note is string => !!note);
-    await tx.delete(people).where(eq(people.id, sourceId));
-    await tx
-      .update(people)
-      .set({
-        emails: cleanEmails([...target.emails, ...source.emails]),
-        notes: notes.length > 0 ? notes.join('\n\n') : null,
-        source: target.source === 'invited' ? source.source : target.source,
-        unnamed: target.unnamed && source.unnamed,
-        updatedAt: new Date(),
-      })
-      .where(eq(people.id, targetId));
-    // Not tracked wins: if either was marked do not track, the merged person keeps no voice.
-    if (target.tracking === 'off' || source.tracking === 'off') await stopTracking(tx, targetId);
-    else await rebuildProfile(tx, targetId);
+  const notes = [target.notes, source.notes].filter((note): note is string => !!note);
+  await tx.delete(people).where(eq(people.id, sourceId));
+  await tx
+    .update(people)
+    .set({
+      emails: cleanEmails([...target.emails, ...source.emails]),
+      notes: notes.length > 0 ? notes.join('\n\n') : null,
+      source: target.source === 'invited' ? source.source : target.source,
+      unnamed: target.unnamed && source.unnamed,
+      updatedAt: new Date(),
+    })
+    .where(eq(people.id, targetId));
+  // Not tracked wins: if either was marked do not track, the merged person keeps no voice.
+  if (target.tracking === 'off' || source.tracking === 'off') await stopTracking(tx, targetId);
+  else await rebuildProfile(tx, targetId);
 }
 
 /**
