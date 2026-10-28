@@ -64,6 +64,7 @@ Generated from the route table by `apps/web/src/api-reference.test.ts`. Run `UPD
 | `PATCH` | `/api/meetings/:id` | Full key |
 | `POST` | `/api/meetings/:id/archive` | Full key |
 | `GET` | `/api/meetings/:id/audio` | Read or full key |
+| `GET` | `/api/meetings/:id/audio/clip` | Read or full key |
 | `POST` | `/api/meetings/:id/calendar-link` | Full key |
 | `POST` | `/api/meetings/:id/cancel` | Full key |
 | `GET` | `/api/meetings/:id/check-people` | Read or full key |

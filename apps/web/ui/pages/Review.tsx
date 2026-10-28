@@ -41,7 +41,8 @@ import { buildReviewRoute, type ReviewRoute } from '../reviewRoute.js';
 import { barPercent, reasonLabel } from '../people.js';
 import { splitTimes } from '../../src/meetings/split-times.js';
 import { splitWords } from '../speakerEdits.js';
-import { SnippetPlayer } from '../SnippetPlayer.js';
+import { MAX_PLAY_MS, SnippetPlayer } from '../SnippetPlayer.js';
+import { usePrefetchClip } from '../useClip.js';
 import '../people.css';
 
 type Picker = 'closed' | 'roster' | 'other' | 'new' | 'split';
@@ -816,6 +817,14 @@ export function Review({ route }: { route: ReviewRoute }) {
   const voice = card && isVoiceCard(card) ? card : undefined;
   const lineId = line?.id;
   const voiceId = voice?.id;
+  const next = state?.rest[1];
+  const nextLine = next && (isVoiceCard(next) ? next.lines.find((l) => l.hasAudio) : next);
+  const nextMeeting = next?.meetingId;
+  usePrefetchClip(
+    nextLine?.hasAudio ? nextLine : undefined,
+    nextMeeting ? meetingUrl(nextMeeting, 'audio') : undefined,
+    MAX_PLAY_MS,
+  );
   const probablyMixed = line?.reason === 'mixed';
   // A line the voice guard thinks holds two speakers opens with the split already chosen.
   useEffect(() => {
