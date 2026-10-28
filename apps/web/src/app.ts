@@ -20,6 +20,7 @@ import { libraryRoutes } from './library/routes.js';
 import { binRoutes } from './meetings/bin-routes.js';
 import { meetingRoutes } from './meetings/routes.js';
 import { titleRoutes } from './meetings/title-routes.js';
+import { checkPeopleRoutes } from './meetings/check-people-routes.js';
 import { roomRoutes } from './meetings/room-routes.js';
 import { speakerEditRoutes } from './meetings/speaker-edit-routes.js';
 import { seriesRoutes } from './meetings/series-routes.js';
@@ -132,6 +133,7 @@ export function createApp(deps: AppDeps): Hono {
   api.route('/meetings', meetingParticipantRoutes(deps));
   api.route('/meetings', speakerEditRoutes(deps));
   api.route('/meetings', roomRoutes(deps));
+  api.route('/meetings', checkPeopleRoutes(deps));
   api.use('/people/*', requireSession(deps));
   api.route('/people', peopleRoutes(deps));
   api.use('/series/*', requireSession(deps));

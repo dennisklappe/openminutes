@@ -21,6 +21,8 @@ import type {
   MinutesSettingsInput,
   MinutesPreviewInput,
   CalendarProviderId,
+  CheckPeopleConfirmInput,
+  CheckPeopleDto,
   CompanyRenameInput,
   FolderDto,
   FolderInput,
@@ -196,6 +198,11 @@ export const api = {
   speakerEdit: (id: string, body: SpeakerEditInput) =>
     request<SpeakerEditResultDto>(`/meetings/${id}/speaker-edits`, { method: 'POST', body }),
   speakerCheck: (id: string) => request(`/meetings/${id}/speaker-check`, { method: 'POST' }),
+  checkPeople: (id: string) => request<CheckPeopleDto>(`/meetings/${id}/check-people`),
+  confirmCheckPeople: (id: string, body: CheckPeopleConfirmInput) =>
+    request<CheckPeopleDto>(`/meetings/${id}/check-people/confirm`, { method: 'POST', body }),
+  dismissCheckPeople: (id: string) =>
+    request<CheckPeopleDto>(`/meetings/${id}/check-people/dismiss`, { method: 'POST' }),
   voices: (id: string) => request<VoicesDto>(`/meetings/${id}/voices`),
   nameVoice: (id: string, participantId: string, body: VoiceNameInput) =>
     request<VoicesDto>(`/meetings/${id}/voices/${participantId}`, { method: 'PUT', body }),

@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { api, errorMessage, meetingUrl, type ReprocessOptions } from '../api.js';
+import { CheckPeople } from '../CheckPeople.js';
 import { CalendarLinkPanel } from '../CalendarLinkPanel.js';
 import { JoinChoice } from '../JoinChoice.js';
 import { formatDate, formatDuration, platformLabels, progressLabel } from '../format.js';
@@ -32,6 +33,7 @@ export function MeetingDetail({ id }: { id: string }) {
   const [showChat, setShowChat] = useShowChat();
   const [chosenTab, setChosenTab] = useState<'transcript' | 'summary'>();
   const [rerunKind, setRerunKind] = useState<RerunKind>();
+  const [checking, setChecking] = useState(false);
   const player = useRef<PlayerHandle>(null);
   const bulk = useBulk(() => {
     refresh();
@@ -251,7 +253,26 @@ export function MeetingDetail({ id }: { id: string }) {
           {(actionError ?? bulk.error) && (
             <p className="banner banner-error">{actionError ?? bulk.error}</p>
           )}
-          {audio && segments.length > 0 && (
+          {segments.length > 0 && (
+            <CheckPeople
+              meetingId={id}
+              transcriptSize={segments.length}
+              countItems={
+                canTranscribe &&
+                (meeting.platform === 'recording' || meeting.platform === 'imported')
+                  ? [
+                      {
+                        label: 'Change number of people...',
+                        onSelect: () => setRerunKind('speakers'),
+                      },
+                    ]
+                  : []
+              }
+              onChanged={refresh}
+              onShown={setChecking}
+            />
+          )}
+          {audio && segments.length > 0 && !checking && (
             <WhoIsWho
               meetingId={id}
               transcriptSize={segments.length}

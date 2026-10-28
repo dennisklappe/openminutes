@@ -92,6 +92,7 @@ flowchart TD
 - Audio never goes to a third party for speaker detection. The diarizer runs only with the local provider.
 - "How many people are talking?" on the Record screen takes Auto, 2, 3, 4 or 5+. Use a count only when certain: a count of 2 on a one voice recording invents a second speaker. On a finished recording use Re-run, see [fixing the number of people](#fixing-the-number-of-people). Imports ask the same question before they start, see [import](import-fireflies.md).
 - Names are only ever suggested, never applied. A suggestion comes from voice memory (with learning on, up to 3 matches) or from names spoken in the call ("Thanks, Anna", text only). See [Voices](voices.md).
+- After transcription, a **Check the people** card on the meeting says how many people were found and who they probably are, from voice memory, the calendar and earlier meetings. Nothing is applied until you confirm. See [Check the people](voices.md#check-the-people).
 - A phone recording gets a short title (6 words at most) from its summary. Calendar and link meetings are never retitled.
 - Re-transcribing rebuilds speakers, keeps corrected lines and matches new voices to names you gave before.
 - Meet and Teams calls are not diarized: the speaking indicator decides, so the number of people does not apply to them.

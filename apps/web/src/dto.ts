@@ -8,3 +8,4 @@ export type * from './dto/recordings.js';
 export type * from './dto/imports.js';
 export type * from './dto/people.js';
 export type * from './dto/rooms.js';
+export type * from './dto/check-people.js';
