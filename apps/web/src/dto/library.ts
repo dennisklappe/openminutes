@@ -36,6 +36,10 @@ export interface MeetingDetailDto {
   calendars: MeetingCalendarDto[];
   calendarLinks: CalendarLinkDto[];
   calendarLinkEnabled: boolean;
+  /** A recording or import with no calendar meeting yet can be linked to one. */
+  canLinkEvent: boolean;
+  /** People on the invitation who did not decline, null without an invitation. */
+  expectedPeople: number | null;
   series: MeetingSeriesDto | null;
   canTranscribe: boolean;
   rerun: MeetingRerunDto;

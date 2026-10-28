@@ -9,7 +9,7 @@ import {
   type JobName,
   type JobPayloads,
 } from '@openminutes/core';
-import { audioFiles, eq, meetings } from '@openminutes/db';
+import { audioFiles, eq, meetingSources, meetings } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -115,6 +115,45 @@ describe('phone recording API', () => {
     expect((await start({ ...base, id: other })).status).toBe(201);
     const [auto] = await test.db.select().from(meetings).where(eq(meetings.id, other));
     expect(auto?.speakerCount).toBeNull();
+  });
+
+  it('links a new recording to a calendar meeting and keeps it unlinked when that is gone', async () => {
+    const [event] = await test.db
+      .insert(meetings)
+      .values({
+        title: 'Budget review',
+        platform: 'meet',
+        joinUrl: 'https://meet.google.com/abc-defg-hij',
+        status: 'skipped',
+        scheduledStart: new Date('2026-10-22T14:00:00Z'),
+        invitees: [
+          { email: 'jo@acme.example', name: 'Jo Parker', declined: false },
+          { email: 'ann@acme.example', name: 'Ann Lee', declined: false },
+        ],
+      })
+      .returning();
+    const linked = '5c8d3a52-0000-4000-8000-000000000005';
+    const base = { id: linked, mimeType: 'audio/webm', startedAt };
+    expect((await start({ ...base, eventId: event?.id })).status).toBe(201);
+    const [row] = await test.db.select().from(meetings).where(eq(meetings.id, linked));
+    expect(row).toMatchObject({ title: 'Budget review', status: 'uploading', speakerCount: 2 });
+    expect(row?.invitees).toHaveLength(2);
+    expect(
+      await test.db
+        .select()
+        .from(meetings)
+        .where(eq(meetings.id, event?.id ?? '')),
+    ).toEqual([]);
+
+    const gone = '5c8d3a52-0000-4000-8000-000000000006';
+    const missing = '5c8d3a52-0000-4000-8000-0000000000ff';
+    expect((await start({ ...base, id: gone, eventId: missing })).status).toBe(201);
+    const [kept] = await test.db.select().from(meetings).where(eq(meetings.id, gone));
+    expect(kept?.title).toBe('Recording 22 Oct 2026, 14:05 UTC');
+    expect(
+      await test.db.select().from(meetingSources).where(eq(meetingSources.meetingId, gone)),
+    ).toEqual([]);
+    expect((await start({ ...base, id: gone, eventId: 'nope' })).status).toBe(400);
   });
 
   it.each([1, 6, 2.5, '3'])('refuses %s as a number of speakers', async (speakers) => {

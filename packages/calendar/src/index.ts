@@ -34,6 +34,7 @@ export { AuthRevokedError, CalendarApiError, SyncExpiredError } from './errors.j
 export { endpointsFor, type Endpoints } from './endpoints.js';
 export { extractJoinLink } from './links.js';
 export { calendarEnvSchema, createProviders, type CalendarProviders } from './providers.js';
+export { RECONCILE_LOCK_ID } from './reconcile.js';
 export { shouldJoin } from './rules.js';
 export { syncAccounts } from './sync.js';
 export type * from './types.js';

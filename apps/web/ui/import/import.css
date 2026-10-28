@@ -149,3 +149,7 @@
     flex: 1;
   }
 }
+
+.import-link {
+  padding: 0 16px 12px 44px;
+}

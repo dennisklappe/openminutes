@@ -26,6 +26,7 @@ import type { ReadableStream as WebStream } from 'node:stream/web';
 import { z } from 'zod';
 import type { RecordingStartInput, RecordingStatusDto } from '../dto.js';
 import { MAX_SPEAKERS, MIN_SPEAKERS } from '../speakerCount.js';
+import { LinkEventError, linkRecordingToEvent } from '../meetings/link-event.js';
 import { recordingTitle } from './title.js';
 
 interface RecordingDeps {
@@ -41,6 +42,7 @@ const start = z.object({
   mimeType: z.string().max(200),
   startedAt: z.iso.datetime({ offset: true }),
   speakers: speakerCount.optional(),
+  eventId: z.uuid().optional(),
 }) satisfies z.ZodType<RecordingStartInput>;
 const finish = z.object({
   chunks: z
@@ -73,6 +75,15 @@ export function recordingRoutes(deps: RecordingDeps): Hono {
     maxChunkBytes: MAX_CHUNK_BYTES,
   });
 
+  /** A recording is worth more than its link: when the meeting is gone it is kept unlinked. */
+  async function linkQuietly(id: string, eventId: string) {
+    try {
+      await linkRecordingToEvent(deps.db, id, eventId);
+    } catch (error) {
+      if (!(error instanceof LinkEventError)) throw error;
+    }
+  }
+
   routes.post('/', async (c) => {
     if (!(await loadPhoneConfig(deps.settings)).enabled) {
       return c.json({ error: 'Phone recording is turned off' }, 403);
@@ -98,7 +109,10 @@ export function recordingRoutes(deps: RecordingDeps): Hono {
       .returning();
     const row = created ?? (await find(body.data.id));
     if (!row) return c.json({ error: 'That id belongs to another meeting' }, 409);
-    if (created) await saveRecordingFormat(deps.storage, row.id, format);
+    if (created) {
+      await saveRecordingFormat(deps.storage, row.id, format);
+      if (body.data.eventId) await linkQuietly(row.id, body.data.eventId);
+    }
     return c.json(await statusOf(row), created ? 201 : 200);
   });
 

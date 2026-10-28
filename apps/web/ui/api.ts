@@ -7,6 +7,7 @@ import type {
   ImportConfigDto,
   ImportPreviewDto,
   ImportStartInput,
+  LinkableEventsDto,
   EmailSettingsDto,
   EmailSettingsInput,
   ShareEmailInput,
@@ -519,6 +520,12 @@ export const api = {
     request(`/meetings/${id}/shares/${shareId}`, { method: 'DELETE' }),
   exporters: () => request<ExporterDto[]>('/exporters'),
   meetingExports: (id: string) => request<MeetingExportDto[]>(`/meetings/${id}/exports`),
+  linkableEvents: (from: Date, to: Date) =>
+    request<LinkableEventsDto>(
+      `/meetings/linkable-events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}&limit=200`,
+    ),
+  linkEvent: (id: string, eventId: string) =>
+    request(`/meetings/${id}/link-event`, { method: 'POST', body: { eventId } }),
   addCalendarLink: (id: string) => request(`/meetings/${id}/calendar-link`, { method: 'POST' }),
   exportSettings: () => request<ExportSettingsDto>('/settings/minutes/export'),
   saveExportSettings: (body: ExportSettingsInput) =>

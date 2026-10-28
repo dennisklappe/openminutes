@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { nearestFirst, speakerHint, suggestEvent } from '../../src/meetings/link-pick.js';
 import { Brand } from '../Brand.js';
 import { useConfirm } from '../Confirm.js';
+import { EventPicker, useLinkableEvents, windowAround } from '../EventPicker.js';
 import { formatDuration } from '../format.js';
 import { ConsentDialog } from '../recorder/ConsentDialog.js';
 import {
@@ -87,6 +89,20 @@ function Stage() {
     void recorderSession.stop();
   };
   const [speakers, setSpeakers] = useState(loadSpeakerPreference);
+  const now = useMemo(() => new Date(), []);
+  const range = useMemo(() => windowAround(now, 3, 24), [now]);
+  const found = useLinkableEvents(range.from, range.to);
+  const events = useMemo(() => nearestFirst(found, now), [found, now]);
+  // Until the user chooses, the meeting closest to now is offered.
+  const [picked, setPicked] = useState<string | null>();
+  const suggested = suggestEvent(events, now);
+  const eventId = picked === undefined ? suggested?.id : (picked ?? undefined);
+  const suggestedId = suggested?.id;
+  const suggestedPeople = suggested?.people ?? null;
+  useEffect(() => {
+    const hint = speakerHint(suggestedPeople);
+    if (suggestedId && hint) setSpeakers(hint);
+  }, [suggestedId, suggestedPeople]);
   const busy = phase === 'starting' || phase === 'stopping' || phase === 'uploading';
 
   return (
@@ -104,6 +120,18 @@ function Stage() {
         )}
       </p>
       <LevelMeter analyser={phase === 'recording' ? recorderSession.analyser : undefined} />
+      {!live && (
+        <EventPicker
+          events={events}
+          value={eventId}
+          disabled={busy}
+          onChange={(id) => {
+            setPicked(id ?? null);
+            const hint = speakerHint(events.find((event) => event.id === id)?.people ?? null);
+            if (hint) setSpeakers(hint);
+          }}
+        />
+      )}
       {!live && (
         <SpeakerCountSelect
           value={speakers}
@@ -136,7 +164,7 @@ function Stage() {
             <span className="record-side-spacer" />
           </>
         ) : (
-          <RecordStart disabled={busy} speakers={speakers} />
+          <RecordStart disabled={busy} speakers={speakers} eventId={eventId} />
         )}
       </div>
       <Notices />
@@ -144,7 +172,15 @@ function Stage() {
   );
 }
 
-function RecordStart({ disabled, speakers }: { disabled: boolean; speakers: number | undefined }) {
+function RecordStart({
+  disabled,
+  speakers,
+  eventId,
+}: {
+  disabled: boolean;
+  speakers: number | undefined;
+  eventId: string | undefined;
+}) {
   const config = usePhoneConfig();
   const [asking, setAsking] = useState(false);
   return (
@@ -167,7 +203,7 @@ function RecordStart({ disabled, speakers }: { disabled: boolean; speakers: numb
           }}
           onConfirm={() => {
             setAsking(false);
-            void recorderSession.start(speakers);
+            void recorderSession.start(speakers, eventId);
           }}
         />
       )}

@@ -73,6 +73,7 @@ Generated from the route table by `apps/web/src/api-reference.test.ts`. Run `UPD
 | `POST` | `/api/meetings/:id/dismissed-invitees` | Full key |
 | `POST` | `/api/meetings/:id/export/:exporterId` | Full key |
 | `GET` | `/api/meetings/:id/exports` | Read or full key |
+| `POST` | `/api/meetings/:id/link-event` | Full key |
 | `GET` | `/api/meetings/:id/minutes` | Read or full key |
 | `GET` | `/api/meetings/:id/participants` | Read or full key |
 | `PUT` | `/api/meetings/:id/participants/:participantId` | Full key |
@@ -112,6 +113,7 @@ Generated from the route table by `apps/web/src/api-reference.test.ts`. Run `UPD
 | `GET` | `/api/meetings/:id/voices` | Read or full key |
 | `PUT` | `/api/meetings/:id/voices/:participantId` | Full key |
 | `POST` | `/api/meetings/bulk` | Full key |
+| `GET` | `/api/meetings/linkable-events` | Read or full key |
 | `GET` | `/api/meetings/upcoming` | Read or full key |
 
 ## oauth

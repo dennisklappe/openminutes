@@ -42,6 +42,7 @@ const finish = z.object({
 const start = z.object({
   keys: z.array(z.string().min(1).max(64)).min(1).max(MAX_IMPORT_FILES),
   speakers: z.int().min(MIN_SPEAKERS).max(MAX_SPEAKERS).optional(),
+  events: z.record(z.string().min(1).max(64), z.uuid()).optional(),
 }) satisfies z.ZodType<ImportStartInput>;
 const CHUNK_TYPE = /^application\/octet-stream(;.*)?$/i;
 const RUNNING = ['ended', 'processing'] as const;

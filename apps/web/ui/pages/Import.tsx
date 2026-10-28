@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ImportConfigDto, ImportMeetingDto, ImportPreviewDto } from '../../src/dto.js';
+import { useLinkableEvents } from '../EventPicker.js';
 import { api, errorMessage } from '../api.js';
-import { selectableKeys } from '../import/choices.js';
+import { EVENT_NEAR_MS, eventLinks, selectableKeys } from '../import/choices.js';
 import { ImportList } from '../import/ImportList.js';
 import { ImportProgress, isFinished } from '../import/ImportProgress.js';
 import { PickFile } from '../import/PickFile.js';
@@ -35,6 +36,19 @@ export function Import() {
   }, []);
 
   const meetings = useMemo(() => preview?.meetings ?? [], [preview]);
+  // The calendar meetings around the dates of the export, to link a recording to.
+  const range = useMemo(() => {
+    const times = meetings.map((meeting) => new Date(meeting.startedAt).getTime());
+    return times.length === 0
+      ? undefined
+      : {
+          from: new Date(Math.min(...times) - EVENT_NEAR_MS),
+          to: new Date(Math.max(...times) + EVENT_NEAR_MS),
+        };
+  }, [meetings]);
+  const events = useLinkableEvents(range?.from, range?.to);
+  const [chosen, setChosen] = useState<Record<string, string | null>>({});
+  const links = useMemo(() => eventLinks(meetings, events, chosen), [meetings, events, chosen]);
   const running = started ? meetings.filter((meeting) => started.includes(meeting.key)) : [];
   const failed = running.filter((meeting) => meeting.meeting?.status === 'failed');
   const settled = started !== undefined && running.every(isFinished);
@@ -42,18 +56,27 @@ export function Import() {
   const start = (keys: string[]) => {
     if (!preview) return;
     setBusy(true);
-    api.importStart(preview.id, speakers === undefined ? { keys } : { keys, speakers }).then(
-      (next) => {
-        setPreview(next);
-        setStarted(keys);
-        setError(undefined);
-        setBusy(false);
-      },
-      (failure: unknown) => {
-        setError(errorMessage(failure));
-        setBusy(false);
-      },
+    const linked = Object.fromEntries(
+      keys.flatMap((key) => (links[key] ? [[key, links[key]]] : [])),
     );
+    api
+      .importStart(preview.id, {
+        keys,
+        ...(speakers !== undefined && { speakers }),
+        ...(Object.keys(linked).length > 0 && { events: linked }),
+      })
+      .then(
+        (next) => {
+          setPreview(next);
+          setStarted(keys);
+          setError(undefined);
+          setBusy(false);
+        },
+        (failure: unknown) => {
+          setError(errorMessage(failure));
+          setBusy(false);
+        },
+      );
   };
 
   const leave = (discard: boolean) => {
@@ -95,7 +118,16 @@ export function Import() {
               not be read and {preview.unreadable === 1 ? 'was' : 'were'} left out.
             </p>
           )}
-          <ImportList meetings={meetings} picked={picked} onChange={setPicked} />
+          <ImportList
+            meetings={meetings}
+            picked={picked}
+            onChange={setPicked}
+            events={events}
+            links={links}
+            onLink={(key, id) => {
+              setChosen((current) => ({ ...current, [key]: id ?? null }));
+            }}
+          />
           <p className="hint">
             Only the recordings and the meeting details are imported. Each recording is transcribed
             and summarised here, like any other recording.

@@ -261,6 +261,25 @@ describe('check the people', () => {
       ]);
     });
 
+    it('expects as many people as were invited, unless the speakers were set', async () => {
+      const invitees = [
+        { email: 'jo@acme.example', name: 'Jo Parker', declined: false },
+        { email: 'ann@acme.example', name: 'Ann Lee', declined: false },
+        { email: 'sam@acme.example', name: 'Sam Roe', declined: true },
+      ];
+      const invited = await recording({ invitees });
+      await voice(invited.id, 'Speaker 1', null);
+      expect(await check(invited.id)).toMatchObject({ speakerCount: 2, expectedPeople: 2 });
+
+      const set = await recording({ invitees, speakerCount: 3 });
+      await voice(set.id, 'Speaker 1', null);
+      expect(await check(set.id)).toMatchObject({ speakerCount: 3, expectedPeople: 2 });
+
+      const alone = await recording();
+      await voice(alone.id, 'Speaker 1', null);
+      expect(await check(alone.id)).toMatchObject({ speakerCount: null, expectedPeople: null });
+    });
+
     it('hints a company from earlier meetings with the person, never stores it', async () => {
       const jo = await known('Jo Parker', [1, 0, 0]);
       for (const company of ['Initech', 'Initech', 'Globex']) {

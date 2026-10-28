@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { api, errorMessage, meetingUrl, type ReprocessOptions } from '../api.js';
 import { CheckPeople } from '../CheckPeople.js';
 import { CalendarLinkPanel } from '../CalendarLinkPanel.js';
+import { LinkEventDialog } from '../LinkEventDialog.js';
 import { JoinChoice } from '../JoinChoice.js';
 import { formatDate, formatDuration, platformLabels, progressLabel } from '../format.js';
 import { languageName } from '../languages.js';
@@ -10,6 +11,7 @@ import { rerunItems, type RerunKind } from '../rerun.js';
 import { Menu } from '../Menu.js';
 import { ChevronIcon, ClockIcon, ExternalIcon, PlatformIcon } from '../icons.js';
 import { Panel } from '../Panel.js';
+import { speakerHint } from '../../src/meetings/link-pick.js';
 import { countSpeakers, speakerCountLabel, speakerResultLine } from '../speakers.js';
 import { SpeakerHeader, SpeakerResult, SpeakersRunning } from '../SpeakerOverview.js';
 import { useSpeakerResult } from '../useSpeakerResult.js';
@@ -37,6 +39,7 @@ export function MeetingDetail({ id }: { id: string }) {
   const [chosenTab, setChosenTab] = useState<'transcript' | 'summary'>();
   const [rerunKind, setRerunKind] = useState<RerunKind>();
   const [checking, setChecking] = useState(false);
+  const [linking, setLinking] = useState(false);
   const player = useRef<PlayerHandle>(null);
   const bulk = useBulk(() => {
     refresh();
@@ -54,6 +57,8 @@ export function MeetingDetail({ id }: { id: string }) {
     calendars,
     calendarLinks,
     calendarLinkEnabled,
+    canLinkEvent,
+    expectedPeople,
     segments,
     speakerChoices,
     speakerCheck,
@@ -173,7 +178,7 @@ export function MeetingDetail({ id }: { id: string }) {
         <RerunDialog
           kind={rerunKind}
           detected={meeting.language}
-          speakerCount={meeting.speakerCount}
+          speakerCount={meeting.speakerCount ?? speakerHint(expectedPeople) ?? null}
           askSpeakers={
             rerunKind === 'speakers' ||
             (rerunKind === 'transcribe' &&
@@ -185,6 +190,19 @@ export function MeetingDetail({ id }: { id: string }) {
           }}
           onClose={() => {
             setRerunKind(undefined);
+          }}
+        />
+      )}
+      {linking && (
+        <LinkEventDialog
+          meetingId={id}
+          at={meeting.startedAt ?? meeting.createdAt}
+          onClose={() => {
+            setLinking(false);
+          }}
+          onLinked={() => {
+            setLinking(false);
+            refresh();
           }}
         />
       )}
@@ -430,6 +448,22 @@ export function MeetingDetail({ id }: { id: string }) {
                     {calendars.length === 1
                       ? calendars[0]?.name
                       : `From ${String(calendars.length)} calendars`}
+                  </dd>
+                </>
+              )}
+              {canLinkEvent && (
+                <>
+                  <dt>Calendar</dt>
+                  <dd>
+                    <button
+                      type="button"
+                      className="link"
+                      onClick={() => {
+                        setLinking(true);
+                      }}
+                    >
+                      Link to calendar meeting
+                    </button>
                   </dd>
                 </>
               )}

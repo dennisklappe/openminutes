@@ -27,6 +27,7 @@ import type { CheckMatchDto, CheckOptionDto, CheckPeopleDto, CheckVoiceDto } fro
 import { pickSamples } from './check-samples.js';
 import { isFiller, MIN_LINE_MS } from '../people/useful.js';
 import { isGenericName } from '../voices/names.js';
+import { expectedPeople, speakerHint } from './link-pick.js';
 
 type Meeting = typeof meetings.$inferSelect;
 type Person = typeof people.$inferSelect;
@@ -53,6 +54,7 @@ const hidden: CheckPeopleDto = {
   options: [],
   rememberEnabled: false,
   speakerCount: null,
+  expectedPeople: null,
 };
 
 export async function checkedMeetings(settings: SettingsStore): Promise<string[]> {
@@ -90,6 +92,7 @@ async function ownAddresses(
 /** The attendees of the meeting's own invitation, else of the calendar event it was recorded at. */
 async function attendeesOf(deps: CheckDeps, meeting: Meeting, ownEmails: Set<string>) {
   let invitees = meeting.invitees ?? [];
+  let dismissed = meeting.dismissedInvitees;
   if (invitees.length === 0) {
     const at = (meeting.startedAt ?? meeting.createdAt).getTime();
     const events = await deps.db
@@ -110,11 +113,15 @@ async function attendeesOf(deps: CheckDeps, meeting: Meeting, ownEmails: Set<str
       .filter(({ start }) => start - at <= EVENT_AFTER_MS && at - start <= EVENT_BEFORE_MS)
       .sort((a, b) => Math.abs(a.start - at) - Math.abs(b.start - at))[0];
     invitees = closest?.event.invitees ?? [];
+    dismissed = closest?.event.dismissedInvitees ?? null;
   }
-  return invitees
-    .filter((invitee) => !invitee.declined && !ownEmails.has(normalizeEmail(invitee.email)))
-    .filter((invitee) => !domainOf(invitee.email)?.endsWith('calendar.google.com'))
-    .map((invitee): Attendee => ({ name: invitee.name, email: invitee.email }));
+  return {
+    expected: expectedPeople(invitees, dismissed),
+    attendees: invitees
+      .filter((invitee) => !invitee.declined && !ownEmails.has(normalizeEmail(invitee.email)))
+      .filter((invitee) => !domainOf(invitee.email)?.endsWith('calendar.google.com'))
+      .map((invitee): Attendee => ({ name: invitee.name, email: invitee.email })),
+  };
 }
 
 const isEligible = (meeting: Meeting) =>
@@ -157,7 +164,7 @@ export async function loadCheckPeople(deps: CheckDeps, meeting: Meeting): Promis
   if (voices.length === 0 || voices.every((voice) => voice.nameConfirmed)) return hidden;
 
   const own = await ownAddresses(deps);
-  const attendees = await attendeesOf(deps, meeting, own.emails);
+  const { attendees, expected } = await attendeesOf(deps, meeting, own.emails);
   const tracked: CheckPerson[] = everyone
     .filter((person) => person.tracking === 'on')
     .map((person) => ({
@@ -297,7 +304,8 @@ export async function loadCheckPeople(deps: CheckDeps, meeting: Meeting): Promis
     voices: cards,
     options,
     rememberEnabled: (await deps.settings.get('voices.remember')) === 'true',
-    speakerCount: meeting.speakerCount,
+    speakerCount: meeting.speakerCount ?? speakerHint(expected) ?? null,
+    expectedPeople: expected,
   };
 }
 
