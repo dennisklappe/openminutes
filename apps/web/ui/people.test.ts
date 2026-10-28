@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { PersonDto } from '../src/dto.js';
+import type { EmailConflictDto, PersonDto } from '../src/dto.js';
 import {
+  conflictEffect,
+  conflictMergeLabel,
+  conflictMessage,
+  conflictOrigin,
+  emailConflictOf,
   filterPeople,
   mergePreview,
   parseEmails,
@@ -168,5 +173,43 @@ describe('reviewLabel', () => {
     expect(reviewLabel(12)).toBe('12 lines');
     expect(reviewLabel(25)).toBe('25 lines');
     expect(reviewLabel(140)).toBe('25 of 140 lines');
+  });
+});
+
+describe('email conflicts', () => {
+  const conflict = (extra: Partial<EmailConflictDto> = {}): EmailConflictDto => ({
+    email: 'jo@parker.example',
+    personId: 'p2',
+    name: 'Ann Lee',
+    unnamed: false,
+    source: 'manual',
+    into: { id: 'p1', name: 'Jo Parker' },
+    ...extra,
+  });
+  const failure = (code: string, body: unknown) =>
+    Object.assign(new Error('x'), { status: 409, code, body });
+
+  it('reads the conflict from an API error and ignores other errors', () => {
+    const found = conflict();
+    expect(emailConflictOf(failure('email_taken', { error: 'x', conflict: found }))).toEqual(found);
+    expect(emailConflictOf(failure('other', { conflict: found }))).toBeUndefined();
+    expect(emailConflictOf(failure('email_taken', { error: 'x' }))).toBeUndefined();
+    expect(emailConflictOf(new Error('x'))).toBeUndefined();
+    expect(emailConflictOf('x')).toBeUndefined();
+  });
+
+  it('names who merges into whom', () => {
+    expect(conflictMergeLabel(conflict())).toBe('Merge Ann Lee into Jo Parker');
+    expect(conflictEffect(conflict())).toContain('move to Jo Parker');
+    expect(conflictEffect(conflict())).toContain('cannot be undone');
+  });
+
+  it('says lightly when the other person came from an invitation', () => {
+    expect(conflictOrigin(conflict())).toBeUndefined();
+    expect(conflictOrigin(conflict({ source: 'invited' }))).toBe('created from an invitation');
+    expect(conflictOrigin(conflict({ unnamed: true }))).toBe('created from an invitation');
+    expect(conflictMessage(conflict({ source: 'invited' }))).toBe(
+      'jo@parker.example already belongs to Ann Lee (created from an invitation). Are they the same person?',
+    );
   });
 });

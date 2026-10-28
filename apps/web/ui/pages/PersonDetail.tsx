@@ -2,16 +2,19 @@ import { useCallback, useEffect, useState, type SubmitEvent } from 'react';
 import { Fragment } from 'react';
 import type {
   LanguageCoverageDto,
+  EmailConflictDto,
   PersonChoiceDto,
   PersonDetailDto,
   PersonLineDto,
 } from '../../src/dto.js';
 import { api, errorMessage, meetingUrl } from '../api.js';
 import { useConfirm } from '../Confirm.js';
+import { EmailConflict } from '../EmailConflict.js';
 import { MergeInto } from '../MergePeople.js';
 import { NameVoiceDialog } from '../NameVoice.js';
 import {
   barPercent,
+  emailConflictOf,
   lengthLabel,
   missingHint,
   parseEmails,
@@ -62,6 +65,7 @@ function Details({
   const [notes, setNotes] = useState(person.notes ?? '');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string }>();
+  const [conflict, setConflict] = useState<EmailConflictDto>();
   const parsed = parseEmails(emails);
   const badEmail = parsed.find((email) => !validEmail(email));
   const dirty =
@@ -75,28 +79,36 @@ function Details({
     setNotes(person.notes ?? '');
   }, [person.name, person.emails, person.notes]);
 
-  const submit = (event: SubmitEvent) => {
-    event.preventDefault();
-    if (!dirty || busy || badEmail || name.trim() === '') return;
+  const save = (mergeFrom?: string) => {
     setBusy(true);
     setNotice(undefined);
+    setConflict(undefined);
     api
       .updatePerson(person.id, {
         name: name.trim(),
         emails: parsed,
         notes: notes.trim() === '' ? null : notes.trim(),
+        ...(mergeFrom && { mergeFrom }),
       })
       .then(
         (next) => {
           setBusy(false);
-          setNotice({ ok: true, text: 'Saved.' });
+          setNotice({ ok: true, text: mergeFrom ? 'Merged and saved.' : 'Saved.' });
           onSaved(next);
         },
         (failure: unknown) => {
           setBusy(false);
-          setNotice({ ok: false, text: errorMessage(failure) });
+          const found = emailConflictOf(failure);
+          if (found) setConflict(found);
+          else setNotice({ ok: false, text: errorMessage(failure) });
         },
       );
+  };
+
+  const submit = (event: SubmitEvent) => {
+    event.preventDefault();
+    if (!dirty || busy || badEmail || name.trim() === '') return;
+    save();
   };
 
   return (
@@ -127,6 +139,7 @@ function Details({
             autoComplete="off"
             onChange={(e) => {
               setEmails(e.target.value);
+              setConflict(undefined);
             }}
           />
           <small>None, one or several. One per line or separated by commas.</small>
@@ -135,6 +148,18 @@ function Details({
           <p className="feedback error" role="alert">
             {badEmail} is not an email address.
           </p>
+        )}
+        {conflict && (
+          <EmailConflict
+            conflict={conflict}
+            busy={busy}
+            onMerge={() => {
+              save(conflict.personId);
+            }}
+            onKeep={() => {
+              setConflict(undefined);
+            }}
+          />
         )}
         <label className="field">
           <span>Notes</span>

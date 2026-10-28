@@ -1,11 +1,14 @@
 import { useEffect, useState, type SubmitEvent } from 'react';
-import type { SpeakerIdentityDto } from '../../src/dto.js';
+import type { EmailConflictDto, SpeakerIdentityDto } from '../../src/dto.js';
 import { api, errorMessage } from '../api.js';
 import { useConfirm } from '../Confirm.js';
 import { Dialog } from '../Dialog.js';
+import { EmailConflict } from '../EmailConflict.js';
+import { emailConflictOf } from '../people.js';
 import {
   addTypedEmail,
   identityToSave,
+  type IdentityDraft,
   inviteeSuggestions,
   matchNote,
   peopleHref,
@@ -34,6 +37,7 @@ export function SpeakerEditDialog({ meetingId, participantId, onClose, onSaved }
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [conflict, setConflict] = useState<EmailConflictDto>();
 
   useEffect(() => {
     api.speakerIdentity(meetingId, participantId).then(
@@ -102,20 +106,33 @@ export function SpeakerEditDialog({ meetingId, participantId, onClose, onSaved }
     }
     const draft = identityToSave(name, pending.emails, identity);
     if (!draft) return;
+    // Keep the typed address in the list, so a merge retry saves it too.
+    setEmails(pending.emails);
+    setTyped('');
+    save(identity, draft);
+  };
+
+  /** The same input again with `mergeFrom` set is how a merge is retried. */
+  const save = (current: SpeakerIdentityDto, draft: IdentityDraft, mergeFrom?: string) => {
     setBusy(true);
+    setError(undefined);
+    setConflict(undefined);
     api
       .saveSpeakerIdentity(meetingId, participantId, {
         ...draft,
-        remember: !identity.nameLocked && remember,
+        remember: !current.nameLocked && remember,
+        ...(mergeFrom && { mergeFrom }),
       })
       .then(
         () => {
-          onSaved(draft.name !== identity.name);
+          onSaved(draft.name !== current.name);
           onClose();
         },
         (failure: unknown) => {
           setBusy(false);
-          setError(errorMessage(failure));
+          const found = emailConflictOf(failure);
+          if (found) setConflict(found);
+          else setError(errorMessage(failure));
         },
       );
   };
@@ -233,6 +250,19 @@ export function SpeakerEditDialog({ meetingId, participantId, onClose, onSaved }
           <p>
             <a href={href}>Open on People</a>
           </p>
+        )}
+        {conflict && identity && (
+          <EmailConflict
+            conflict={conflict}
+            busy={busy}
+            onMerge={() => {
+              const draft = identityToSave(name, emails, identity);
+              if (draft) save(identity, draft, conflict.personId);
+            }}
+            onKeep={() => {
+              setConflict(undefined);
+            }}
+          />
         )}
         {error && (
           <p className="error" role="alert">

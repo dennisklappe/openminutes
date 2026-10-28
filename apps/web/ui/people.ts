@@ -1,4 +1,5 @@
 import type {
+  EmailConflictDto,
   LanguageCoverageDto,
   PersonDto,
   PersonLineDto,
@@ -171,3 +172,29 @@ export function missingHint(
   const last = parts.pop();
   return `Needs ${parts.length > 0 ? `${parts.join(', ')} and ` : ''}${String(last)}.`;
 }
+
+/** The conflict an API error carries when an address belongs to another person. */
+export function emailConflictOf(error: unknown): EmailConflictDto | undefined {
+  if (!(error instanceof Error)) return undefined;
+  const { code, body } = error as { code?: unknown; body?: unknown };
+  if (code !== 'email_taken' || typeof body !== 'object' || body === null) return undefined;
+  const conflict = (body as { conflict?: EmailConflictDto }).conflict;
+  return conflict && typeof conflict.personId === 'string' ? conflict : undefined;
+}
+
+export const conflictMergeLabel = (conflict: EmailConflictDto): string =>
+  `Merge ${conflict.name} into ${conflict.into?.name ?? 'this person'}`;
+
+/** A light hint where the other person came from, when they are only a guess from an invitation. */
+export const conflictOrigin = (conflict: EmailConflictDto): string | undefined =>
+  conflict.source === 'invited' || conflict.unnamed ? 'created from an invitation' : undefined;
+
+export const conflictMessage = (conflict: EmailConflictDto): string =>
+  `${conflict.email} already belongs to ${conflict.name}${
+    conflictOrigin(conflict) ? ` (${conflictOrigin(conflict) ?? ''})` : ''
+  }. Are they the same person?`;
+
+export const conflictEffect = (conflict: EmailConflictDto): string =>
+  `The name, emails, notes, voice samples and meetings of ${conflict.name} move to ${
+    conflict.into?.name ?? 'this person'
+  }, and ${conflict.name} is removed. This cannot be undone.`;

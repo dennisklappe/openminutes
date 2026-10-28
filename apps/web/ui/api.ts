@@ -90,6 +90,8 @@ export class ApiError extends Error {
     readonly status: number,
     message: string,
     readonly code?: string,
+    /** The whole error body, for the errors that carry more than a message. */
+    readonly body?: unknown,
   ) {
     super(message);
   }
@@ -113,7 +115,7 @@ async function request<T>(
   });
   const data = (await response.json()) as T & { error?: string; code?: string };
   if (!response.ok) {
-    throw new ApiError(response.status, data.error ?? response.statusText, data.code);
+    throw new ApiError(response.status, data.error ?? response.statusText, data.code, data);
   }
   return data;
 }
