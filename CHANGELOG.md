@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/dennisklappe/openminutes/compare/v0.2.1...v0.2.2) (2026-10-28)
+
+
+### Features
+
+* split or mark lines that hold two speakers ([#27](https://github.com/dennisklappe/openminutes/issues/27)) ([11c50b3](https://github.com/dennisklappe/openminutes/commit/11c50b394b3604349a8303f5088ef5978c7a9de3))
+
 ## [0.2.1](https://github.com/dennisklappe/openminutes/compare/v0.2.0...v0.2.1) (2026-10-28)
 
 
