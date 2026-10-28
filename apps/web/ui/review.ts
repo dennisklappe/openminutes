@@ -380,7 +380,7 @@ export interface CardStory {
   splitHint: boolean;
 }
 
-/** "JP Kroon 49%". */
+/** "Jo Parker 49%". */
 export const scoreLabel = (who: Pick<VoiceSays, 'name' | 'score'>) =>
   `${who.name} ${String(Math.round(who.score * 100))}%`;
 
