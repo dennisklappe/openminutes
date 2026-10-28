@@ -193,3 +193,27 @@ export interface SharedAccountsDto {
 export interface SharedAccountsInput {
   waitMinutes: number;
 }
+
+export type ApiKeyScope = 'read' | 'full';
+
+export interface ApiKeyDto {
+  id: string;
+  name: string;
+  prefix: string;
+  scope: ApiKeyScope;
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+}
+
+export interface ApiKeyInput {
+  name: string;
+  scope: ApiKeyScope;
+  expiresInDays: 30 | 90 | 365 | null;
+}
+
+/** The secret is in this response only, it cannot be read again. */
+export interface ApiKeyCreatedDto {
+  key: ApiKeyDto;
+  secret: string;
+}

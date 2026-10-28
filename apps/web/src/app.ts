@@ -11,6 +11,7 @@ import { createMiddleware } from 'hono/factory';
 import { securityHeaders } from './security-headers.js';
 import { accountRoutes } from './accounts/routes.js';
 import { oauthRoutes } from './accounts/oauth.js';
+import { apiKeyAuth, ApiKeyRateLimiter, authenticatedKey } from './auth/api-keys.js';
 import { authRoutes, requireAccess, requireSession } from './auth/routes.js';
 import type { AccessVerifier } from './auth/access.js';
 import type { LoginRateLimiter } from './auth/rate-limit.js';
@@ -40,6 +41,7 @@ import { summaryAiEditRoutes } from './minutes/ai-edit-routes.js';
 import { summaryEditRoutes } from './minutes/summary-edit-routes.js';
 import { promptRoutes } from './settings/prompts.js';
 import { providerSettingsRoutes } from './settings/providers.js';
+import { apiKeySettingsRoutes } from './settings/api-keys.js';
 import { botRoutes } from './settings/bot.js';
 import { googleSessionRoutes } from './settings/google-session.js';
 import { limitsRoutes } from './settings/limits.js';
@@ -74,6 +76,8 @@ export interface AppDeps {
   exporters?: ExporterRegistry;
   endpoints?: Endpoints;
   importMaxBytes?: number;
+  /** Requests per minute per API key, see DEFAULT_API_RATE_LIMIT. */
+  apiRateLimit?: number;
 }
 
 /** Every JSON body is far smaller than this. Uploads that need more set their own limit. */
@@ -122,7 +126,9 @@ export function createApp(deps: AppDeps): Hono {
   if (deps.access) app.use('*', requireAccess(deps.access));
   app.get('/login', (c) => c.redirect('/', 302));
   api.use('*', limitApiBody);
-  api.use(csrf());
+  api.use(apiKeyAuth({ db: deps.db, limiter: new ApiKeyRateLimiter(deps.apiRateLimit) }));
+  const cookieCsrf = csrf();
+  api.use(createMiddleware((c, next) => (authenticatedKey(c) ? next() : cookieCsrf(c, next))));
   api.get('/version', (c) => c.json({ version: deps.version }));
   api.route('/', authRoutes(deps));
   api.use('/meetings/*', requireSession(deps));
@@ -162,6 +168,7 @@ export function createApp(deps: AppDeps): Hono {
   api.route('/accounts', accountRoutes(accountDeps));
   api.use('/oauth/:provider/start', requireSession(deps));
   api.route('/oauth', oauthRoutes({ ...accountDeps, secret: deps.secret }));
+  api.route('/settings/api-keys', apiKeySettingsRoutes(deps));
   api.route('/settings/transcription', providerSettingsRoutes('transcription', deps));
   api.route('/settings/summary', providerSettingsRoutes('summary', deps));
   api.route('/settings/prompts', promptRoutes(deps));
