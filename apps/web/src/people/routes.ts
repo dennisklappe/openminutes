@@ -28,6 +28,7 @@ import {
   verifyLine,
 } from './lines.js';
 import { deleteProfile } from './profiles.js';
+import { confirmVoice, moveVoice, reopenVoice, skipVoice } from './voice-cards.js';
 import { loadReviewCounts, loadReviewQueue } from './review.js';
 import { loadPersonDetail, type PeopleDeps } from './load.js';
 import { loadPeoplePage } from './page.js';
@@ -153,6 +154,30 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     if (!body.success) return c.json({ error: 'Line not found' }, 404);
     return c.json({ undone: (await undoDecision(deps.db, body.data.segmentId)) ?? null });
   });
+
+  /** The environment cards: is the voice labelled as a person really them? */
+  const voiceRoute = (path: string, run: (id: string, body: unknown) => Promise<void>) => {
+    routes.post(`/review/voices/:id${path}`, async (c) => {
+      const id = uuid.safeParse(c.req.param('id'));
+      if (!id.success) return c.json({ error: 'Question not found' }, 404);
+      return guard(c, async () => {
+        await run(id.data, await c.req.json().catch(() => null));
+        return c.json({ ok: true });
+      });
+    });
+  };
+  voiceRoute('/confirm', async (id) => {
+    const { personId, request } = await confirmVoice(deps.db, id);
+    await learn(request, personId);
+  });
+  voiceRoute('/move', async (id, raw) => {
+    const body = moveInput.safeParse(raw);
+    if (!body.success) throw new PeopleError('Pick who it is', 400);
+    const { personId, request } = await moveVoice(deps.db, id, body.data.personId);
+    await learn(request, personId);
+  });
+  voiceRoute('/skip', (id) => skipVoice(deps.db, id));
+  voiceRoute('/reopen', (id) => reopenVoice(deps.db, id));
 
   routes.post('/', async (c) => {
     const body = createInput.safeParse(await c.req.json().catch(() => null));

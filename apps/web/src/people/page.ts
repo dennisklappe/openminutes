@@ -1,8 +1,9 @@
+import { loadVoiceTuning } from '@openminutes/core';
 import { inArray, people, sql } from '@openminutes/db';
 import type { PeopleDto, PeopleQuery } from '../dto.js';
 import { checkEnabled, rememberEnabled } from '../voices/load.js';
 import { loadDuplicates, loadSharedLabels, toDto, type PeopleDeps } from './load.js';
-import { loadProfileRows } from './profiles.js';
+import { loadProfileRows, loadStandings } from './profiles.js';
 import { loadReviewCounts } from './review.js';
 import { SESSION_CAP } from './useful.js';
 import { loadMeetingStats, seenStats } from './stats.js';
@@ -63,12 +64,14 @@ export async function loadPeoplePage(
   );
   const review = await loadReviewCounts(deps);
   const ids = found.map((row) => row.id);
-  const [rows, samples, seen, dupes, shared] = await Promise.all([
+  const tuning = await loadVoiceTuning(db);
+  const [rows, samples, seen, dupes, shared, standings] = await Promise.all([
     ids.length === 0 ? [] : db.select().from(people).where(inArray(people.id, ids)),
     loadProfileRows(db, ids),
     loadMeetingStats(db, ids),
     loadDuplicates(db),
     loadSharedLabels(db),
+    loadStandings(db, tuning, ids),
   ]);
   const byId = new Map(rows.map((row) => [row.id, row]));
   return {
@@ -83,6 +86,7 @@ export async function loadPeoplePage(
               review.byPerson,
               dupes,
               shared,
+              { standings, tuning },
             ),
           ]
         : [];

@@ -1,9 +1,11 @@
+import { agreeThreshold, loadVoiceTuning, type VoiceTuning } from '@openminutes/core';
 import {
   and,
   eq,
   inArray,
   meetings,
   participants,
+  people as peopleTable,
   reviewDecisions,
   sql,
   transcriptSegments,
@@ -19,8 +21,9 @@ import type {
   ReviewScopeDto,
   ReviewRosterDto,
 } from '../dto.js';
-import { languageName, profileCoverage, profileKey } from './profiles.js';
-import { SESSION_CAP, TARGET_MS, selectUseful, whyOf, type Candidate } from './useful.js';
+import { languageName, loadStandings, profileKey, readyKeys, type Standing } from './profiles.js';
+import { SESSION_CAP, selectUseful, whyOf, type Candidate } from './useful.js';
+import { loadVoiceCards } from './voice-cards.js';
 import { rememberEnabled } from '../voices/load.js';
 import { loadChoices, loadPeople, personLines, trainingLines, type PeopleDeps } from './load.js';
 
@@ -35,11 +38,11 @@ const OVERLAP_MS = 300;
 /** Unknown confidence is the least certain, so it comes first. */
 const certainty = (line: PersonLineDto) => line.speakerConfidence ?? -1;
 
-/** The languages in which a person already has a good enough profile. */
-function finishedLanguages(coverage: ReadonlyMap<string, number>, personId: string) {
-  return [...coverage]
-    .filter(([key, ms]) => key.startsWith(`${personId}|`) && ms >= TARGET_MS)
-    .map(([key]) => ({ language: key.slice(personId.length + 1) }));
+/** The languages in which a person already has a ready profile. */
+function finishedLanguages(ready: ReadonlySet<string>, personId: string) {
+  return [...ready]
+    .filter((key) => key.startsWith(`${personId}|`))
+    .map((key) => ({ language: key.slice(personId.length + 1) }));
 }
 
 type Proposals = Map<string, { line: PersonLineDto; person: PersonChoiceDto }>;
@@ -68,11 +71,42 @@ async function overlappedIds(db: PeopleDeps['db'], ids: string[]): Promise<Set<s
   return new Set(rows.map((row) => row.id));
 }
 
+/** What the queue knows about the voice profiles: how far each is and where a voice agrees. */
+interface Standings {
+  coverage: Map<string, number>;
+  ready: Set<string>;
+  need: Map<string, number>;
+  /** Meetings a profile still wants lines from. */
+  moreMeetings: (group: string) => number;
+  tuning: VoiceTuning;
+  /** The score at which a voice agrees with the profile of each person. */
+  threshold: (personId: string) => number;
+}
+
+async function loadStanding(db: PeopleDeps['db']): Promise<Standings> {
+  const tuning = await loadVoiceTuning(db);
+  const [standings, margins] = await Promise.all([
+    loadStandings(db, tuning),
+    db.select({ id: peopleTable.id, margin: peopleTable.autoMargin }).from(peopleTable),
+  ]);
+  const margin = new Map(margins.map((m) => [m.id, m.margin]));
+  const need = (s: Standing) => 1 - Math.min(s.readiness.length, s.readiness.variety);
+  return {
+    coverage: new Map([...standings].map(([key, s]) => [key, s.ms])),
+    ready: readyKeys(standings),
+    need: new Map([...standings].map(([key, s]) => [key, need(s)])),
+    moreMeetings: (group) =>
+      Math.max(0, tuning.readyMeetings - (standings.get(group)?.facts.meetings ?? 0)),
+    tuning,
+    threshold: (personId) => agreeThreshold(tuning, margin.get(personId) ?? 0),
+  };
+}
+
 async function pickUseful(
   db: PeopleDeps['db'],
   proposals: Proposals,
   meetingRows: { id: string; platform: string }[],
-  coverage: ReadonlyMap<string, number>,
+  standing: Standings,
 ) {
   const ids = [...proposals.keys()];
   const meetingIds = meetingRows.map((m) => m.id);
@@ -121,9 +155,15 @@ async function pickUseful(
       confidence: line.speakerConfidence,
       suggested: line.reason === 'suggested' || line.reason === 'elimination',
       mixed: line.reason === 'mixed',
+      disagrees: line.voiceScore !== null && line.voiceScore < standing.threshold(person.id),
     };
   });
-  const { picked } = selectUseful(candidates, coverage);
+  const { picked } = selectUseful(candidates, standing.coverage, {
+    ready: standing.ready,
+    need: standing.need,
+    targetMs: standing.tuning.readySeconds * 1000,
+    moreMeetings: standing.moreMeetings,
+  });
   return { picked, candidates };
 }
 
@@ -175,13 +215,14 @@ async function gatherQueue(
       }
     }
   }
-  // Lines the labelling is sure of are worth confirming while the profile needs samples.
-  const coverage = await profileCoverage(db);
+  // Lines the labelling is sure of are worth confirming while the profile is not ready.
+  const standing = await loadStanding(db);
   if (!skipped) {
     for (const person of everyone) {
       const lines = await trainingLines(db, person.id, {
         limit: TRAINING_LIMIT,
-        skipLanguages: finishedLanguages(coverage, person.id).map((f) => f.language),
+        readyLanguages: finishedLanguages(standing.ready, person.id).map((f) => f.language),
+        threshold: standing.threshold(person.id),
         ...(meetingId && { meetingId }),
       });
       for (const line of lines) {
@@ -215,8 +256,8 @@ async function gatherQueue(
   }
   const dateIds = [...new Set([...proposals.values()].map((c) => c.line.meetingId))];
   const meetingRows = dateIds.length === 0 ? [] : await dbMeetings(db, dateIds);
-  const picked = await pickUseful(db, proposals, meetingRows, coverage);
-  return { everyone, proposals, meeting, meetingRows, coverage, skippedCount, picked };
+  const picked = await pickUseful(db, proposals, meetingRows, standing);
+  return { everyone, proposals, meeting, meetingRows, standing, skippedCount, picked };
 }
 
 /** Lines that are asked about for each person, uncapped, and over everyone. */
@@ -235,9 +276,13 @@ export async function loadReviewCounts(
   scope: Pick<ReviewScope, 'personId' | 'meetingId'> = {},
 ): Promise<ReviewCounts> {
   const lines = (await gatherQueue(deps, scope))?.picked.picked ?? [];
+  const { cards } = await loadVoiceCards(deps.db, scope);
   const byPerson = new Map<string, number>();
   for (const c of lines) byPerson.set(c.personId, (byPerson.get(c.personId) ?? 0) + 1);
-  return { total: lines.length, byPerson };
+  for (const card of cards) {
+    byPerson.set(card.person.id, (byPerson.get(card.person.id) ?? 0) + 1);
+  }
+  return { total: lines.length + cards.length, byPerson };
 }
 
 /**
@@ -255,7 +300,9 @@ export async function loadReviewQueue(
   const { personId, order = 'newest', skipped = false } = request;
   const gathered = await gatherQueue(deps, request);
   if (!gathered) return undefined;
-  const { everyone, proposals, meeting, meetingRows, coverage, skippedCount, picked } = gathered;
+  const { everyone, proposals, meeting, meetingRows, standing, skippedCount, picked } = gathered;
+  const { coverage, ready, tuning } = standing;
+  const voiceCards = await loadVoiceCards(db, { personId, meetingId: request.meetingId }, skipped);
   const stamps = new Map(meetingRows.map((m) => [m.id, m.createdAt.getTime()]));
   const when = (line: PersonLineDto) => stamps.get(line.meetingId) ?? 0;
   const byTime = (a: PersonLineDto, b: PersonLineDto) =>
@@ -279,7 +326,7 @@ export async function loadReviewQueue(
     complete = everyone
       .filter((p) => p.meetings > 0)
       .flatMap((p) =>
-        finishedLanguages(coverage, p.id).map(({ language }) => ({
+        finishedLanguages(ready, p.id).map(({ language }) => ({
           id: p.id,
           name: p.name,
           language,
@@ -287,9 +334,11 @@ export async function loadReviewQueue(
         })),
       );
   }
-  const more = skipped ? 0 : Math.max(0, useful.length - SESSION_CAP);
+  // Environment cards come first and count towards the session.
+  const room = Math.max(0, SESSION_CAP - voiceCards.cards.length);
+  const more = skipped ? 0 : Math.max(0, useful.length - room);
   const chosen = (
-    skipped ? useful.sort(inOrder).slice(0, QUEUE_LIMIT) : useful.slice(0, SESSION_CAP)
+    skipped ? useful.sort(inOrder).slice(0, QUEUE_LIMIT) : useful.slice(0, room)
   ).sort(inOrder);
 
   const segmentIds = chosen.map((c) => c.line.id);
@@ -366,7 +415,7 @@ export async function loadReviewQueue(
       language: line.language,
       languageName: languageName(line.language),
       profileSeconds: Math.round((coverage.get(profileKey(person.id, line.language)) ?? 0) / 1000),
-      profileTargetSeconds: TARGET_MS / 1000,
+      profileTargetSeconds: tuning.readySeconds,
       considered: considered.slice(0, CONSIDERED_LIMIT),
       roster: others.sort((a, b) => a.name.localeCompare(b.name)),
     };
@@ -377,11 +426,12 @@ export async function loadReviewQueue(
     if (named) scope.person = { id: named.id, name: named.name, tracked: named.tracking === 'on' };
   }
   return {
+    voices: voiceCards.cards,
     lines,
     order,
     scope,
     people,
-    skippedCount,
+    skippedCount: skippedCount + voiceCards.skippedCount,
     more,
     complete,
     learning: await rememberEnabled(deps.settings),

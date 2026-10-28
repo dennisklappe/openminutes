@@ -1,4 +1,9 @@
-import { dropLineSamples, penalizeAutoMargin, rebuildProfile } from '@openminutes/core';
+import {
+  dropLineSamples,
+  penalizeAutoMargin,
+  rebuildProfile,
+  recordPrototypeHits,
+} from '@openminutes/core';
 import {
   and,
   eq,
@@ -168,9 +173,21 @@ export async function rejectLine(db: Database, personId: string, segmentId: stri
     const removed = await tx
       .delete(voiceSamples)
       .where(and(eq(voiceSamples.personId, personId), eq(voiceSamples.segmentId, segmentId)))
-      .returning({ source: voiceSamples.source });
+      .returning({
+        source: voiceSamples.source,
+        embedding: voiceSamples.embedding,
+        language: voiceSamples.language,
+      });
     // Turning down a line the voice learned by itself says its test was too loose for this person.
     if (removed.some((sample) => sample.source === 'auto')) await penalizeAutoMargin(tx, personId);
+    // The way of sounding that attracted the line is noted, so one that only attracts turned down lines goes.
+    await recordPrototypeHits(
+      tx,
+      personId,
+      removed.flatMap(({ embedding, language }) =>
+        embedding ? [{ embedding, language, outcome: 'rejected' as const }] : [],
+      ),
+    );
     await tx
       .insert(voiceSamples)
       .values({ personId, kind: 'line', segmentId, meetingId: segment.meetingId, rejected: true })
