@@ -56,6 +56,9 @@ import type {
   ParticipantsDto,
   PhoneSettingsDto,
   SpeakerEditInput,
+  SpeakerIdentityDto,
+  SpeakerIdentityInput,
+  SpeakerIdentityResultDto,
   SpeakerEditResultDto,
   SpeakerSettingsDto,
   SummaryChatSettingsDto,
@@ -213,6 +216,17 @@ export const api = {
   participants: (id: string) => request<ParticipantsDto>(`/meetings/${id}/participants`),
   renameParticipant: (id: string, participantId: string, body: ParticipantNameInput) =>
     request<ParticipantsDto>(`/meetings/${id}/participants/${participantId}`, {
+      method: 'PUT',
+      body,
+    }),
+  speakerIdentity: (id: string, participantId: string, name?: string) =>
+    request<SpeakerIdentityDto>(
+      `/meetings/${id}/participants/${participantId}/identity${
+        name === undefined ? '' : `?name=${encodeURIComponent(name)}`
+      }`,
+    ),
+  saveSpeakerIdentity: (id: string, participantId: string, body: SpeakerIdentityInput) =>
+    request<SpeakerIdentityResultDto>(`/meetings/${id}/participants/${participantId}/identity`, {
       method: 'PUT',
       body,
     }),

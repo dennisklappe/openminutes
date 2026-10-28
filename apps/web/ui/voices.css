@@ -87,39 +87,11 @@
   font-weight: 500;
 }
 
-.snippets,
 .chips {
   display: flex;
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.snippets {
-  flex-direction: column;
-  gap: 6px;
-}
-
-.snippets button {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  justify-content: start;
-  gap: 10px;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  text-align: left;
-  font-weight: 400;
-}
-
-.snippets svg {
-  width: 12px;
-  height: 12px;
-  fill: currentColor;
-}
-
-.snippets .truncate {
-  color: var(--muted);
 }
 
 .snippet {
@@ -226,52 +198,31 @@
   font-size: 13px;
 }
 
-.check-list {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.check-voice {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-m);
-}
-
-.check-voice header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.check-voice .check-pick {
+.voice .voice-pick {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-.check-voice .check-fields {
-  display: flex;
+.voice .voice-pick p {
+  margin: 0;
+}
+
+.voice .voice-fields {
   flex-wrap: wrap;
-  gap: 8px;
 }
 
-.check-voice .check-fields input {
+.voice .voice-fields input {
   flex: 1 1 160px;
-  min-width: 0;
 }
 
-.check-voice select {
+.voice select {
   max-width: 100%;
+  min-height: 44px;
 }
 
-.check-samples {
+.voice-samples {
   display: grid;
   gap: 6px;
   margin: 0;
@@ -279,21 +230,21 @@
   list-style: none;
 }
 
-.check-sample {
+.voice-sample {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-.check-sample p {
+.voice-sample p {
   flex: 1 1 200px;
   min-width: 0;
   margin: 0;
   font-size: 14px;
 }
 
-.check-sample-play {
+.voice-sample-play {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -302,13 +253,13 @@
   padding: 8px 12px;
 }
 
-.check-sample-play svg {
+.voice-sample-play svg {
   width: 12px;
   height: 12px;
   fill: currentColor;
 }
 
-.check-sample-show {
+.voice-sample-show {
   min-height: 44px;
   padding: 8px 12px;
   font-weight: 400;

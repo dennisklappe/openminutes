@@ -188,3 +188,15 @@ describe('speakerResultLine', () => {
     expect(speakerResultLine(3, 3)).toBe('Found 3 speakers (was 3)');
   });
 });
+
+describe('talkTime participant', () => {
+  it('keeps the participant to edit per row and none for unassigned time', () => {
+    const line = (speaker: string, speakerId: string | null, startMs: number, endMs: number) =>
+      makeSegment({ id: String(startMs), speaker, speakerId, startMs, endMs });
+    const result = talkTime([line('Tnf', 'p1', 0, 3000), line('Dennis', 'p2', 3000, 4000)]);
+    expect(result.map((r) => [r.name, r.participantId])).toEqual([
+      ['Tnf', 'p1'],
+      ['Dennis', 'p2'],
+    ]);
+  });
+});

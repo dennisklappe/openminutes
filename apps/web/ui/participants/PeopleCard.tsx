@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { InviteeDto, ParticipantDto, SegmentDto } from '../../src/dto.js';
 import { api, errorMessage } from '../api.js';
-import { useConfirm } from '../Confirm.js';
 import { formatLength } from '../format.js';
 import { MoreIcon, PencilIcon } from '../icons.js';
 import { Menu } from '../Menu.js';
@@ -11,6 +10,8 @@ import { AbsentList } from './AbsentList.js';
 import { flattenPeople, SPLIT_POLL_MS, splitFailedText, splitProgress } from '../sharedRoom.js';
 import { presence } from './names.js';
 import { RenameDialog } from './RenameDialog.js';
+import { SpeakerEditDialog } from './SpeakerEditDialog.js';
+import { useRegenerate } from './useRegenerate.js';
 import { SharedNote, VoiceRow } from './SharedTile.js';
 import './participants.css';
 
@@ -43,10 +44,10 @@ export function PeopleCard({
   const [invitees, setInvitees] = useState<InviteeDto[]>([]);
   const [absent, setAbsent] = useState<InviteeDto[]>([]);
   const [editing, setEditing] = useState<ParticipantDto>();
+  const [editingSpeaker, setEditingSpeaker] = useState<string>();
   const [error, setError] = useState<string>();
   const [splitting, setSplitting] = useState<{ tileId: string; startedAt: number }>();
   const slots = useMemo(() => speakerSlots(segments ?? []), [segments]);
-  const confirm = useConfirm();
   const changed = useRef(onChanged);
   changed.current = onChanged;
 
@@ -102,22 +103,7 @@ export function PeopleCard({
     );
   };
 
-  const regenerate = async () => {
-    const confirmed = await confirm({
-      title: 'Regenerate the summary?',
-      body: (
-        <p>
-          Names in the current summary were replaced. Regenerating writes a new version from the
-          transcript, using the new names. Earlier versions are kept.
-        </p>
-      ),
-      confirmLabel: 'Regenerate summary',
-    });
-    if (!confirmed) return;
-    api.summarize(meetingId, {}).then(onChanged, (failure: unknown) => {
-      setError(errorMessage(failure));
-    });
-  };
+  const regenerate = useRegenerate(meetingId, onChanged, setError);
 
   if (people.length === 0) return null;
   const { rows, notes } = flattenPeople(people);
@@ -146,10 +132,10 @@ export function PeopleCard({
                 <span className="sub-actions">
                   <button
                     type="button"
-                    className="icon-button"
-                    aria-label={`Rename ${row.person.name}`}
+                    className="icon-button speaker-edit"
+                    aria-label={`Edit ${row.person.name}`}
                     onClick={() => {
-                      setEditing(row.person);
+                      setEditingSpeaker(row.person.id);
                     }}
                   >
                     <PencilIcon />
@@ -220,6 +206,20 @@ export function PeopleCard({
         <p className="error" role="alert">
           {error}
         </p>
+      )}
+      {editingSpeaker && (
+        <SpeakerEditDialog
+          meetingId={meetingId}
+          participantId={editingSpeaker}
+          onClose={() => {
+            setEditingSpeaker(undefined);
+          }}
+          onSaved={(renamed) => {
+            load();
+            onChanged();
+            if (renamed && hasSummary) void regenerate();
+          }}
+        />
       )}
       {editing && (
         <RenameDialog

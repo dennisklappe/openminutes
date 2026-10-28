@@ -281,3 +281,51 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+.speaker-emails ul {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.speaker-emails li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.speaker-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.speaker-add {
+  display: flex;
+  gap: 8px;
+}
+
+.speaker-add input {
+  flex: 1;
+  min-width: 0;
+}
+
+.speaker-emails button,
+.speaker-edit {
+  min-height: 44px;
+}
+
+.speaker-edit {
+  min-width: 44px;
+}
+
+.talk-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}

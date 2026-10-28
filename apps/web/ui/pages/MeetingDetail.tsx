@@ -10,7 +10,7 @@ import { rerunItems, type RerunKind } from '../rerun.js';
 import { Menu } from '../Menu.js';
 import { ChevronIcon, ClockIcon, ExternalIcon, PlatformIcon } from '../icons.js';
 import { Panel } from '../Panel.js';
-import { countSpeakers, speakerCountLabel, speakerResultLine, talkTime } from '../speakers.js';
+import { countSpeakers, speakerCountLabel, speakerResultLine } from '../speakers.js';
 import { SpeakerHeader, SpeakerResult, SpeakersRunning } from '../SpeakerOverview.js';
 import { useSpeakerResult } from '../useSpeakerResult.js';
 import { MinutesPanel } from '../MinutesPanel.js';
@@ -20,6 +20,7 @@ import { MeetingCompany } from '../MeetingCompany.js';
 import { MeetingTitle } from '../MeetingTitle.js';
 import { RoomNotice } from '../RoomNotice.js';
 import { PeopleCard } from '../participants/PeopleCard.js';
+import { TalkTime } from '../participants/TalkTime.js';
 import { TranscriptPlayer, type PlayerHandle } from '../TranscriptPlayer.js';
 import { WhoIsWho } from '../WhoIsWho.js';
 import { useBulk } from '../useBulk.js';
@@ -465,21 +466,15 @@ export function MeetingDetail({ id }: { id: string }) {
             />
           )}
           {segments.length > 0 && !processing && (
-            <Panel title="Talk time">
-              <ul className="talk">
-                {talkTime(segments).map(({ key, name, slot, unassigned, percent, share }) => (
-                  <li
-                    key={key}
-                    className={unassigned ? 'talk-unassigned' : undefined}
-                    data-speaker-slot={slot ?? undefined}
-                  >
-                    <span>{name}</span>
-                    <span className="mono muted">{percent}%</span>
-                    <i style={{ width: `${share * 100}%` }} />
-                  </li>
-                ))}
-              </ul>
-            </Panel>
+            <TalkTime
+              meetingId={id}
+              segments={segments}
+              hasSummary={summaries.length > 0}
+              onChanged={() => {
+                setPeopleKey((key) => key + 1);
+                refresh();
+              }}
+            />
           )}
           {(segments.length > 0 || summaries.length > 0 || audio || more.length > 0) && (
             <MinutesPanel
