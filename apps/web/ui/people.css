@@ -456,3 +456,28 @@ button.link.quiet {
   list-style: none;
   font-size: 13px;
 }
+
+/* ---------- Voices of a shared participant tile ---------- */
+
+.room-voice + .room-voice {
+  margin-top: 16px;
+}
+
+.room-voice[data-named] {
+  opacity: 0.8;
+}
+
+.room-voice-title {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.room-quotes {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.room-quotes li + li {
+  margin-top: 4px;
+}

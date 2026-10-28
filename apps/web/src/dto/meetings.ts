@@ -95,6 +95,8 @@ export interface SegmentDto {
   /** Who the speaker review thinks said it, for the person to accept or turn down. */
   suggestedSpeaker: string | null;
   suggestedSpeakerId: string | null;
+  /** The shared tile this line was heard in, when a person named its voice. */
+  viaSpeaker: string | null;
 }
 
 export interface SpeakerChoiceDto {

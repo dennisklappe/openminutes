@@ -51,6 +51,11 @@ export function SpeakerLabel({ segment, open, menuId, onToggle, buttonRef }: Pro
         )}
         <span className="speaker-text">{segment.speaker ?? 'No speaker'}</span>
       </button>
+      {segment.viaSpeaker && (
+        <span className="via-note" title={`Heard in the tile of ${segment.viaSpeaker}`}>
+          via {segment.viaSpeaker}
+        </span>
+      )}
       {badge && (
         <span
           className={`source-badge ${segment.speakerSource ?? ''}`}

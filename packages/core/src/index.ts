@@ -191,6 +191,7 @@ export {
 } from './people.js';
 export * from './voice-anchors.js';
 export * from './voice-auto.js';
+export * from './voice-rooms.js';
 export {
   isKnownLanguage,
   LANGUAGE_PENALTY,

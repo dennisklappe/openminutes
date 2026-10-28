@@ -84,6 +84,49 @@ async function participantFor(tx: Tx, meetingId: string, person: Person): Promis
   return created.id;
 }
 
+/** Gives a line to a person as a verified one, inside a transaction. Returns their participant. */
+export async function verifyInTx(tx: Tx, person: Person, segment: Segment): Promise<string> {
+  const participantId = await participantFor(tx, segment.meetingId, person);
+  await remember(tx, segment, person.id, 'approve');
+  await tx
+    .update(transcriptSegments)
+    .set({
+      participantId,
+      speakerSource: 'user',
+      suggestedParticipantId: null,
+      voiceDoubt: false,
+      byElimination: false,
+      previousParticipantId:
+        segment.participantId !== participantId && segment.speakerSource !== 'user'
+          ? segment.participantId
+          : segment.previousParticipantId,
+    })
+    .where(eq(transcriptSegments.id, segment.id));
+  await tx
+    .delete(voiceSamples)
+    .where(
+      and(
+        eq(voiceSamples.personId, person.id),
+        eq(voiceSamples.segmentId, segment.id),
+        eq(voiceSamples.rejected, true),
+      ),
+    );
+  // A sample the voice added by itself is now confirmed by a person.
+  await tx
+    .update(voiceSamples)
+    .set({ source: 'verified' })
+    .where(
+      and(
+        eq(voiceSamples.personId, person.id),
+        eq(voiceSamples.segmentId, segment.id),
+        eq(voiceSamples.source, 'auto'),
+      ),
+    );
+  await dropLineSamples(tx, [segment.id], person.id);
+  await markSpeakersChanged(tx, segment.meetingId);
+  return participantId;
+}
+
 /**
  * Says that a line is this person. The line takes their label as a verified one and leaves
  * every other profile. The caller queues the voice learning when the owner allows it.
@@ -96,44 +139,7 @@ export async function verifyLine(
   return db.transaction(async (tx) => {
     const person = await personOf(tx, personId);
     const segment = await segmentOf(tx, segmentId);
-    const participantId = await participantFor(tx, segment.meetingId, person);
-    await remember(tx, segment, personId, 'approve');
-    await tx
-      .update(transcriptSegments)
-      .set({
-        participantId,
-        speakerSource: 'user',
-        suggestedParticipantId: null,
-        voiceDoubt: false,
-        byElimination: false,
-        previousParticipantId:
-          segment.participantId !== participantId && segment.speakerSource !== 'user'
-            ? segment.participantId
-            : segment.previousParticipantId,
-      })
-      .where(eq(transcriptSegments.id, segmentId));
-    await tx
-      .delete(voiceSamples)
-      .where(
-        and(
-          eq(voiceSamples.personId, personId),
-          eq(voiceSamples.segmentId, segmentId),
-          eq(voiceSamples.rejected, true),
-        ),
-      );
-    // A sample the voice added by itself is now confirmed by a person.
-    await tx
-      .update(voiceSamples)
-      .set({ source: 'verified' })
-      .where(
-        and(
-          eq(voiceSamples.personId, personId),
-          eq(voiceSamples.segmentId, segmentId),
-          eq(voiceSamples.source, 'auto'),
-        ),
-      );
-    await dropLineSamples(tx, [segmentId], personId);
-    await markSpeakersChanged(tx, segment.meetingId);
+    const participantId = await verifyInTx(tx, person, segment);
     return { meetingId: segment.meetingId, participantId, segmentIds: [segmentId] };
   });
 }

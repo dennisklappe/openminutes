@@ -55,6 +55,8 @@ Without a summary provider, a plain heuristic runs instead and sends nothing. It
 
 With "Check lines against saved voices" on, a Meet or Teams line is also compared with the voices of that meeting (built from each person's cleanest lines, nothing saved), which firms up clear labels and flags lines that sound like someone else, even when nobody has a saved voice. See [Voices](voices.md#voices-of-this-meeting).
 
+If one participant looks like several people (a meeting room), a notice offers to name each voice. Nothing is relabelled until you do, see [Several people in one tile](voices.md#several-people-in-one-tile).
+
 Every line gets a confidence from 0 to 1. It is a heuristic, not a probability. Lines under 70% show as uncertain. Very short lines and turn-taking oddities (a question and an answer from the same speaker, "Thanks, Anna" said by Anna) are capped so they stay uncertain.
 
 Corrections survive re-processing: they are remembered by name and time range and applied to the new lines (best effort). With "Learn voices" on, a correction also teaches that voice. See [Voices](voices.md).

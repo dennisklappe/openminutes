@@ -274,6 +274,13 @@
       "when": 1793033877225,
       "tag": "0038_speakers_changed",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793038717815,
+      "tag": "0039_room_voices",
+      "breakpoints": true
     }
   ]
 }

@@ -36,7 +36,8 @@ import { reviewTranscript } from './speaker-review/transcript-review.js';
 import { checkVoices } from './speaker-review/voice-check.js';
 import type { TrimAudio } from './trim-audio.js';
 import { autoLearn } from './auto-learn.js';
-import type { ScoredLine } from './speaker-review/voice-check.js';
+import type { EmbeddedLine, ScoredLine } from './speaker-review/voice-check.js';
+import { saveRoomVoices } from './room-voices.js';
 import { saveTranscript, toTranscriptRows, type TranscriptRow } from './transcript-store.js';
 
 export interface ProcessDeps {
@@ -250,6 +251,7 @@ export async function processMeeting(
     // Everything that reads the original audio runs first: publishing moves or removes it.
     let checked: TranscriptRow[];
     const scored: ScoredLine[] = [];
+    const embedded: EmbeddedLine[] = [];
     const staleIds = labels?.staleIds ?? [];
     try {
       const corrections = await captureCorrections(deps.db, meetingId, meeting.trimStartMs);
@@ -280,6 +282,9 @@ export async function processMeeting(
                 onScored: (lines) => {
                   scored.push(...lines);
                 },
+                onEmbedded: (lines) => {
+                  embedded.push(...lines);
+                },
               },
               meetingId,
               corrected,
@@ -291,6 +296,7 @@ export async function processMeeting(
     }
     const { rows, check } = await reviewTranscript(deps, meetingId, checked, staleIds);
     await saveTranscript(deps.db, meetingId, rows, range);
+    await saveRoomVoices(deps.db, meetingId, embedded);
     if (labels) await finishRecording(deps.db, deps.recording, meetingId, labels, rows);
     await deps.db
       .update(meetings)

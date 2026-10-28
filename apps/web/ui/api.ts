@@ -63,6 +63,8 @@ import type {
   ReviewQueueDto,
   PersonInput,
   PersonUpdateInput,
+  RoomNameInput,
+  RoomReviewDto,
   VoiceNameInput,
   VoicesDto,
   VoiceSettingsDto,
@@ -322,6 +324,12 @@ export const api = {
     request<ShareEmailPreviewDto>(`/meetings/${id}/share-email/preview`, { method: 'POST', body }),
   sendShareEmail: (id: string, body: ShareEmailInput) =>
     request<ShareEmailResultDto>(`/meetings/${id}/share-email`, { method: 'POST', body }),
+  roomReview: (id: string, participantId: string) =>
+    request<RoomReviewDto>(`/meetings/${id}/room/${participantId}`),
+  nameRoomVoice: (id: string, voiceId: string, body: RoomNameInput) =>
+    request(`/meetings/${id}/room-voices/${voiceId}/name`, { method: 'POST', body }),
+  dismissRoom: (id: string, participantId: string) =>
+    request(`/meetings/${id}/room/${participantId}/dismiss`, { method: 'POST' }),
   dismissSpeakersNotice: (id: string) =>
     request(`/meetings/${id}/speakers-notice/dismiss`, { method: 'POST' }),
   summarize: (id: string, body: SummaryRequestInput) =>

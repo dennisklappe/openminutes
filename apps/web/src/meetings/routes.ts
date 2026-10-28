@@ -51,6 +51,7 @@ import type {
   SummaryOptionsDto,
 } from '../dto.js';
 import { iso, toMeetingDto } from './meeting-dto.js';
+import { loadRoomNotices } from './room-voices.js';
 import { dismissSpeakersNotice, speakersChangedSinceSummary } from './speakers-notice.js';
 import { listRoutes } from './list-routes.js';
 import { loadSegments, loadSpeakerChoices } from './segments.js';
@@ -268,6 +269,7 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
         activeSummary && new Date(activeSummary.createdAt),
       ),
       summaryOptions: await loadSummaryOptions(meeting.id),
+      roomNotices: await loadRoomNotices(deps.db, meeting.id),
     });
   });
 

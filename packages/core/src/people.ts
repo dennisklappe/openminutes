@@ -7,6 +7,7 @@ import {
   ne,
   participants,
   people,
+  roomVoices,
   sql,
   transcriptSegments,
   voiceSamples,
@@ -306,9 +307,15 @@ export async function dropLineSamples(
   }
 }
 
-/** Removes everything voice related of the given people, or of everyone. */
+/**
+ * Removes everything voice related of the given people, or of everyone. That includes the voices
+ * found in shared participant tiles: the ones named as these people, or all of them.
+ */
 export async function forgetVoices(db: Writer, personIds?: readonly string[]): Promise<void> {
   if (personIds && personIds.length === 0) return;
+  await db
+    .delete(roomVoices)
+    .where(personIds ? inArray(roomVoices.personId, [...personIds]) : undefined);
   await db
     .delete(voiceSamples)
     .where(personIds ? inArray(voiceSamples.personId, [...personIds]) : undefined);
