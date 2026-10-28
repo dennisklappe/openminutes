@@ -2,6 +2,7 @@ import { dropLineSamples, penalizeAutoMargin, rebuildProfile } from '@openminute
 import {
   and,
   eq,
+  inArray,
   participants,
   people,
   reviewDecisions,
@@ -10,8 +11,10 @@ import {
   type Database,
   type SegmentSnapshot,
 } from '@openminutes/db';
+import { splitRow } from '../meetings/speaker-edit.js';
 import { markSpeakersChanged } from '../meetings/speakers-notice.js';
 import { PeopleError } from './edit.js';
+import { isFiller, MIN_LINE_MS } from './useful.js';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 type Person = typeof people.$inferSelect;
@@ -25,6 +28,7 @@ const snapshotOf = (segment: Segment): SegmentSnapshot => ({
   byElimination: segment.byElimination,
   previousParticipantId: segment.previousParticipantId,
   rejectedSuggestions: segment.rejectedSuggestions,
+  mixed: segment.mixed,
 });
 
 /** Remembers the line as it was before a decision, replacing a skip or an earlier decision. */
@@ -32,9 +36,10 @@ async function remember(
   tx: Tx,
   segment: Segment,
   personId: string,
-  kind: 'approve' | 'reject',
+  kind: 'approve' | 'reject' | 'mixed' | 'split',
+  before: SegmentSnapshot = snapshotOf(segment),
 ): Promise<void> {
-  const values = { personId, kind, before: snapshotOf(segment), createdAt: new Date() };
+  const values = { personId, kind, before, createdAt: new Date() };
   await tx
     .insert(reviewDecisions)
     .values({ segmentId: segment.id, ...values })
@@ -96,6 +101,8 @@ export async function verifyInTx(tx: Tx, person: Person, segment: Segment): Prom
       suggestedParticipantId: null,
       voiceDoubt: false,
       byElimination: false,
+      // A person who says it is this person has settled a doubt that it holds two speakers.
+      ...(segment.mixed === 'probable' && { mixed: null }),
       previousParticipantId:
         segment.participantId !== participantId && segment.speakerSource !== 'user'
           ? segment.participantId
@@ -225,6 +232,92 @@ export async function removeFromProfile(db: Database, personId: string, segmentI
   });
 }
 
+export interface SplitResult {
+  /** Who each part was given to, with the parts long enough to teach a voice. */
+  learn: { personId: string; request: LearnRequest }[];
+}
+
+/**
+ * Cuts a line that holds two or three speakers and gives every part to its person as a verified
+ * line. A part long enough to teach a voice is handed back to learn from, a short one is only
+ * labelled. The voice samples of the whole line are dropped, they cover speech of more than one
+ * person. `cuts` are word indexes, `personIds` has one person per part.
+ */
+export async function splitLine(
+  db: Database,
+  proposedId: string,
+  segmentId: string,
+  cuts: readonly number[],
+  personIds: readonly string[],
+): Promise<SplitResult> {
+  if (personIds.length !== cuts.length + 1) throw new PeopleError('Pick a person per part', 400);
+  return db.transaction(async (tx) => {
+    await personOf(tx, proposedId);
+    const segment = await segmentOf(tx, segmentId);
+    const owners: string[] = [];
+    for (const id of personIds)
+      owners.push(await participantFor(tx, segment.meetingId, await personOf(tx, id)));
+    let split;
+    try {
+      split = await splitRow(tx, segment, cuts, owners, { settled: true });
+    } catch (error) {
+      throw new PeopleError(error instanceof Error ? error.message : 'Could not split', 400);
+    }
+    await remember(tx, segment, proposedId, 'split', {
+      ...snapshotOf(segment),
+      text: segment.text,
+      endMs: segment.endMs,
+      parts: split.ids.slice(1),
+    });
+    await dropLineSamples(tx, [segmentId]);
+    await markSpeakersChanged(tx, segment.meetingId);
+    const saved = await tx
+      .select()
+      .from(transcriptSegments)
+      .where(inArray(transcriptSegments.id, split.ids));
+    const learn: SplitResult['learn'] = [];
+    for (const [i, id] of split.ids.entries()) {
+      const part = saved.find((row) => row.id === id);
+      const personId = personIds[i];
+      const participantId = owners[i];
+      if (!part || !personId || !participantId) continue;
+      if (part.endMs - part.startMs < MIN_LINE_MS || isFiller(part.text)) continue;
+      const known = learn.find((l) => l.request.participantId === participantId);
+      if (known) known.request.segmentIds.push(id);
+      else
+        learn.push({
+          personId,
+          request: { meetingId: segment.meetingId, participantId, segmentIds: [id] },
+        });
+    }
+    return { learn };
+  });
+}
+
+/**
+ * Says that a line holds two speakers and should not teach a voice. The line keeps its label, its
+ * samples are dropped for good and it leaves every review queue. Undo or clearing the flag brings
+ * it back.
+ */
+export async function markMixed(db: Database, personId: string, segmentId: string) {
+  await db.transaction(async (tx) => {
+    await personOf(tx, personId);
+    const segment = await segmentOf(tx, segmentId);
+    await remember(tx, segment, personId, 'mixed');
+    await tx
+      .update(transcriptSegments)
+      .set({ mixed: 'marked' })
+      .where(eq(transcriptSegments.id, segmentId));
+    const removed = await tx
+      .delete(voiceSamples)
+      .where(and(eq(voiceSamples.segmentId, segmentId), eq(voiceSamples.rejected, false)))
+      .returning({ personId: voiceSamples.personId });
+    for (const owner of new Set(removed.map((sample) => sample.personId))) {
+      await rebuildProfile(tx, owner);
+    }
+  });
+}
+
 /**
  * Hides a line from the review queue. It stays hidden, in every session, until the skipped lines
  * are asked for or the line is proposed for someone else.
@@ -259,20 +352,33 @@ export async function undoDecision(db: Database, segmentId: string) {
         .from(transcriptSegments)
         .where(eq(transcriptSegments.id, segmentId));
       if (line) await markSpeakersChanged(tx, line.meetingId);
-      await tx
-        .update(transcriptSegments)
-        .set(decision.before)
-        .where(eq(transcriptSegments.id, segmentId));
-      await tx
-        .delete(voiceSamples)
-        .where(
-          and(
-            eq(voiceSamples.personId, decision.personId),
-            eq(voiceSamples.segmentId, segmentId),
-            eq(voiceSamples.rejected, decision.kind === 'reject'),
-          ),
-        );
-      await rebuildProfile(tx, decision.personId);
+      const { parts = [], ...columns } = decision.before;
+      await tx.update(transcriptSegments).set(columns).where(eq(transcriptSegments.id, segmentId));
+      if (decision.kind === 'split') {
+        // The parts are gone, and so is whatever the voice learned from them or the whole line.
+        const lines = [segmentId, ...parts];
+        const learned = await tx
+          .delete(voiceSamples)
+          .where(inArray(voiceSamples.segmentId, lines))
+          .returning({ personId: voiceSamples.personId });
+        if (parts.length > 0) {
+          await tx.delete(transcriptSegments).where(inArray(transcriptSegments.id, parts));
+        }
+        for (const personId of new Set(learned.map((sample) => sample.personId))) {
+          await rebuildProfile(tx, personId);
+        }
+      } else if (decision.kind !== 'mixed') {
+        await tx
+          .delete(voiceSamples)
+          .where(
+            and(
+              eq(voiceSamples.personId, decision.personId),
+              eq(voiceSamples.segmentId, segmentId),
+              eq(voiceSamples.rejected, decision.kind === 'reject'),
+            ),
+          );
+        await rebuildProfile(tx, decision.personId);
+      }
     }
     await tx.delete(reviewDecisions).where(eq(reviewDecisions.segmentId, segmentId));
     return decision.kind;

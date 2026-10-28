@@ -2,7 +2,12 @@ import { endsSentence, type TimedWord } from './speaker-types.js';
 
 const PAUSE_SPLIT_MS = 2000;
 const SENTENCE_PAUSE_MS = 700;
-const SENTENCE_MIN_MS = 6000;
+/**
+ * A segment is cut after a sentence once it is this long. Shorter segments follow turn taking
+ * more closely: measured on recorded two to three person calls, 3500 gave about a sixth fewer
+ * lines holding two speakers than 6000, at the price of about a sixth more lines.
+ */
+const SENTENCE_MIN_MS = 3500;
 const LONG_SEGMENT_MS = 20_000;
 
 export interface OwnedWord extends TimedWord {

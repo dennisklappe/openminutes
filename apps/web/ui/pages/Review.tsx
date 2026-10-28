@@ -5,22 +5,27 @@ import { useConfirm } from '../Confirm.js';
 import { formatDate, formatDuration } from '../format.js';
 import { isTyping } from '../keyboard.js';
 import {
+  clickWord,
   commit,
   confidenceLabel,
   coverageLabel,
   counts,
   currentLine,
   decide,
+  defaultPeople,
   describeDecision,
   dropPerson,
   everyoneOptions,
   focusLine,
   keyAction,
+  optionKey,
   pick,
   position,
   restore,
   reviewSkipped,
   rosterOptions,
+  splitIntoParts,
+  splitOptions,
   startReview,
   uncommit,
   undo,
@@ -31,10 +36,12 @@ import {
 } from '../review.js';
 import { buildReviewRoute, type ReviewRoute } from '../reviewRoute.js';
 import { reasonLabel } from '../people.js';
+import { splitTimes } from '../../src/meetings/split-times.js';
+import { splitWords } from '../speakerEdits.js';
 import { SnippetPlayer } from '../SnippetPlayer.js';
 import '../people.css';
 
-type Picker = 'closed' | 'roster' | 'other' | 'new';
+type Picker = 'closed' | 'roster' | 'other' | 'new' | 'split';
 
 const SHOWN = 50;
 
@@ -216,6 +223,140 @@ function PersonPicker({
   );
 }
 
+function SplitPanel({
+  line,
+  people,
+  onSplit,
+  onCancel,
+}: {
+  line: ReviewLineDto;
+  people: ReviewQueueDto['people'];
+  onSplit: (decision: Decision) => void;
+  onCancel: () => void;
+}) {
+  const words = useMemo(() => splitWords(line.text), [line.text]);
+  const proposed = useMemo<PickerOption>(
+    () => ({ personId: line.proposed.id, name: line.proposed.name }),
+    [line.proposed],
+  );
+  const roster = useMemo(
+    () => rosterOptions(line.roster, people, line.proposed.id),
+    [line.roster, people, line.proposed.id],
+  );
+  const options = useMemo(() => splitOptions(proposed, roster), [proposed, roster]);
+  const [cuts, setCuts] = useState<number[]>([]);
+  const [again, setAgain] = useState(false);
+  const [chosen, setChosen] = useState<Record<number, string>>({});
+  const first = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    first.current?.focus();
+  }, [line.id]);
+
+  const parts = splitIntoParts(words, cuts);
+  const defaults = defaultPeople(proposed, roster, parts.length);
+  const who = defaults.map(
+    (fallback, i) => options.find((o) => optionKey(o) === chosen[i]) ?? fallback,
+  );
+  const times = cuts.length > 0 ? splitTimes(line, cuts) : [];
+  const partOf = (index: number) => cuts.filter((cut) => cut <= index).length;
+  const full = cuts.length >= 2;
+  const hint =
+    cuts.length === 0
+      ? line.reason === 'mixed'
+        ? 'This line probably has two speakers. Click the first word of the second speaker.'
+        : 'Click the first word of the second speaker.'
+      : again
+        ? 'Click the first word of the third part.'
+        : 'Click another word to move the split.';
+
+  return (
+    <div className="review-picker review-split" role="group" aria-label="Split line">
+      <h3>Split this line</h3>
+      <p className="muted split-hint">{hint}</p>
+      <p className="split-words review-split-words">
+        {words.map((word, index) => (
+          <button
+            key={index}
+            type="button"
+            ref={index === 0 ? first : undefined}
+            className={`split-chip part-${String(partOf(index))}`}
+            data-cut={cuts.includes(index) || undefined}
+            aria-pressed={cuts.includes(index)}
+            disabled={index === 0}
+            onClick={() => {
+              setCuts(clickWord(cuts, index, again));
+              setAgain(false);
+            }}
+          >
+            {word}
+          </button>
+        ))}
+      </p>
+      {cuts.length > 0 && (
+        <ol className="review-parts">
+          {parts.map((part, index) => {
+            const key = `part-${String(index)}`;
+            const time = times[index];
+            return (
+              <li key={key} className={`part-${String(index)}`}>
+                <label className="field">
+                  <span>
+                    Part {String(index + 1)}
+                    {time && <span className="muted"> · about {formatDuration(time.startMs)}</span>}
+                  </span>
+                  <select
+                    value={optionKey(who[index] ?? proposed)}
+                    onChange={(e) => {
+                      setChosen({ ...chosen, [index]: e.target.value });
+                    }}
+                  >
+                    {options.map((option) => (
+                      <option key={optionKey(option)} value={optionKey(option)}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span className="review-part-text muted">{part.join(' ')}</span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      {options.length < 2 && (
+        <p className="muted">
+          Nobody else is listed for this meeting, so every part goes to {proposed.name}.
+        </p>
+      )}
+      <div className="review-picker-more">
+        <button
+          type="button"
+          className="primary"
+          disabled={cuts.length === 0}
+          onClick={() => {
+            onSplit({ kind: 'split', cuts, people: who });
+          }}
+        >
+          Split line
+        </button>
+        <button
+          type="button"
+          disabled={cuts.length === 0 || full}
+          aria-pressed={again}
+          onClick={() => {
+            setAgain(!again);
+          }}
+        >
+          Split again
+        </button>
+        <button type="button" className="link" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Card({
   line,
   queue,
@@ -237,12 +378,15 @@ function Card({
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const disapprove = useRef<HTMLButtonElement>(null);
+  const splitButton = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
   useEffect(() => {
     heading.current?.focus();
   }, [line.id]);
   useEffect(() => {
-    if (picker === 'closed' && wasOpen.current) disapprove.current?.focus();
+    if (picker === 'closed' && wasOpen.current) {
+      (line.reason === 'mixed' ? splitButton : disapprove).current?.focus();
+    }
     wasOpen.current = picker !== 'closed';
   }, [picker]);
 
@@ -267,8 +411,9 @@ function Card({
             <span className="muted"> · {confidenceLabel(line)}</span>
             <br />
             <span className="muted">
-              {line.why === 'training' ? 'Needs more samples' : 'Not sure who this is'}
-              {': '}
+              {line.reason === 'mixed'
+                ? ''
+                : `${line.why === 'training' ? 'Needs more samples' : 'Not sure who this is'}: `}
               {reasonLabel(line)}
             </span>
           </dd>
@@ -309,7 +454,17 @@ function Card({
             </span>
           </dd>
         </dl>
-        {picker !== 'closed' && (
+        {picker === 'split' && (
+          <SplitPanel
+            line={line}
+            people={queue.people}
+            onSplit={onDecide}
+            onCancel={() => {
+              setPicker('closed');
+            }}
+          />
+        )}
+        {picker !== 'closed' && picker !== 'split' && (
           <PersonPicker
             line={line}
             people={queue.people}
@@ -352,6 +507,26 @@ function Card({
             }}
           >
             Approve <Key>A</Key>
+          </button>
+          <button
+            type="button"
+            ref={splitButton}
+            className="split-action"
+            onClick={() => {
+              setPicker('split');
+            }}
+          >
+            Split line <Key>X</Key>
+          </button>
+          <button
+            type="button"
+            className="span-2"
+            title="Two speakers in one line: keep the label, never train a voice on it"
+            onClick={() => {
+              onDecide({ kind: 'mixed' });
+            }}
+          >
+            Mixed, skip for training <Key>M</Key>
           </button>
         </footer>
       )}
@@ -449,6 +624,12 @@ export function Review({ route }: { route: ReviewRoute }) {
   }, []);
 
   const line = state && currentLine(state);
+  const lineId = line?.id;
+  const probablyMixed = line?.reason === 'mixed';
+  // A line the voice guard thinks holds two speakers opens with the split already chosen.
+  useEffect(() => {
+    setPicker(probablyMixed ? 'split' : 'closed');
+  }, [lineId, probablyMixed]);
 
   const onDecide = useCallback(
     (decision: Decision) => {
@@ -466,7 +647,6 @@ export function Review({ route }: { route: ReviewRoute }) {
 
   // The address follows the card, replacing the entry so Back leaves the review and does not
   // walk through lines that are already decided.
-  const lineId = line?.id;
   useEffect(() => {
     if (!state) return;
     const address = `#${buildReviewRoute({ personId, meetingId, order, lineId })}`;
@@ -549,7 +729,13 @@ export function Review({ route }: { route: ReviewRoute }) {
       if (event.key !== 'Escape' && isTyping(event.target)) return;
       const action = keyAction(
         event.key,
-        picker === 'closed' ? 'closed' : picker === 'roster' ? 'roster' : 'other',
+        picker === 'closed'
+          ? 'closed'
+          : picker === 'roster'
+            ? 'roster'
+            : picker === 'split'
+              ? 'split'
+              : 'other',
       );
       if (!action) return;
       event.preventDefault();
@@ -562,6 +748,8 @@ export function Review({ route }: { route: ReviewRoute }) {
       } else if (action === 'approve') onDecide({ kind: 'approve' });
       else if (action === 'skip') onDecide({ kind: 'skip' });
       else if (action === 'disapprove') setPicker('roster');
+      else if (action === 'split') setPicker('split');
+      else if (action === 'mixed') onDecide({ kind: 'mixed' });
       else void onUndo();
     };
     window.addEventListener('keydown', onKey);
@@ -582,8 +770,8 @@ export function Review({ route }: { route: ReviewRoute }) {
         <div>
           <h1>Review</h1>
           <p className="lede">
-            One line at a time. Approve it, say who it was instead, or skip it. Skipped lines stay
-            out of the way until you ask for them.
+            One line at a time. Approve it, say who it was instead, split it when two people spoke,
+            or skip it. Skipped lines stay out of the way until you ask for them.
             {queue &&
               !queue.learning &&
               ' Voice learning is off, so approving only confirms who said the line.'}
@@ -675,7 +863,7 @@ export function Review({ route }: { route: ReviewRoute }) {
               ? skippedMode
                 ? 'No skipped lines are left.'
                 : 'No lines need a look right now.'
-              : `${String(done.approved)} approved, ${String(done.changed)} changed${done.skipped > 0 ? `, ${String(done.skipped)} skipped` : ''}.`}
+              : `${String(done.approved)} approved, ${String(done.changed)} changed${done.mixed > 0 ? `, ${String(done.mixed)} marked mixed` : ''}${done.skipped > 0 ? `, ${String(done.skipped)} skipped` : ''}.`}
           </p>
           {!skippedMode && queue.complete.length > 0 && (
             <ul className="muted">

@@ -310,6 +310,12 @@ export async function processMeeting(
       meetingId,
       scored,
       (await deps.recording?.voicesRemembered()) ?? false,
+      scored.length > 0 && deps.recording
+        ? {
+            audioPath: storage.local.absolutePath(mergedAudioPath(meetingId)),
+            diarizer: await deps.recording.createDiarizer().catch(() => undefined),
+          }
+        : undefined,
     );
     await archive(deps.db, storage, meetingId);
     if (segments.length > 0) await startSummary(deps, meetingId);

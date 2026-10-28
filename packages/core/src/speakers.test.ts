@@ -139,9 +139,16 @@ describe('assignSpeakers', () => {
       expect(result.map((r) => r.text).join(' ')).toBe(spanning.text);
     });
 
-    it('falls back to segment overlap when there are no words', () => {
+    it('cuts a segment without word times by characters at the turn change', () => {
       const plain = { startMs: spanning.startMs, endMs: spanning.endMs, text: spanning.text };
-      expect(ids(assignSpeakers([plain], turns))).toEqual(['alice']);
+      expect(ids(assignSpeakers([plain], turns))).toEqual(['bob', 'alice']);
+    });
+
+    it('falls back to segment overlap when a cut would leave too little in a part', () => {
+      const plain = { startMs: spanning.startMs, endMs: spanning.endMs, text: spanning.text };
+      expect(ids(assignSpeakers([plain], [span('bob', 0, 600), span('alice', 600, 6500)]))).toEqual(
+        ['alice'],
+      );
     });
 
     it('falls back to the diarization label when no word is covered', () => {
@@ -339,5 +346,23 @@ describe('assignSpeakers', () => {
       expect(result[0]?.participantId).toBe('bob');
       expect(assignSpeakers([segmentOf(words)], events)[0]?.participantId).toBe('alice');
     });
+  });
+});
+
+describe('segment length', () => {
+  const sentence = (from: number, text: string[]) =>
+    text.map((t, i) => ({ text: t, startMs: from + i * 400, endMs: from + i * 400 + 350 }));
+
+  it('cuts after a sentence once about three and a half seconds have been said', () => {
+    const words = [
+      ...sentence(0, ['One', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine.']),
+      ...sentence(3700, ['Ten', 'eleven', 'twelve.']),
+    ];
+    const line = { startMs: 0, endMs: 4900, text: words.map((w) => w.text).join(' '), words };
+    const result = assignSpeakers([line], [span('alice', 0, 5000)]);
+    expect(result.map((r) => r.text)).toEqual([
+      'One two three four five six seven eight nine.',
+      'Ten eleven twelve.',
+    ]);
   });
 });

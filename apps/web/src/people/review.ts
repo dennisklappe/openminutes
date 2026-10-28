@@ -120,6 +120,7 @@ async function pickUseful(
       rival,
       confidence: line.speakerConfidence,
       suggested: line.reason === 'suggested' || line.reason === 'elimination',
+      mixed: line.reason === 'mixed',
     };
   });
   const { picked } = selectUseful(candidates, coverage);

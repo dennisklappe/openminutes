@@ -18,6 +18,7 @@ import {
   type Database,
 } from '@openminutes/db';
 import type { Diarizer } from '@openminutes/providers';
+import { findProbablyMixed, markProbablyMixed } from './mixed-guard.js';
 
 export interface LearnVoiceDeps {
   db: Database;
@@ -57,7 +58,10 @@ export async function learnVoice(
         ),
       );
     const ranges = lines
-      .filter((line) => line.endMs - line.startMs >= MIN_RANGE_MS)
+      // A line with a mixed flag never trains a voice. A person who verifies a line flagged
+      // 'probable' makes the web side clear the flag first, so a line still flagged here was not
+      // confirmed as one voice and stays out.
+      .filter((line) => !line.mixed && line.endMs - line.startMs >= MIN_RANGE_MS)
       .toSorted((a, b) => a.startMs - b.startMs);
     if (!person || ranges.length === 0) return;
     const diarizer = await deps.createDiarizer();
@@ -65,9 +69,14 @@ export async function learnVoice(
     const path = await storage.ensureLocal(mergedAudioPath(meetingId));
     const embedded = await diarizer?.embedEach({ path }, ranges);
     if (!embedded) return;
+    // The halves of the longer lines are compared, a line of two voices is not learned from.
+    const candidates = ranges.flatMap((line, i) => (embedded.embeddings[i] ? [line] : []));
+    const mixed = await findProbablyMixed(diarizer, path, candidates);
+    const mixedIds = new Set([...mixed].flatMap((i) => (candidates[i] ? [candidates[i].id] : [])));
+    await markProbablyMixed(deps.db, [...mixedIds]);
     const samples = ranges.flatMap((line, i) => {
       const embedding = embedded.embeddings[i];
-      return embedding
+      return embedding && !mixedIds.has(line.id)
         ? [
             {
               kind: 'line' as const,

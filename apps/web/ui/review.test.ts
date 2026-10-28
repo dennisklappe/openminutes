@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ReviewLineDto } from '../src/dto.js';
+import type { Decision } from './review.js';
 import {
   commit,
   counts,
@@ -9,7 +10,10 @@ import {
   describeDecision,
   everyoneOptions,
   focusLine,
+  clickWord,
+  defaultPeople,
   keyAction,
+  splitIntoParts,
   pick,
   position,
   restore,
@@ -70,7 +74,7 @@ describe('the review state', () => {
   it('keeps skipped lines for another pass', () => {
     let state = decide(start(), { kind: 'skip' });
     state = decide(decide(state, { kind: 'approve' }), { kind: 'reject' });
-    expect(counts(state)).toEqual({ approved: 1, changed: 1, skipped: 1 });
+    expect(counts(state)).toEqual({ approved: 1, changed: 1, mixed: 0, skipped: 1 });
     state = reviewSkipped(state);
     expect(state.rest.map((l) => l.id)).toEqual(['a']);
     expect(state.total).toBe(3);
@@ -105,6 +109,8 @@ describe('commit', () => {
     createPerson: vi.fn().mockResolvedValue({ person: { id: 'new' } }),
     skipLine: vi.fn().mockResolvedValue({}),
     undoReviewDecision: vi.fn().mockResolvedValue({}),
+    splitLine: vi.fn().mockResolvedValue({}),
+    markMixed: vi.fn().mockResolvedValue({}),
   });
 
   it('verifies for the proposed person on approve', async () => {
@@ -126,6 +132,34 @@ describe('commit', () => {
     await commit(a, { line: line('c'), decision: { kind: 'skip' } });
     expect(a.verifyLine.mock.calls.length + a.moveLine.mock.calls.length).toBe(before);
     expect(a.skipLine).toHaveBeenCalledWith('p1', 'c');
+  });
+
+  it('marks a line mixed for the proposed person', async () => {
+    const a = api();
+    await commit(a, { line: line('a'), decision: { kind: 'mixed' } });
+    expect(a.markMixed).toHaveBeenCalledWith('p1', 'a');
+    expect(a.verifyLine).not.toHaveBeenCalled();
+  });
+
+  it('splits with one person per part and makes a name-only person once', async () => {
+    const a = api();
+    await commit(a, {
+      line: line('a'),
+      decision: {
+        kind: 'split',
+        cuts: [3, 6],
+        people: [
+          { personId: 'p1', name: 'Anna' },
+          { personId: null, name: 'Dana' },
+          { personId: null, name: 'dana' },
+        ],
+      },
+    });
+    expect(a.createPerson).toHaveBeenCalledTimes(1);
+    expect(a.splitLine).toHaveBeenCalledWith('p1', 'a', {
+      cuts: [3, 6],
+      personIds: ['p1', 'new', 'new'],
+    });
   });
 
   it('takes a sent decision back on the server', async () => {
@@ -240,5 +274,62 @@ describe('opening a card by its line', () => {
     expect(focusLine(decided, 'a')).toBeUndefined();
     expect(focusLine(decide(start(), { kind: 'skip' }), 'a')).toBeUndefined();
     expect(focusLine(start(), 'zzz')).toBeUndefined();
+  });
+});
+
+describe('splitting a line', () => {
+  const words = 'one two three four five six'.split(' ');
+
+  it('turns the cuts into parts', () => {
+    expect(splitIntoParts(words, [2]).map((p) => p.join(' '))).toEqual([
+      'one two',
+      'three four five six',
+    ]);
+    expect(splitIntoParts(words, [1, 4]).map((p) => p.join(' '))).toEqual([
+      'one',
+      'two three four',
+      'five six',
+    ]);
+  });
+
+  it('moves the nearest cut on a click, adds one only on "split again", removes on a second click', () => {
+    expect(clickWord([], 3, false)).toEqual([3]);
+    expect(clickWord([3], 5, false)).toEqual([5]);
+    expect(clickWord([3], 5, true)).toEqual([3, 5]);
+    expect(clickWord([2, 5], 4, false)).toEqual([2, 4]);
+    expect(clickWord([2, 5], 4, true)).toEqual([2, 4]);
+    expect(clickWord([3], 3, false)).toEqual([]);
+    expect(clickWord([3], 0, false)).toEqual([3]);
+  });
+
+  it('proposes the proposed person first, the first other person second, then the first again', () => {
+    const anna = { personId: 'p1', name: 'Anna' };
+    const bram = { personId: 'p2', name: 'Bram' };
+    const cleo = { personId: 'p3', name: 'Cleo' };
+    expect(defaultPeople(anna, [bram, cleo], 2)).toEqual([anna, bram]);
+    expect(defaultPeople(anna, [bram, cleo], 3)).toEqual([anna, bram, anna]);
+    expect(defaultPeople(anna, [], 2)).toEqual([anna, anna]);
+  });
+
+  it('has keys for split and mixed, and only Escape while splitting', () => {
+    expect(keyAction('x', 'closed')).toBe('split');
+    expect(keyAction('M', 'closed')).toBe('mixed');
+    expect(keyAction('x', 'split')).toBeUndefined();
+    expect(keyAction('m', 'roster')).toBeUndefined();
+    expect(keyAction('Escape', 'split')).toBe('exit');
+  });
+
+  it('counts and describes the new decisions', () => {
+    const entry = (decision: Decision) => ({ line: line('a'), decision });
+    expect(describeDecision(entry({ kind: 'split', cuts: [2], people: [] }))).toBe(
+      'Split into 2 lines.',
+    );
+    expect(describeDecision(entry({ kind: 'mixed' }))).toMatch(/mixed/);
+    const state = decide(decide(startReview([line('a'), line('b')]), { kind: 'mixed' }), {
+      kind: 'split',
+      cuts: [1],
+      people: [],
+    });
+    expect(counts(state)).toMatchObject({ changed: 1, mixed: 1 });
   });
 });

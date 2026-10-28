@@ -120,6 +120,14 @@ export {
   type SpeakerSpan,
   type TimedWord,
 } from './speakers.js';
+export {
+  estimateWords,
+  splitAtChanges,
+  SPLIT_LAG_TOLERANCE_MS,
+  SPLIT_MIN_PART_MS,
+  SPLIT_MIN_PART_WORDS,
+  type SplitPart,
+} from './speaker-split.js';
 export { meetingFolder, mergedAudioPath, originalAudioPath } from './audio-paths.js';
 export {
   detectSpeechRange,
@@ -190,6 +198,7 @@ export {
   type Person,
 } from './people.js';
 export * from './voice-anchors.js';
+export * from './mixed-line.js';
 export * from './voice-auto.js';
 export * from './voice-rooms.js';
 export * from './shared-accounts.js';

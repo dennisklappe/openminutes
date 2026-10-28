@@ -263,7 +263,7 @@ export function eliminate(
 /** Lines are sent to the voice service in batches of this many ranges. */
 export const EMBED_BATCH_SIZE = 400;
 
-async function embedInBatches(
+export async function embedInBatches(
   diarizer: Diarizer | undefined,
   audioPath: string,
   ranges: { startMs: number; endMs: number }[],
@@ -398,7 +398,8 @@ export async function checkVoices(
         verdict.confidence < ANCHOR_FIRM_CONFIDENCE
           ? ANCHOR_FIRM_CONFIDENCE
           : undefined;
-      if (row.participantId && profiled.length > 0) {
+      // A line flagged as mixed holds two voices and never trains a profile.
+      if (row.participantId && profiled.length > 0 && !row.mixed) {
         scored.push({
           startMs: row.startMs,
           endMs: row.endMs,
@@ -461,7 +462,11 @@ async function pickAnchors(
             speakerSource: row.speakerSource ?? null,
             speakerConfidence: row.speakerConfidence ?? null,
             touched:
-              !!row.previousParticipantId || !!row.suggestedParticipantId || !!row.voiceDoubt,
+              !!row.previousParticipantId ||
+              !!row.suggestedParticipantId ||
+              !!row.voiceDoubt ||
+              // Two voices in one line: no anchor for a meeting voice, but it still counts for overlaps.
+              !!row.mixed,
           },
         ]
       : [],

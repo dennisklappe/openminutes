@@ -87,8 +87,12 @@ export interface PeopleDto {
   checking: boolean;
 }
 
-/** elimination: the voice fits nobody with a saved voice and this person is the one left. */
-export type PersonLineReason = 'uncertain' | 'suggested' | 'voice' | 'training' | 'elimination';
+/**
+ * mixed: the voice guard thinks the line holds two speakers.
+ * elimination: the voice fits nobody with a saved voice and this person is the one left.
+ */
+export type PersonLineReason =
+  'uncertain' | 'suggested' | 'voice' | 'training' | 'elimination' | 'mixed';
 
 export interface PersonLineDto {
   id: string;

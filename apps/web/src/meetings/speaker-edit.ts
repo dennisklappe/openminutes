@@ -4,12 +4,14 @@ import {
   eq,
   inArray,
   participants,
+  reviewDecisions,
   transcriptSegments,
   type Database,
   type meetings,
 } from '@openminutes/db';
 import type { SpeakerEditInput, SpeakerSnapshotDto, SpeakerTargetInput } from '../dto.js';
 import { isGenericName } from '../voices/names.js';
+import { splitTimes, validCuts, wordsOf } from './split-times.js';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 type Row = typeof transcriptSegments.$inferSelect;
@@ -35,6 +37,7 @@ const toSnapshot = (row: Row): SpeakerSnapshotDto => ({
   previousSpeakerId: row.previousParticipantId,
   suggestedSpeakerId: row.suggestedParticipantId,
   rejectedSuggestions: row.rejectedSuggestions,
+  mixed: row.mixed,
 });
 
 const fromSnapshot = (meetingId: string, row: SpeakerSnapshotDto) => ({
@@ -51,6 +54,7 @@ const fromSnapshot = (meetingId: string, row: SpeakerSnapshotDto) => ({
   previousParticipantId: row.previousSpeakerId,
   suggestedParticipantId: row.suggestedSpeakerId,
   rejectedSuggestions: row.rejectedSuggestions,
+  ...(row.mixed !== undefined && { mixed: row.mixed }),
 });
 
 async function segmentsOf(tx: Tx, meetingId: string, ids: readonly string[]): Promise<Row[]> {
@@ -148,6 +152,62 @@ async function assign(
   };
 }
 
+/**
+ * Cuts a line before the words at `cuts`. The first part stays the line (same id), the others are
+ * added after it with the same labelling data. `speakerIds` gives the participant each part is
+ * assigned to, undefined leaves a part with the speaker of the line. Parts never carry a mixed
+ * flag, and a decision that marked the line as mixed is forgotten.
+ */
+export async function splitRow(
+  tx: Tx,
+  row: Row,
+  cuts: readonly number[],
+  speakerIds: readonly (string | undefined)[],
+  { settled = false }: { settled?: boolean } = {},
+): Promise<{ ids: string[] }> {
+  if (!validCuts(wordsOf(row.text).length, cuts)) {
+    throw new SpeakerEditError('There is no word to split at');
+  }
+  const parts = splitTimes(row, cuts);
+  const clean = { mixed: null, ...(settled && { voiceDoubt: false, byElimination: false }) };
+  const speaker = (i: number) => {
+    const id = speakerIds[i];
+    return id === undefined ? {} : assignment(row, id);
+  };
+  const [first, ...rest] = parts;
+  if (!first) throw new SpeakerEditError('Could not split the line');
+  await tx
+    .update(transcriptSegments)
+    .set({ text: first.text, endMs: first.endMs, ...clean, ...speaker(0) })
+    .where(eq(transcriptSegments.id, row.id));
+  await tx
+    .delete(reviewDecisions)
+    .where(and(eq(reviewDecisions.segmentId, row.id), eq(reviewDecisions.kind, 'mixed')));
+  const ids = [row.id];
+  for (const [i, part] of rest.entries()) {
+    const [added] = await tx
+      .insert(transcriptSegments)
+      .values({
+        meetingId: row.meetingId,
+        participantId: row.participantId,
+        startMs: part.startMs,
+        endMs: part.endMs,
+        text: part.text,
+        language: row.language,
+        confidence: row.confidence,
+        speakerConfidence: row.speakerConfidence,
+        speakerSource: row.speakerSource,
+        speakerCandidates: row.speakerCandidates,
+        previousParticipantId: row.previousParticipantId,
+        ...speaker(i + 1),
+      })
+      .returning({ id: transcriptSegments.id });
+    if (!added) throw new SpeakerEditError('Could not split the line');
+    ids.push(added.id);
+  }
+  return { ids };
+}
+
 async function split(
   tx: Tx,
   meeting: Meeting,
@@ -155,43 +215,39 @@ async function split(
 ): Promise<AppliedEdit> {
   const [row] = await segmentsOf(tx, meeting.id, [input.segmentId]);
   if (!row) throw new SpeakerEditError('Unknown line');
-  const words = row.text.split(/\s+/).filter((word) => word !== '');
-  if (input.wordIndex >= words.length) throw new SpeakerEditError('There is no word to split at');
-  const first = words.slice(0, input.wordIndex).join(' ');
-  const rest = words.slice(input.wordIndex).join(' ');
-  const cut =
-    row.startMs +
-    Math.round(((row.endMs - row.startMs) * first.length) / (first.length + 1 + rest.length));
   const target = input.speaker && (await resolveTarget(tx, meeting.id, input.speaker));
-  await tx
-    .update(transcriptSegments)
-    .set({ text: first, endMs: cut })
-    .where(eq(transcriptSegments.id, row.id));
-  const [added] = await tx
-    .insert(transcriptSegments)
-    .values({
-      meetingId: meeting.id,
-      participantId: row.participantId,
-      startMs: cut,
-      endMs: row.endMs,
-      text: rest,
-      language: row.language,
-      confidence: row.confidence,
-      speakerConfidence: row.speakerConfidence,
-      speakerSource: row.speakerSource,
-      speakerCandidates: row.speakerCandidates,
-      previousParticipantId: row.previousParticipantId,
-      ...(target && assignment(row, target.id)),
-    })
-    .returning({ id: transcriptSegments.id });
-  if (!added) throw new SpeakerEditError('Could not split the line');
+  const { ids } = await splitRow(tx, row, [input.wordIndex], [undefined, target?.id]);
   return {
     undo: {
       kind: 'restore',
       rows: [toSnapshot(row)],
-      removeIds: [added.id],
+      removeIds: ids.slice(1),
       removeSpeakerIds: target?.created ? [target.id] : [],
     },
+  };
+}
+
+/** Takes the mixed flag off lines, whether a person set it or the voice guard. */
+async function clearMixed(
+  tx: Tx,
+  meeting: Meeting,
+  input: Extract<SpeakerEditInput, { kind: 'clear-mixed' }>,
+): Promise<AppliedEdit> {
+  const rows = (await segmentsOf(tx, meeting.id, input.segmentIds)).filter(
+    (row) => row.mixed !== null,
+  );
+  const ids = rows.map((row) => row.id);
+  if (ids.length > 0) {
+    await tx
+      .update(transcriptSegments)
+      .set({ mixed: null })
+      .where(inArray(transcriptSegments.id, ids));
+    await tx
+      .delete(reviewDecisions)
+      .where(and(inArray(reviewDecisions.segmentId, ids), eq(reviewDecisions.kind, 'mixed')));
+  }
+  return {
+    undo: { kind: 'restore', rows: rows.map(toSnapshot), removeIds: [], removeSpeakerIds: [] },
   };
 }
 
@@ -359,6 +415,8 @@ export function applySpeakerEdit(
         return merge(tx, meeting, input);
       case 'revert':
         return revert(tx, meeting, input);
+      case 'clear-mixed':
+        return clearMixed(tx, meeting, input);
       case 'reject-suggestion':
         return rejectSuggestion(tx, meeting, input);
       case 'restore':
