@@ -1,4 +1,10 @@
-import type { LanguageCoverageDto, PersonDto, PersonLineDto, TrackingFilter } from '../src/dto.js';
+import type {
+  LanguageCoverageDto,
+  PersonDto,
+  PersonLineDto,
+  ReadinessDto,
+  TrackingFilter,
+} from '../src/dto.js';
 
 /** People whose name, email or notes contain the text, in the order given. */
 export function filterPeople(people: readonly PersonDto[], query: string): PersonDto[] {
@@ -27,14 +33,25 @@ export function parseEmails(text: string): string[] {
   ];
 }
 
-/** How far a voice profile is, from the samples and the seconds of speech behind them. */
+/** The old rule, kept for people whose languages carry no readiness data. */
 export const PROFILE_GOOD_SAMPLES = 5;
 export const PROFILE_GOOD_SECONDS = 20;
 
 export type ProfileLevel = 'none' | 'building' | 'good';
 
-export function profileLevel(person: Pick<PersonDto, 'samples' | 'voiceSeconds'>): ProfileLevel {
+/**
+ * How far a person's voice profile is. With readiness per language, good means at least one
+ * language is ready; without it the samples and seconds decide.
+ */
+export function profileLevel(
+  person: Pick<PersonDto, 'samples' | 'voiceSeconds'> & {
+    languages?: readonly Pick<LanguageCoverageDto, 'readiness'>[];
+  },
+): ProfileLevel {
   if (person.samples === 0) return 'none';
+  const known = person.languages ?? [];
+  if (known.length > 0)
+    return known.some((profile) => profile.readiness.ready) ? 'good' : 'building';
   return person.samples >= PROFILE_GOOD_SAMPLES && person.voiceSeconds >= PROFILE_GOOD_SECONDS
     ? 'good'
     : 'building';
@@ -122,4 +139,35 @@ export function reviewLabel(total: number): string {
   return total > SESSION_LINES
     ? `${String(SESSION_LINES)} of ${String(total)} lines`
     : `${String(total)} ${noun}`;
+}
+
+/** The width of a bar for a share from 0 to 1, as a whole percent. */
+export const barPercent = (share: number) => Math.round(100 * Math.min(1, Math.max(0, share)));
+
+/** "84 s of 120 s", the Length bar of a voice profile. */
+export const lengthLabel = (
+  profile: Pick<LanguageCoverageDto, 'effectiveSeconds' | 'targetSeconds'>,
+) => coverageText(Math.round(profile.effectiveSeconds), profile.targetSeconds);
+
+/** "3 of 5 meetings, 4 of 5 ways of sounding", the Variety bar of a voice profile. */
+export const varietyLabel = (readiness: Pick<ReadinessDto, 'meetings' | 'ways'>) =>
+  `${String(readiness.meetings.have)} of ${String(readiness.meetings.target)} meetings, ${String(readiness.ways.have)} of ${String(readiness.ways.target)} ways of sounding`;
+
+/** What a profile that is not ready still lacks, such as "36 s more speech and 2 more meetings". */
+export function missingHint(
+  profile: Pick<LanguageCoverageDto, 'effectiveSeconds' | 'targetSeconds' | 'readiness'>,
+): string {
+  const { readiness } = profile;
+  if (readiness.ready) return '';
+  const parts: string[] = [];
+  const seconds = Math.ceil(profile.targetSeconds - profile.effectiveSeconds);
+  if (seconds > 0) parts.push(`${String(seconds)} s more speech`);
+  const meetings = readiness.meetings.target - readiness.meetings.have;
+  if (meetings > 0)
+    parts.push(`${String(meetings)} more ${meetings === 1 ? 'meeting' : 'meetings'}`);
+  const ways = readiness.ways.target - readiness.ways.have;
+  if (ways > 0) parts.push(`${String(ways)} more ${ways === 1 ? 'way' : 'ways'} of sounding`);
+  if (parts.length === 0) return 'Almost there.';
+  const last = parts.pop();
+  return `Needs ${parts.length > 0 ? `${parts.join(', ')} and ` : ''}${String(last)}.`;
 }

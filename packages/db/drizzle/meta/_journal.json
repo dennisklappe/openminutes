@@ -295,6 +295,13 @@
       "when": 1793176292951,
       "tag": "0041_mixed_lines",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793178201855,
+      "tag": "0042_voice_profile_v2",
+      "breakpoints": true
     }
   ]
 }

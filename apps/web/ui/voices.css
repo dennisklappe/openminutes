@@ -270,3 +270,25 @@
 .check-voice select {
   max-width: 100%;
 }
+
+.tuning {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.tuning legend {
+  padding: 0 8px 0 0;
+  font-weight: 500;
+}
+
+.tuning .field input {
+  max-width: 140px;
+}
+
+.tuning > button {
+  justify-self: start;
+}

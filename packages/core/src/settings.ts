@@ -28,6 +28,15 @@ const definitions = {
   'phone.consent_text': { secret: false, default: undefined },
   'voices.remember': { secret: false, default: 'false' },
   'voices.check': { secret: false, default: 'false' },
+  /** Seconds of clean speech that fill the Length bar of a voice profile. */
+  'voices.ready_seconds': { secret: false, default: '120' },
+  /** Meetings and ways of sounding that fill the Variety bar of a voice profile. */
+  'voices.ready_meetings': { secret: false, default: '5' },
+  'voices.ready_ways': { secret: false, default: '5' },
+  /** A voice agrees with a profile when its score is at least this. */
+  'voices.agree_score': { secret: false, default: '0.6' },
+  /** A new sample joins the closest way of sounding when it is at least this similar. */
+  'voices.merge_similarity': { secret: false, default: '0.6' },
   /** Set once the first run over the existing meetings gave everyone a profile. */
   'people.backfilled': { secret: false, default: 'false' },
   /** Meeting ids whose "Check the people" card was confirmed or dismissed, a JSON list. */

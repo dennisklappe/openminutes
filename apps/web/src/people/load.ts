@@ -1,4 +1,11 @@
-import { LOW_SPEAKER_CONFIDENCE, normalizeLanguage, type SettingsStore } from '@openminutes/core';
+import {
+  LOW_SPEAKER_CONFIDENCE,
+  loadVoiceTuning,
+  normalizeLanguage,
+  VOICE_TUNING_DEFAULTS,
+  type SettingsStore,
+  type VoiceTuning,
+} from '@openminutes/core';
 import {
   and,
   audioFiles,
@@ -26,8 +33,16 @@ import type {
   PersonLineDto,
 } from '../dto.js';
 import { findDuplicates } from './duplicates.js';
-import { languageName, languagesOf, loadProfileRows, type ProfileRow } from './profiles.js';
-import { TARGET_MS } from './useful.js';
+import {
+  languageName,
+  languagesOf,
+  loadProfileRows,
+  loadStandings,
+  readinessDto,
+  standingOf,
+  type ProfileRow,
+  type Standing,
+} from './profiles.js';
 import { loadMeetingStats, type MeetingStats } from './stats.js';
 import { checkEnabled, rememberEnabled } from '../voices/load.js';
 
@@ -120,7 +135,8 @@ export async function loadSharedLabels(db: Database): Promise<Map<string, string
 
 export async function loadPeople(db: Database, only?: string): Promise<PersonDto[]> {
   const where = only ? eq(people.id, only) : undefined;
-  const [rows, samples, seen, review, dupes, shared] = await Promise.all([
+  const tuning = await loadVoiceTuning(db);
+  const [rows, samples, seen, review, dupes, shared, standings] = await Promise.all([
     db
       .select()
       .from(people)
@@ -131,6 +147,7 @@ export async function loadPeople(db: Database, only?: string): Promise<PersonDto
     reviewCounts(db),
     loadDuplicates(db),
     loadSharedLabels(db),
+    loadStandings(db, tuning, only ? [only] : undefined),
   ]);
   return rows.map((person) =>
     toDto(
@@ -140,6 +157,7 @@ export async function loadPeople(db: Database, only?: string): Promise<PersonDto
       review,
       dupes,
       shared,
+      { standings, tuning },
     ),
   );
 }
@@ -151,6 +169,10 @@ export function toDto(
   review: ReadonlyMap<string, number>,
   dupes: ReadonlyMap<string, PersonChoiceDto[]> = new Map(),
   shared: ReadonlyMap<string, string> = new Map(),
+  voice: { standings: ReadonlyMap<string, Standing>; tuning: VoiceTuning } = {
+    standings: new Map(),
+    tuning: VOICE_TUNING_DEFAULTS,
+  },
 ): PersonDto {
   return {
     id: person.id,
@@ -159,7 +181,7 @@ export function toDto(
     emails: person.emails,
     samples: profiles.reduce((sum, p) => sum + p.samples, 0),
     voiceSeconds: Math.round(profiles.reduce((sum, p) => sum + p.ms, 0) / 1000),
-    languages: languagesOf(profiles),
+    languages: languagesOf(profiles, voice.standings, voice.tuning),
     needsReview: review.get(person.id) ?? 0,
     meetings: seen.get(person.id)?.meetings ?? 0,
     lastSeenAt: seen.get(person.id)?.lastSeen?.toISOString() ?? null,
@@ -305,7 +327,12 @@ export async function personLines(
 export async function trainingLines(
   db: Database,
   personId: string,
-  { limit, meetingId, skipLanguages = [] }: Select & { skipLanguages?: readonly string[] },
+  {
+    limit,
+    meetingId,
+    readyLanguages = [],
+    threshold = VOICE_TUNING_DEFAULTS.agreeScore,
+  }: Select & { readyLanguages?: readonly string[]; threshold?: number },
 ): Promise<PersonLineDto[]> {
   const mine = db
     .select({ id: participants.id })
@@ -321,6 +348,7 @@ export async function trainingLines(
       text: transcriptSegments.text,
       speakerConfidence: transcriptSegments.speakerConfidence,
       language: sql<string | null>`coalesce(${transcriptSegments.language}, ${meetings.language})`,
+      scores: transcriptSegments.voiceScores,
       hasSample: sql<boolean>`exists (select 1 from ${voiceSamples} where ${voiceSamples.segmentId} = ${transcriptSegments.id} and ${voiceSamples.personId} = ${personId})`,
     })
     .from(transcriptSegments)
@@ -334,36 +362,48 @@ export async function trainingLines(
         isNull(transcriptSegments.mixed),
         sql`${transcriptSegments.speakerConfidence} >= ${LOW_SPEAKER_CONFIDENCE}`,
         sql`${transcriptSegments.endMs} - ${transcriptSegments.startMs} >= 3000`,
-        skipLanguages.length > 0
-          ? sql`coalesce(nullif(lower(split_part(coalesce(${transcriptSegments.language}, ${meetings.language}, ''), '-', 1)), ''), 'und') not in (${sql.join(
-              skipLanguages.map((code) => sql`${code}`),
-              sql`, `,
-            )})`
-          : undefined,
         sql`exists (select 1 from ${audioFiles} where ${audioFiles.meetingId} = ${meetings.id})`,
         meetingId ? eq(transcriptSegments.meetingId, meetingId) : undefined,
       ),
     )
     .orderBy(desc(meetings.createdAt), transcriptSegments.startMs)
     .limit(limit * 2);
+  const ownSeats = new Set(
+    (
+      await db
+        .select({ id: participants.id })
+        .from(participants)
+        .where(eq(participants.personId, personId))
+    ).map((p) => p.id),
+  );
+  const ready = new Set(readyLanguages);
   return rows
     .filter((row) => !row.hasSample)
-    .slice(0, limit)
-    .map((row) => ({
-      id: row.id,
-      meetingId: row.meetingId,
-      meetingTitle: row.meetingTitle,
-      startMs: row.startMs,
-      endMs: row.endMs,
-      text: row.text,
-      speakerConfidence: row.speakerConfidence,
-      voiceScore: null,
-      reason: 'training',
-      verified: false,
-      inProfile: false,
-      language: normalizeLanguage(row.language),
-      hasAudio: true,
-    }));
+    .flatMap((row) => {
+      const language = normalizeLanguage(row.language);
+      const score = row.scores?.find((s) => ownSeats.has(s.participantId))?.score ?? null;
+      const disagrees = score !== null && score < threshold;
+      // A ready profile asks nothing of a line its voice agrees with, but still of one it does not.
+      if (ready.has(language) && !disagrees) return [];
+      return [
+        {
+          id: row.id,
+          meetingId: row.meetingId,
+          meetingTitle: row.meetingTitle,
+          startMs: row.startMs,
+          endMs: row.endMs,
+          text: row.text,
+          speakerConfidence: row.speakerConfidence,
+          voiceScore: score,
+          reason: disagrees ? ('voice' as const) : ('training' as const),
+          verified: false,
+          inProfile: false,
+          language,
+          hasAudio: true,
+        },
+      ];
+    })
+    .slice(0, limit);
 }
 
 export async function loadChoices(db: Database, exclude?: string): Promise<PersonChoiceDto[]> {
@@ -399,7 +439,7 @@ export async function loadPersonDetail(
   return {
     person,
     prototypes: row?.voicePrototypes.length ?? 0,
-    profiles: profilesOf(person.languages, verified),
+    profiles: profilesOf(person.languages, verified, await loadVoiceTuning(deps.db)),
     verified,
     review,
     choices,
@@ -415,6 +455,7 @@ export async function loadPersonDetail(
 function profilesOf(
   known: readonly LanguageCoverageDto[],
   verified: readonly PersonLineDto[],
+  tuning: VoiceTuning,
 ): LanguageCoverageDto[] {
   const extra = [...new Set(verified.map((line) => line.language))].filter(
     (language) => !known.some((profile) => profile.language === language),
@@ -429,7 +470,8 @@ function profilesOf(
       autoSamples: 0,
       autoSeconds: 0,
       effectiveSeconds: 0,
-      targetSeconds: TARGET_MS / 1000,
+      targetSeconds: tuning.readySeconds,
+      readiness: readinessDto(standingOf(undefined, tuning), tuning),
       autoMeetings: [],
     })),
   ];

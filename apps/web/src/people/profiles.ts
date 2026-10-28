@@ -1,13 +1,18 @@
 import {
   effectiveMs,
+  loadProfileFacts,
   normalizeLanguage,
+  readiness,
   rebuildProfile,
   UNKNOWN_LANGUAGE,
+  type ProfileFacts,
+  type Readiness,
+  VOICE_TUNING_DEFAULTS,
+  type VoiceTuning,
 } from '@openminutes/core';
-import { and, eq, meetings, sql, voiceSamples, type Database } from '@openminutes/db';
-import type { LanguageCoverageDto } from '../dto.js';
+import { and, eq, isNull, meetings, sql, voiceSamples, type Database } from '@openminutes/db';
+import type { LanguageCoverageDto, ReadinessDto } from '../dto.js';
 import { PeopleError } from './edit.js';
-import { TARGET_MS } from './useful.js';
 
 const names = new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' });
 
@@ -57,6 +62,7 @@ export async function loadProfileRows(
     .where(
       and(
         eq(voiceSamples.rejected, false),
+        isNull(voiceSamples.prunedAt),
         sql`${voiceSamples.embedding} is not null`,
         personIds
           ? sql`${voiceSamples.personId} in (${sql.join(
@@ -81,6 +87,7 @@ export async function loadProfileRows(
       and(
         eq(voiceSamples.source, 'auto'),
         eq(voiceSamples.rejected, false),
+        isNull(voiceSamples.prunedAt),
         personIds
           ? sql`${voiceSamples.personId} in (${sql.join(
               personIds.map((id) => sql`${id}::uuid`),
@@ -131,17 +138,56 @@ export async function loadProfileRows(
   return [...merged.values()];
 }
 
-/** What each profile counts for towards its target: verified speech plus a part of the auto speech. */
-export async function profileCoverage(db: Database): Promise<Map<string, number>> {
-  const coverage = new Map<string, number>();
-  for (const row of await loadProfileRows(db)) {
-    coverage.set(profileKey(row.personId, row.language), effectiveMs(row.ms, row.autoMs));
-  }
-  return coverage;
+/** How far a profile is: its facts, its bars and the speech it counts for. */
+export interface Standing {
+  facts: ProfileFacts;
+  readiness: Readiness;
+  /** Verified speech plus the part of the auto speech that counts, in milliseconds. */
+  ms: number;
+}
+
+const NOTHING: ProfileFacts = { verifiedMs: 0, autoMs: 0, meetings: 0, ways: 0 };
+
+export function standingOf(facts: ProfileFacts | undefined, tuning: VoiceTuning): Standing {
+  const known = facts ?? NOTHING;
+  return {
+    facts: known,
+    readiness: readiness(known, tuning),
+    ms: effectiveMs(known.verifiedMs, known.autoMs),
+  };
+}
+
+/** The standing of every profile, or of the given people, keyed by `profileKey`. */
+export async function loadStandings(
+  db: Database,
+  tuning: VoiceTuning,
+  personIds?: readonly string[],
+): Promise<Map<string, Standing>> {
+  const facts = await loadProfileFacts(db, personIds);
+  return new Map([...facts].map(([key, value]) => [key, standingOf(value, tuning)]));
+}
+
+/** The profiles that are ready, as `profileKey`s. */
+export const readyKeys = (standings: ReadonlyMap<string, Standing>) =>
+  new Set([...standings].filter(([, s]) => s.readiness.ready).map(([key]) => key));
+
+export function readinessDto(standing: Standing, tuning: VoiceTuning): ReadinessDto {
+  const { readiness: r, facts } = standing;
+  return {
+    length: r.length,
+    variety: r.variety,
+    meetings: { have: facts.meetings, target: tuning.readyMeetings },
+    ways: { have: facts.ways, target: tuning.readyWays },
+    ready: r.ready,
+  };
 }
 
 /** The languages of a person, most speech first. */
-export function languagesOf(rows: readonly ProfileRow[]): LanguageCoverageDto[] {
+export function languagesOf(
+  rows: readonly ProfileRow[],
+  standings: ReadonlyMap<string, Standing> = new Map(),
+  tuning: VoiceTuning = VOICE_TUNING_DEFAULTS,
+): LanguageCoverageDto[] {
   return rows
     .toSorted(
       (a, b) =>
@@ -156,7 +202,11 @@ export function languagesOf(rows: readonly ProfileRow[]): LanguageCoverageDto[] 
       autoSamples: row.autoSamples,
       autoSeconds: Math.round(row.autoMs / 1000),
       effectiveSeconds: Math.round(effectiveMs(row.ms, row.autoMs) / 1000),
-      targetSeconds: TARGET_MS / 1000,
+      targetSeconds: tuning.readySeconds,
+      readiness: readinessDto(
+        standings.get(profileKey(row.personId, row.language)) ?? standingOf(undefined, tuning),
+        tuning,
+      ),
       autoMeetings: row.autoMeetings.map((m) => ({
         meetingId: m.meetingId,
         title: m.title,

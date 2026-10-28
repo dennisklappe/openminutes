@@ -1,8 +1,22 @@
-import type { PersonChoiceDto, ReviewLineDto, ReviewRosterDto } from '../src/dto.js';
+import type {
+  PersonChoiceDto,
+  ReviewLineDto,
+  ReviewRosterDto,
+  ReviewVoiceDto,
+} from '../src/dto.js';
+
+/** One card of the queue: a line to check, or a voice that does not match its label. */
+export type ReviewCard = ReviewLineDto | ReviewVoiceDto;
+
+export const isVoiceCard = (card: ReviewCard): card is ReviewVoiceDto => 'lines' in card;
+
+/** The person a card is about: the proposed one for a line, the labelled one for a voice. */
+export const cardPerson = (card: ReviewCard): PersonChoiceDto =>
+  isVoiceCard(card) ? card.person : card.proposed;
 
 /** Drops every line proposed for one person, such as after they are marked do not track. */
 export function dropPerson(state: ReviewState, personId: string): ReviewState {
-  const keep = (line: ReviewLineDto) => line.proposed.id !== personId;
+  const keep = (card: ReviewCard) => cardPerson(card).id !== personId;
   const rest = state.rest.filter(keep);
   const skipped = state.skipped.filter(keep);
   return {
@@ -18,6 +32,8 @@ export function dropPerson(state: ReviewState, personId: string): ReviewState {
 export type Decision =
   | { kind: 'skip' }
   | { kind: 'approve' }
+  /** A voice card: yes, the labelled voice is the person. */
+  | { kind: 'confirm' }
   /** Not the proposed person: someone from the meeting or the people list, or a new name. */
   | { kind: 'move'; personId: string; name: string }
   | { kind: 'create'; name: string }
@@ -29,20 +45,20 @@ export type Decision =
   | { kind: 'mixed' };
 
 export interface Entry {
-  line: ReviewLineDto;
+  line: ReviewCard;
   decision: Decision;
 }
 
 export interface ReviewState {
   /** Still to look at, in order. The first is on screen. */
-  rest: ReviewLineDto[];
-  skipped: ReviewLineDto[];
+  rest: ReviewCard[];
+  skipped: ReviewCard[];
   /** Everything decided in this session, oldest first. */
   history: Entry[];
   total: number;
 }
 
-export const startReview = (lines: readonly ReviewLineDto[]): ReviewState => ({
+export const startReview = (lines: readonly ReviewCard[]): ReviewState => ({
   rest: [...lines],
   skipped: [],
   history: [],
@@ -50,13 +66,14 @@ export const startReview = (lines: readonly ReviewLineDto[]): ReviewState => ({
 });
 
 /**
- * Puts the line with this id on screen, the others keep their order behind it. Undefined when
- * the line is no longer to be looked at: decided, skipped or not in this queue.
+ * Puts the card with this id on screen, the others keep their order behind it. Undefined when
+ * the card is no longer to be looked at: decided, skipped or not in this queue. A voice card
+ * is looked up among the voices only, a line among the lines.
  */
-export function focusLine(state: ReviewState, id: string): ReviewState | undefined {
-  const found = state.rest.find((line) => line.id === id);
+export function focusLine(state: ReviewState, id: string, voice = false): ReviewState | undefined {
+  const found = state.rest.find((card) => card.id === id && isVoiceCard(card) === voice);
   if (!found) return undefined;
-  return { ...state, rest: [found, ...state.rest.filter((line) => line !== found)] };
+  return { ...state, rest: [found, ...state.rest.filter((card) => card !== found)] };
 }
 
 export const currentLine = (state: ReviewState) => state.rest[0];
@@ -111,7 +128,7 @@ export function reviewSkipped(state: ReviewState): ReviewState {
 }
 
 export const counts = (state: ReviewState) => ({
-  approved: state.history.filter((e) => e.decision.kind === 'approve').length,
+  approved: state.history.filter((e) => ['approve', 'confirm'].includes(e.decision.kind)).length,
   changed: state.history.filter((e) =>
     ['move', 'create', 'reject', 'split'].includes(e.decision.kind),
   ).length,
@@ -123,13 +140,15 @@ export const counts = (state: ReviewState) => ({
 export function describeDecision({ line, decision }: Entry): string {
   switch (decision.kind) {
     case 'approve':
-      return `Approved: ${line.proposed.name}.`;
+      return `Approved: ${cardPerson(line).name}.`;
+    case 'confirm':
+      return `Confirmed: this voice is ${cardPerson(line).name}.`;
     case 'move':
       return `Moved to ${decision.name}.`;
     case 'create':
       return `Moved to new person ${decision.name}.`;
     case 'reject':
-      return `Not ${line.proposed.name}.`;
+      return `Not ${cardPerson(line).name}.`;
     case 'skip':
       return 'Skipped.';
     case 'split':
@@ -152,13 +171,36 @@ export interface ReviewApi {
     body: { cuts: number[]; personIds: string[] },
   ) => Promise<unknown>;
   markMixed: (personId: string, segmentId: string) => Promise<unknown>;
+  confirmVoice: (id: string) => Promise<unknown>;
+  moveVoice: (id: string, personId: string) => Promise<unknown>;
+  skipVoice: (id: string) => Promise<unknown>;
+  reopenVoice: (id: string) => Promise<unknown>;
 }
+
+/** A sent decision the server can take back: lines always, a voice only when it was skipped. */
+export const undoable = ({ line, decision }: Entry) =>
+  !isVoiceCard(line) || decision.kind === 'skip';
 
 /**
  * Sends one decision at once, with the endpoints the person page uses. A skip is stored too, so
  * the line does not come back after a refresh.
  */
 export async function commit(api: ReviewApi, { line, decision }: Entry): Promise<void> {
+  if (isVoiceCard(line)) {
+    switch (decision.kind) {
+      case 'skip':
+        await api.skipVoice(line.id);
+        return;
+      case 'confirm':
+        await api.confirmVoice(line.id);
+        return;
+      case 'move':
+        await api.moveVoice(line.id, decision.personId);
+        return;
+      default:
+        throw new Error('That choice does not fit a voice card.');
+    }
+  }
   const from = line.proposed.id;
   switch (decision.kind) {
     case 'skip':
@@ -167,6 +209,8 @@ export async function commit(api: ReviewApi, { line, decision }: Entry): Promise
     case 'approve':
       await api.verifyLine(from, line.id);
       return;
+    case 'confirm':
+      throw new Error('That choice does not fit a line.');
     case 'reject':
       await api.rejectLine(from, line.id);
       return;
@@ -204,7 +248,12 @@ export async function commit(api: ReviewApi, { line, decision }: Entry): Promise
 }
 
 /** Takes a sent decision back on the server, so the line is open again. */
-export async function uncommit(api: ReviewApi, { line }: Entry): Promise<void> {
+export async function uncommit(api: ReviewApi, { line, decision }: Entry): Promise<void> {
+  if (isVoiceCard(line)) {
+    if (decision.kind !== 'skip') throw new Error('A decision on a voice cannot be undone.');
+    await api.reopenVoice(line.id);
+    return;
+  }
   await api.undoReviewDecision(line.id);
 }
 

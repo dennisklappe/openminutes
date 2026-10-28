@@ -1,22 +1,34 @@
 /**
- * Voices that grow by themselves, with guardrails so a wrong first guess can never bootstrap a
- * profile and a drifting profile cannot run away. Every number here is a limit on that.
+ * A voice sample enters a profile only after the owner reviewed it, or when two independent
+ * proofs agree: the call's speaking indicator names the person and the voice matches their
+ * profile (call labels), or the voice is clearly not the other person of a two person meeting
+ * (1:1 elimination). Every number here is a starting value that real audio has not tuned.
  */
 
-/** A language needs this much speech verified by a person before anything is added by itself. */
+/** A language needs this much speech verified by a person before the voice counts as a proof. */
 export const AUTO_SEED_MS = 30_000;
-/** The voice check score of a line against its own profile must be at least this. */
-export const AUTO_MIN_SCORE = 0.8;
-/** ... and this far ahead of the best other voice in the meeting. Raised per person on a rejection. */
-export const AUTO_MARGIN = 0.25;
+/** The voice must lead the best other voice in the meeting by this much. Raised per person on a rejection. */
+export const AUTO_MARGIN = 0.1;
 /** The speaker indicator or diarization must be at least this sure of the label. */
 export const AUTO_MIN_TIMING_CONFIDENCE = 0.9;
 /** Only lines of at least this length are learned by themselves. */
-export const AUTO_MIN_LINE_MS = 3000;
-/** Auto speech may be at most this many times the verified speech of the profile. */
-export const AUTO_RATIO = 3;
-/** The most auto speech one meeting adds to one person. */
-export const AUTO_PER_MEETING_MS = 60_000;
+export const AUTO_MIN_LINE_MS = 4000;
+/** The indicator names exactly one person: no other candidate on the line scores more than this. */
+export const AUTO_MAX_RIVAL_TIMING = 0.05;
+/** 1:1 elimination: the voice must be this far under the agree threshold of the other person. */
+export const ELIMINATION_GAP = 0.15;
+/** A third voice: another cluster of the lines that are not the ready person, this big, stops 1:1 elimination. */
+export const ELIMINATION_THIRD_VOICE_MIN_LINES = 3;
+export const ELIMINATION_THIRD_VOICE_MIN_MS = 12_000;
+/** Environment card: the voice does not match the profile for at least this share of its speech. */
+export const ENV_MISMATCH_SHARE = 0.6;
+/** ... and has at least this much clean speech and so many lines, so a short visit asks nothing. */
+export const ENV_MIN_MS = 30_000;
+export const ENV_MIN_LINES = 5;
+/** Lines judged for the card must be at least this long, a shorter voice print says too little. */
+export const ENV_MIN_LINE_MS = 2500;
+/** Lines on the card to play, and the lines that become samples when the owner says it is them. */
+export const ENV_LINES = 6;
 /** An auto sample counts this much of a verified one when the profile is built. */
 export const AUTO_SAMPLE_WEIGHT = 0.4;
 /** What a rejected auto sample adds to that person's required margin, and the most it can reach. */

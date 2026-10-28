@@ -109,4 +109,21 @@ export interface VoiceSettingsDto {
   /** Check lines against the saved voices. */
   check: boolean;
   known: KnownVoiceDto[];
+  /** The numbers behind readiness, agreement and ways of sounding. */
+  tuning: VoiceTuningDto;
+  /** The defaults of `tuning`, for a Reset. */
+  tuningDefaults: VoiceTuningDto;
+}
+
+export interface VoiceTuningDto {
+  /** Seconds of clean speech that fill the Length bar. */
+  readySeconds: number;
+  /** Meetings that fill the Variety bar. */
+  readyMeetings: number;
+  /** Ways of sounding that fill the Variety bar. */
+  readyWays: number;
+  /** A line scoring at least this against a profile sounds like the person. */
+  agreeScore: number;
+  /** A sample joins the closest way of sounding at this similarity or more. */
+  mergeSimilarity: number;
 }

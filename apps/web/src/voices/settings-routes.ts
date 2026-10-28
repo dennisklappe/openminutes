@@ -1,20 +1,47 @@
-import { forgetVoices } from '@openminutes/core';
+import {
+  forgetVoices,
+  parseVoiceTuning,
+  VOICE_TUNING_DEFAULTS,
+  VOICE_TUNING_KEYS,
+  VOICE_TUNING_RANGE,
+  type VoiceTuning,
+} from '@openminutes/core';
 import { eq, people, sql, voiceSamples } from '@openminutes/db';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { VoiceSettingsDto } from '../dto.js';
 import { checkEnabled, rememberEnabled, type VoiceDeps } from './load.js';
 
+const number = (name: keyof VoiceTuning) => {
+  const [low, high] = VOICE_TUNING_RANGE[name];
+  return z.number().min(low).max(high).optional();
+};
 const input = z
-  .object({ remember: z.boolean().optional(), check: z.boolean().optional() })
-  .refine((body) => body.remember !== undefined || body.check !== undefined);
+  .strictObject({
+    remember: z.boolean().optional(),
+    check: z.boolean().optional(),
+    readySeconds: number('readySeconds'),
+    readyMeetings: number('readyMeetings'),
+    readyWays: number('readyWays'),
+    agreeScore: number('agreeScore'),
+    mergeSimilarity: number('mergeSimilarity'),
+  })
+  .refine((body) => Object.values(body).some((value) => value !== undefined));
 
 export function voiceSettingsRoutes({ db, settings }: VoiceDeps): Hono {
   const routes = new Hono();
 
+  const tuning = async (): Promise<VoiceTuning> => {
+    const raw: Record<string, string | undefined> = {};
+    for (const key of Object.values(VOICE_TUNING_KEYS)) raw[key] = await settings.get(key);
+    return parseVoiceTuning(raw);
+  };
+
   const read = async (): Promise<VoiceSettingsDto> => ({
     remember: await rememberEnabled(settings),
     check: await checkEnabled(settings),
+    tuning: await tuning(),
+    tuningDefaults: VOICE_TUNING_DEFAULTS,
     known: (
       await db
         .select({
@@ -40,6 +67,10 @@ export function voiceSettingsRoutes({ db, settings }: VoiceDeps): Hono {
       await settings.set('voices.remember', String(body.data.remember));
     }
     if (body.data.check !== undefined) await settings.set('voices.check', String(body.data.check));
+    for (const name of Object.keys(VOICE_TUNING_KEYS) as (keyof VoiceTuning)[]) {
+      const value = body.data[name];
+      if (value !== undefined) await settings.set(VOICE_TUNING_KEYS[name], String(value));
+    }
     return c.json(await read());
   });
 

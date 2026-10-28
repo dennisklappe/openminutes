@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react';
-import type { ReviewLineDto, ReviewOrder, ReviewQueueDto } from '../../src/dto.js';
+import type { ReviewLineDto, ReviewOrder, ReviewQueueDto, ReviewVoiceDto } from '../../src/dto.js';
 import { api, errorMessage, meetingUrl } from '../api.js';
 import { useConfirm } from '../Confirm.js';
 import { formatDate, formatDuration } from '../format.js';
@@ -11,12 +11,14 @@ import {
   coverageLabel,
   counts,
   currentLine,
+  cardPerson,
   decide,
   defaultPeople,
   describeDecision,
   dropPerson,
   everyoneOptions,
   focusLine,
+  isVoiceCard,
   keyAction,
   optionKey,
   pick,
@@ -29,13 +31,14 @@ import {
   startReview,
   uncommit,
   undo,
+  undoable,
   type Decision,
   type Entry,
   type PickerOption,
   type ReviewState,
 } from '../review.js';
 import { buildReviewRoute, type ReviewRoute } from '../reviewRoute.js';
-import { reasonLabel } from '../people.js';
+import { barPercent, reasonLabel } from '../people.js';
 import { splitTimes } from '../../src/meetings/split-times.js';
 import { splitWords } from '../speakerEdits.js';
 import { SnippetPlayer } from '../SnippetPlayer.js';
@@ -357,6 +360,190 @@ function SplitPanel({
   );
 }
 
+function VoicePicker({
+  voice,
+  people,
+  onPick,
+  onCancel,
+}: {
+  voice: ReviewVoiceDto;
+  people: ReviewQueueDto['people'];
+  onPick: (option: PickerOption) => void;
+  onCancel: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const everyone = useMemo(
+    () => everyoneOptions(people, voice.person.id, query),
+    [people, voice.person.id, query],
+  );
+  const search = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    search.current?.focus();
+  }, []);
+  return (
+    <div
+      className="review-picker"
+      role="group"
+      aria-label={`Who is this voice instead of ${voice.person.name}`}
+    >
+      <h3>Who is this voice?</h3>
+      <label className="field">
+        <span>Search people</span>
+        <input
+          type="search"
+          ref={search}
+          value={query}
+          autoComplete="off"
+          placeholder="Name"
+          onChange={(e) => {
+            setQuery(e.target.value);
+          }}
+        />
+      </label>
+      {everyone.length === 0 ? (
+        <p className="muted">Nobody matches.</p>
+      ) : (
+        <ul className="review-options scroll">
+          {everyone.slice(0, SHOWN).map((option) => (
+            <li key={option.personId}>
+              <button
+                type="button"
+                onClick={() => {
+                  onPick(option);
+                }}
+              >
+                {option.name}
+                {option.untracked && <span className="muted"> · not tracked</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="review-picker-more">
+        <button type="button" className="link" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function VoiceCard({
+  voice,
+  queue,
+  picker,
+  setPicker,
+  onDecide,
+  canUndo,
+  onUndo,
+  onUntrack,
+}: {
+  voice: ReviewVoiceDto;
+  queue: ReviewQueueDto;
+  picker: Picker;
+  setPicker: (picker: Picker) => void;
+  onDecide: (decision: Decision) => void;
+  canUndo: boolean;
+  onUndo: () => void;
+  onUntrack: () => void;
+}) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  const someoneElse = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    heading.current?.focus();
+  }, [voice.id]);
+  useEffect(() => {
+    if (picker === 'closed' && wasOpen.current) someoneElse.current?.focus();
+    wasOpen.current = picker !== 'closed';
+  }, [picker]);
+
+  return (
+    <section className="panel review-card review-voice" aria-labelledby="review-quote">
+      <div className="card-body">
+        <h2 id="review-quote" className="review-quote" tabIndex={-1} ref={heading}>
+          This voice is labelled {voice.person.name} but does not match their profile. Is it them?
+        </h2>
+        <p className="muted">
+          <a href={`#/meetings/${voice.meetingId}`}>{voice.meetingTitle}</a>
+          {' · '}
+          {formatDate(voice.meetingDate)}
+          {' · '}
+          {String(barPercent(voice.mismatch))}% of this voice did not match
+        </p>
+        <ul className="review-voice-lines">
+          {voice.lines
+            .filter((item) => item.hasAudio)
+            .map((item) => (
+              <li key={item.id}>
+                <SnippetPlayer
+                  key={item.id}
+                  audioUrl={meetingUrl(voice.meetingId, 'audio')}
+                  label={item.text}
+                  snippets={[{ startMs: item.startMs, endMs: item.endMs, text: item.text }]}
+                />
+              </li>
+            ))}
+        </ul>
+        {voice.lines.every((item) => !item.hasAudio) && (
+          <p className="muted">There is no audio to play for this meeting.</p>
+        )}
+        {picker !== 'closed' && (
+          <VoicePicker
+            voice={voice}
+            people={queue.people}
+            onPick={(option) => {
+              onDecide(pick(option));
+            }}
+            onCancel={() => {
+              setPicker('closed');
+            }}
+          />
+        )}
+      </div>
+      {picker === 'closed' && (
+        <footer className="card-foot review-actions">
+          <button
+            type="button"
+            onClick={() => {
+              onDecide({ kind: 'skip' });
+            }}
+          >
+            Skip <Key>S</Key>
+          </button>
+          <button
+            type="button"
+            ref={someoneElse}
+            className="danger"
+            onClick={() => {
+              setPicker('other');
+            }}
+          >
+            No, someone else <Key>D</Key>
+          </button>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => {
+              onDecide({ kind: 'confirm' });
+            }}
+          >
+            Yes, it is them <Key>A</Key>
+          </button>
+        </footer>
+      )}
+      <div className="review-undo">
+        <button type="button" className="link quiet" onClick={onUntrack}>
+          Do not track {voice.person.name}
+        </button>
+        <button type="button" className="link" disabled={!canUndo} onClick={onUndo}>
+          Undo last <Key>U</Key>
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function Card({
   line,
   queue,
@@ -547,8 +734,8 @@ export function Review({ route }: { route: ReviewRoute }) {
   const confirm = useConfirm();
   const [order, setOrder] = useState<ReviewOrder>(route.order ?? 'newest');
   const [notice, setNotice] = useState<string>();
-  const wanted = useRef(route.lineId);
-  wanted.current = route.lineId;
+  const wanted = useRef(route);
+  wanted.current = route;
   /** A new order starts at its own first line, not at the card that was on screen. */
   const freshStart = useRef(false);
   const [queue, setQueue] = useState<ReviewQueueDto>();
@@ -581,13 +768,14 @@ export function Review({ route }: { route: ReviewRoute }) {
         (loaded) => {
           if (!current) return;
           setQueue(loaded);
-          const fresh = startReview(loaded.lines);
-          const target = freshStart.current ? undefined : wanted.current;
+          const fresh = startReview([...loaded.voices, ...loaded.lines]);
+          const want = freshStart.current ? undefined : wanted.current;
           freshStart.current = false;
-          const opened = target ? focusLine(fresh, target) : undefined;
+          const target = want?.voiceId ?? want?.lineId;
+          const opened = target ? focusLine(fresh, target, want?.voiceId !== undefined) : undefined;
           setNotice(
             target && !opened
-              ? 'That line is no longer in the queue, so this is the next one.'
+              ? 'That card is no longer in the queue, so this is the next one.'
               : undefined,
           );
           setState(opened ?? fresh);
@@ -623,18 +811,21 @@ export function Review({ route }: { route: ReviewRoute }) {
     return sent;
   }, []);
 
-  const line = state && currentLine(state);
+  const card = state && currentLine(state);
+  const line = card && !isVoiceCard(card) ? card : undefined;
+  const voice = card && isVoiceCard(card) ? card : undefined;
   const lineId = line?.id;
+  const voiceId = voice?.id;
   const probablyMixed = line?.reason === 'mixed';
   // A line the voice guard thinks holds two speakers opens with the split already chosen.
   useEffect(() => {
     setPicker(probablyMixed ? 'split' : 'closed');
-  }, [lineId, probablyMixed]);
+  }, [lineId, voiceId, probablyMixed]);
 
   const onDecide = useCallback(
     (decision: Decision) => {
-      if (!state || !line) return;
-      const entry: Entry = { line, decision };
+      if (!state || !card) return;
+      const entry: Entry = { line: card, decision };
       setError(undefined);
       setNotice(undefined);
       setState(decide(state, decision));
@@ -642,38 +833,39 @@ export function Review({ route }: { route: ReviewRoute }) {
       setMessage(describeDecision(entry));
       void send(entry);
     },
-    [state, line, send],
+    [state, card, send],
   );
 
   // The address follows the card, replacing the entry so Back leaves the review and does not
   // walk through lines that are already decided.
   useEffect(() => {
     if (!state) return;
-    const address = `#${buildReviewRoute({ personId, meetingId, order, lineId })}`;
+    const address = `#${buildReviewRoute({ personId, meetingId, order, lineId, voiceId })}`;
     if (window.location.hash === address) return;
     window.history.replaceState(null, '', address);
     window.dispatchEvent(new HashChangeEvent('hashchange'));
-  }, [state === undefined, lineId, personId, meetingId, order]);
+  }, [state === undefined, lineId, voiceId, personId, meetingId, order]);
 
   // A card address pasted or reached with Back and Forward opens that card.
   useEffect(() => {
-    if (!route.lineId || route.lineId === lineId) return;
+    const wantedId = route.voiceId ?? route.lineId;
+    if (!wantedId || wantedId === card?.id) return;
     setState((current) => {
       if (!current) return current;
-      const opened = focusLine(current, route.lineId ?? '');
+      const opened = focusLine(current, wantedId, route.voiceId !== undefined);
       setNotice(
-        opened ? undefined : 'That line is no longer in the queue, so this is the next one.',
+        opened ? undefined : 'That card is no longer in the queue, so this is the next one.',
       );
       return opened ?? current;
     });
-  }, [route.lineId]);
+  }, [route.lineId, route.voiceId]);
 
   const last = state?.history.at(-1);
-  const canUndo = last !== undefined;
+  const canUndo = last !== undefined && undoable(last);
 
   /** Takes the last decision back, also on the server, then shows the line again. */
   const onUndo = useCallback(async () => {
-    if (!last) return;
+    if (!last || !undoable(last)) return;
     const entry = last;
     if (sending.current.has(entry) && !(await sending.current.get(entry))) return;
     try {
@@ -689,8 +881,8 @@ export function Review({ route }: { route: ReviewRoute }) {
 
   /** Stops tracking the proposed person and takes all their lines out of this queue. */
   const untrack = useCallback(async () => {
-    if (!line) return;
-    const who = line.proposed;
+    if (!card) return;
+    const who = cardPerson(card);
     const confirmed = await confirm({
       title: `Stop tracking ${who.name}?`,
       body: (
@@ -713,7 +905,7 @@ export function Review({ route }: { route: ReviewRoute }) {
     } catch (failure) {
       setError(errorMessage(failure));
     }
-  }, [line, confirm, flush]);
+  }, [card, confirm, flush]);
 
   const exit = useCallback(() => {
     void flush().then(() => {
@@ -722,8 +914,8 @@ export function Review({ route }: { route: ReviewRoute }) {
   }, [flush, exitTo]);
 
   useEffect(() => {
-    if (!queue || !line) return;
-    const roster = rosterOptions(line.roster, queue.people, line.proposed.id);
+    if (!queue || !card) return;
+    const roster = line ? rosterOptions(line.roster, queue.people, line.proposed.id) : [];
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key !== 'Escape' && isTyping(event.target)) return;
@@ -738,6 +930,7 @@ export function Review({ route }: { route: ReviewRoute }) {
               : 'other',
       );
       if (!action) return;
+      if (voice && (action === 'split' || action === 'mixed')) return;
       event.preventDefault();
       if (typeof action === 'object') {
         const option = roster[action.pick];
@@ -745,9 +938,9 @@ export function Review({ route }: { route: ReviewRoute }) {
       } else if (action === 'exit') {
         if (picker === 'closed') exit();
         else setPicker('closed');
-      } else if (action === 'approve') onDecide({ kind: 'approve' });
+      } else if (action === 'approve') onDecide({ kind: voice ? 'confirm' : 'approve' });
       else if (action === 'skip') onDecide({ kind: 'skip' });
-      else if (action === 'disapprove') setPicker('roster');
+      else if (action === 'disapprove') setPicker(voice ? 'other' : 'roster');
       else if (action === 'split') setPicker('split');
       else if (action === 'mixed') onDecide({ kind: 'mixed' });
       else void onUndo();
@@ -756,7 +949,7 @@ export function Review({ route }: { route: ReviewRoute }) {
     return () => {
       window.removeEventListener('keydown', onKey);
     };
-  }, [queue, line, picker, onDecide, onUndo, exit]);
+  }, [queue, card, line, voice, picker, onDecide, onUndo, exit]);
 
   const done = state ? counts(state) : undefined;
   const hidden = queue && !skippedMode ? queue.skippedCount + (done?.skipped ?? 0) : 0;
@@ -779,7 +972,7 @@ export function Review({ route }: { route: ReviewRoute }) {
         </div>
         {state && state.total > 0 && (
           <p className="review-progress muted">
-            {line ? `${String(position(state))} of ${String(state.total)}` : 'Finished'}
+            {card ? `${String(position(state))} of ${String(state.total)}` : 'Finished'}
           </p>
         )}
       </header>
@@ -837,6 +1030,22 @@ export function Review({ route }: { route: ReviewRoute }) {
           {error}
         </p>
       )}
+      {queue && state && voice && (
+        <VoiceCard
+          voice={voice}
+          queue={queue}
+          picker={picker}
+          setPicker={setPicker}
+          onDecide={onDecide}
+          canUndo={canUndo}
+          onUndo={() => {
+            void onUndo();
+          }}
+          onUntrack={() => {
+            void untrack();
+          }}
+        />
+      )}
       {queue && state && line && (
         <Card
           line={line}
@@ -853,7 +1062,7 @@ export function Review({ route }: { route: ReviewRoute }) {
           }}
         />
       )}
-      {queue && state && !line && done && (
+      {queue && state && !card && done && (
         <div className="panel empty-state">
           <h3>
             {state.total === 0 ? 'Nothing to review' : queue.more > 0 ? 'Session done' : 'All done'}

@@ -75,6 +75,7 @@ import type {
   VoiceNameInput,
   VoicesDto,
   VoiceSettingsDto,
+  VoiceTuningDto,
   WizardDto,
 } from '../src/dto.js';
 
@@ -237,7 +238,7 @@ export const api = {
   deleteParticipantAlias: (id: string) =>
     request<ParticipantAliasesDto>(`/settings/participant-aliases/${id}`, { method: 'DELETE' }),
   voiceSettings: () => request<VoiceSettingsDto>('/settings/voices'),
-  saveVoiceSettings: (body: { remember?: boolean; check?: boolean }) =>
+  saveVoiceSettings: (body: Partial<{ remember: boolean; check: boolean } & VoiceTuningDto>) =>
     request<VoiceSettingsDto>('/settings/voices', { method: 'PUT', body }),
   people: (query: PeopleQuery = {}) => {
     const params = new URLSearchParams();
@@ -314,6 +315,26 @@ export const api = {
       body: { personId, segmentId },
       keepalive: true,
     }),
+  confirmVoice: (id: string) =>
+    request<{ ok: true }>(`/people/review/voices/${id}/confirm`, {
+      method: 'POST',
+      body: {},
+      keepalive: true,
+    }),
+  moveVoice: (id: string, personId: string) =>
+    request<{ ok: true }>(`/people/review/voices/${id}/move`, {
+      method: 'POST',
+      body: { personId },
+      keepalive: true,
+    }),
+  skipVoice: (id: string) =>
+    request<{ ok: true }>(`/people/review/voices/${id}/skip`, {
+      method: 'POST',
+      body: {},
+      keepalive: true,
+    }),
+  reopenVoice: (id: string) =>
+    request<{ ok: true }>(`/people/review/voices/${id}/reopen`, { method: 'POST', body: {} }),
   undoReviewDecision: (segmentId: string) =>
     request<{ undone: string | null }>('/people/review/undo', {
       method: 'POST',
