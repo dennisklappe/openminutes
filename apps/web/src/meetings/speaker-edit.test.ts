@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createProviders } from '@openminutes/calendar';
 import { LocalStorage, SettingsStore, type JobName, type JobPayloads } from '@openminutes/core';
-import { eq, meetings, participants, transcriptSegments } from '@openminutes/db';
+import { audioFiles, eq, meetings, participants, transcriptSegments } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import type { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -477,6 +477,92 @@ describe('speaker edits', () => {
       const body = await detail(meeting.id);
       expect(body.speakerCheck).toMatchObject({ running: true, checkedAt: null, error: null });
       expect((await call('POST', `/meetings/${missing}/speaker-check`)).status).toBe(404);
+    });
+  });
+  describe('re-running speakers and voices', () => {
+    async function rerunnable(platform: 'recording' | 'meet' = 'recording') {
+      const made = await fixture(platform);
+      await test.db.insert(audioFiles).values({
+        meetingId: made.meeting.id,
+        path: `m/${made.meeting.id}.opus`,
+        durationMs: 1,
+        codec: 'opus',
+        size: 1,
+      });
+      return made.meeting;
+    }
+    const statusOf = async (id: string) =>
+      (await test.db.select().from(meetings).where(eq(meetings.id, id)))[0]?.status;
+
+    it('offers the re-run only for a transcribed meeting with its recording', async () => {
+      const { meeting: bare } = await fixture();
+      expect((await detail(bare.id)).rerun).toMatchObject({ available: false, speakers: false });
+      const phone = await rerunnable();
+      expect((await detail(phone.id)).rerun).toMatchObject({ available: true, speakers: true });
+      const call = await rerunnable('meet');
+      expect((await detail(call.id)).rerun).toMatchObject({ available: true, speakers: false });
+    });
+
+    it('queues the speakers job with the number, shows the meeting as processing', async () => {
+      const meeting = await rerunnable();
+      sent.length = 0;
+      const response = await call('POST', `/meetings/${meeting.id}/rerun-speakers`, {
+        speakers: 2,
+      });
+      expect(response.status).toBe(202);
+      expect(sent).toEqual([
+        { name: 'meeting.rerun-speakers', payload: { meetingId: meeting.id, speakers: 2 } },
+      ]);
+      expect(await statusOf(meeting.id)).toBe('processing');
+    });
+
+    it.each([1, 6, 2.5, '3', null])('refuses %s as the number of people', async (speakers) => {
+      const meeting = await rerunnable();
+      const response = await call('POST', `/meetings/${meeting.id}/rerun-speakers`, { speakers });
+      expect(response.status).toBe(400);
+      expect(await statusOf(meeting.id)).toBe('transcribed');
+    });
+
+    it('refuses to find the voices of a call with a speaking indicator, or while processing', async () => {
+      const meet = await rerunnable('meet');
+      sent.length = 0;
+      expect(
+        (await call('POST', `/meetings/${meet.id}/rerun-speakers`, { speakers: 2 })).status,
+      ).toBe(409);
+      const busy = await rerunnable();
+      await call('POST', `/meetings/${busy.id}/rerun-speakers`, { speakers: 2 });
+      sent.length = 0;
+      expect(
+        (await call('POST', `/meetings/${busy.id}/rerun-speakers`, { speakers: 3 })).status,
+      ).toBe(409);
+      expect(sent).toEqual([]);
+      expect(
+        (await call('POST', `/meetings/${missing}/rerun-speakers`, { speakers: 2 })).status,
+      ).toBe(404);
+    });
+
+    it('re-runs the voice recognition only when the setting is on', async () => {
+      const meeting = await rerunnable('meet');
+      await settings.set('voices.check', 'false');
+      sent.length = 0;
+      expect((await detail(meeting.id)).rerun.voiceCheckOn).toBe(false);
+      const refused = await call('POST', `/meetings/${meeting.id}/rerun-voices`);
+      expect(refused.status).toBe(409);
+      expect(sent).toEqual([]);
+
+      await settings.set('voices.check', 'true');
+      expect((await detail(meeting.id)).rerun.voiceCheckOn).toBe(true);
+      expect((await call('POST', `/meetings/${meeting.id}/rerun-voices`)).status).toBe(202);
+      expect(sent).toEqual([{ name: 'meeting.check-voices', payload: { meetingId: meeting.id } }]);
+      expect(await statusOf(meeting.id)).toBe('processing');
+    });
+
+    it('marks speakers changed when the meeting is transcribed again', async () => {
+      const meeting = await rerunnable();
+      await call('POST', `/meetings/${meeting.id}/reprocess`, { speakers: 3 });
+      const [row] = await test.db.select().from(meetings).where(eq(meetings.id, meeting.id));
+      expect(row?.speakersChangedAt).not.toBeNull();
+      expect(row?.speakerCount).toBe(3);
     });
   });
 });

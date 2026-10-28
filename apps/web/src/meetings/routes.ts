@@ -60,6 +60,7 @@ import { loadSpeakerCheck } from './speaker-check.js';
 import { downloadName, transcriptJson, transcriptMarkdown } from './export.js';
 import { calendarLinkEnabled, loadCalendarLinks } from '../minutes/calendar-link.js';
 import { MAX_SPEAKERS, MIN_SPEAKERS } from '../speakerCount.js';
+import { markProcessing, rerunOptions } from './rerun.js';
 import { listCompanies } from '../library/companies.js';
 import { describeVersions } from '../minutes/summary-versions.js';
 
@@ -257,6 +258,7 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
       calendarLinks: await loadCalendarLinks(deps.db, meeting.id),
       calendarLinkEnabled: await calendarLinkEnabled(deps),
       canTranscribe: await canTranscribe(meeting),
+      rerun: await rerunOptions(deps.db, deps.settings, meeting),
       canSkip: meeting.status === 'scheduled',
       canRejoin: meeting.status === 'skipped' && isUpcoming(meeting),
       canDelete: isSettled(meeting, new Date()),
@@ -332,19 +334,10 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
     }
     const body = reprocessInput.safeParse(await c.req.json().catch(() => ({})));
     if (!body.success) return c.json({ error: 'Invalid language or speaker count' }, 400);
-    await deps.db
-      .update(meetings)
-      .set({
-        status: 'processing',
-        error: null,
-        ...(body.data.speakers !== undefined && { speakerCount: body.data.speakers }),
-        processingStep: null,
-        processingCurrent: null,
-        processingTotal: null,
-        processingStartedAt: new Date(),
-        heartbeatAt: new Date(),
-      })
-      .where(eq(meetings.id, meeting.id));
+    await markProcessing(deps.db, meeting.id, {
+      speakersChangedAt: new Date(),
+      ...(body.data.speakers !== undefined && { speakerCount: body.data.speakers }),
+    });
     await deps.queue.send('meeting.process', {
       meetingId: meeting.id,
       ...(body.data.language && { language: body.data.language }),

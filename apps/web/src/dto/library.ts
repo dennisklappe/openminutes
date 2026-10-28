@@ -17,6 +17,16 @@ import type {
   MeetingCompanyDto,
 } from './summaries.js';
 
+/** What the Re-run menu offers for a meeting. */
+export interface MeetingRerunDto {
+  /** The meeting is transcribed and has its recording. */
+  available: boolean;
+  /** Voices can be found again with a number of people: phone recordings and imports. */
+  speakers: boolean;
+  /** Check lines against saved voices is on, the voice recognition re-run needs it. */
+  voiceCheckOn: boolean;
+}
+
 export interface MeetingDetailDto {
   meeting: MeetingDto;
   company: MeetingCompanyDto;
@@ -28,6 +38,7 @@ export interface MeetingDetailDto {
   calendarLinkEnabled: boolean;
   series: MeetingSeriesDto | null;
   canTranscribe: boolean;
+  rerun: MeetingRerunDto;
   canSkip: boolean;
   canRejoin: boolean;
   canDelete: boolean;
