@@ -4,6 +4,7 @@ import { createMiddleware } from 'hono/factory';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { SessionDto } from '../dto.js';
+import { authenticatedKey, isApiKeyRequest } from './api-keys.js';
 import {
   ACCESS_COOKIE,
   ACCESS_HEADER,
@@ -36,7 +37,7 @@ async function isAuthenticated(deps: AuthDeps, token: string | undefined): Promi
 
 export const requireSession = (deps: AuthDeps) =>
   createMiddleware(async (c, next) => {
-    if (deps.access) return next();
+    if (deps.access || authenticatedKey(c)) return next();
     if (!(await isAuthenticated(deps, getCookie(c, SESSION_COOKIE)))) {
       return c.json({ error: 'Not signed in' }, 401);
     }
@@ -60,7 +61,7 @@ const PUBLIC_PATHS = new Set([
 export const requireAccess = (access: AccessVerifier) =>
   createMiddleware(async (c, next) => {
     const { path } = c.req;
-    if (PUBLIC_PATHS.has(path) || path.startsWith('/s/')) return next();
+    if (PUBLIC_PATHS.has(path) || path.startsWith('/s/') || isApiKeyRequest(c)) return next();
     if (!(await access.verify(accessToken(c)))) {
       if (path === '/' && c.req.method === 'GET') return c.redirect(UNAUTHENTICATED_REDIRECT, 302);
       return c.json({ error: 'Not signed in' }, 401);

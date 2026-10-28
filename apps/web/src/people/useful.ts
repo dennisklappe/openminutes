@@ -10,8 +10,11 @@ import { LOW_SPEAKER_CONFIDENCE } from '@openminutes/core';
 export const MIN_LINE_MS = 3000;
 /** Lines up to this long are best, longer ones are still fine but cost more to listen to. */
 export const PREFERRED_MAX_MS = 15_000;
-/** Verified speech per profile after which the person stops being asked about. */
-export const TARGET_MS = 90_000;
+/**
+ * Speech after which a profile counts as long enough when no readiness is given. A real profile
+ * is ready when both its Length and Variety bars are full (see `readiness` in core).
+ */
+export const TARGET_MS = 120_000;
 /** Lines in one review session before Keep going. */
 export const SESSION_CAP = 25;
 /** Two lines of one person closer than this in one meeting are near duplicates. */
@@ -95,6 +98,8 @@ export interface Candidate {
   suggested?: boolean;
   /** The voice guard thinks the line holds two speakers, so it is asked whatever else it is. */
   mixed?: boolean;
+  /** The voice of the line scores under the agree threshold of the person it is labelled as. */
+  disagrees?: boolean;
 }
 
 /**
@@ -105,9 +110,10 @@ export interface Candidate {
 export type Why = 'doubt' | 'training';
 
 export const whyOf = (
-  c: Pick<Candidate, 'voiceDoubt' | 'rival' | 'confidence' | 'suggested' | 'mixed'>,
+  c: Pick<Candidate, 'voiceDoubt' | 'rival' | 'confidence' | 'suggested' | 'mixed' | 'disagrees'>,
 ): Why =>
   c.voiceDoubt ||
+  c.disagrees === true ||
   c.mixed === true ||
   c.suggested === true ||
   c.rival >= DOUBT_RIVAL_SCORE ||
@@ -122,18 +128,34 @@ export const isUsable = (c: Candidate) =>
 export interface Selection {
   /** In the order they should be asked, most useful first. */
   picked: Candidate[];
-  /** Profiles that reached the target and had lines left out because of it. */
+  /** Profiles that were ready and had lines left out because of it. */
   complete: Set<string>;
 }
 
-function score(c: Candidate, have: number, taken: readonly Candidate[]): number {
-  const need = Math.max(0, 1 - have / TARGET_MS);
+export interface SelectOptions {
+  /** Most lines picked. */
+  limit?: number;
+  /** Profiles that are ready: they get no training lines, only lines in doubt. */
+  ready?: ReadonlySet<string>;
+  /** How much a profile still needs, 0 (nothing) to 1 (everything). Default: from its speech. */
+  need?: ReadonlyMap<string, number>;
+  /** Speech after which a profile has enough length. Default TARGET_MS. */
+  targetMs?: number;
+  /**
+   * Meetings a profile still wants lines from to fill its Variety bar. The queue stops asking
+   * training lines once the length is there and that many different meetings were picked (or
+   * all the meetings there are lines from).
+   */
+  moreMeetings?: (group: string) => number;
+}
+
+function score(c: Candidate, need: number, taken: readonly Candidate[]): number {
   const length = c.endMs - c.startMs;
   let value =
     whyOf(c) === 'doubt'
       ? 100 +
         c.rival * 30 +
-        (c.voiceDoubt ? 20 : 0) +
+        (c.voiceDoubt || c.disagrees === true ? 20 : 0) +
         (c.mixed === true ? 40 : 0) +
         (1 - (c.confidence ?? 0)) * 10
       : need * 80;
@@ -151,14 +173,15 @@ function score(c: Candidate, have: number, taken: readonly Candidate[]): number 
 
 /**
  * Picks the useful lines: usable ones only, ranked by how much the profile still needs, how
- * unsure the line is and how different it is from what is already picked. A profile whose
- * verified speech plus the picked speech reaches the target gets no more training lines, only
- * lines in doubt. `coverage` is verified milliseconds per group.
+ * unsure the line is and how different it is from what is already picked. A ready profile gets no
+ * training lines, only lines in doubt (including lines its voice disagrees with). Without a
+ * `ready` set a profile counts as ready once its speech plus the picked speech reaches `targetMs`
+ * and the picked lines span the meetings it still wants (`moreMeetings`). `coverage` is milliseconds of speech per group.
  */
 export function selectUseful(
   candidates: readonly Candidate[],
   coverage: ReadonlyMap<string, number>,
-  limit = Infinity,
+  { limit = Infinity, ready, need, targetMs = TARGET_MS, moreMeetings }: SelectOptions = {},
 ): Selection {
   const left = candidates.filter(isUsable);
   const taken = new Map<string, Candidate[]>();
@@ -166,12 +189,24 @@ export function selectUseful(
   const picked: Candidate[] = [];
   const complete = new Set<string>();
   const covered = (group: string) => (coverage.get(group) ?? 0) + (have.get(group) ?? 0);
+  const meetingsOf = (list: readonly Candidate[]) => new Set(list.map((c) => c.meetingId)).size;
+  const available = new Map<string, number>();
+  for (const group of new Set(left.map((c) => c.group))) {
+    available.set(group, meetingsOf(left.filter((c) => c.group === group)));
+  }
+  const done = (group: string) => {
+    if (ready?.has(group)) return true;
+    if (covered(group) < targetMs) return false;
+    const wanted = Math.min(moreMeetings?.(group) ?? 0, available.get(group) ?? 0);
+    return meetingsOf(taken.get(group) ?? []) >= wanted;
+  };
+  const needOf = (group: string) => need?.get(group) ?? Math.max(0, 1 - covered(group) / targetMs);
   while (left.length > 0 && picked.length < limit) {
     let best = -1;
     let bestScore = -Infinity;
     for (const [i, c] of left.entries()) {
-      if (covered(c.group) >= TARGET_MS && whyOf(c) === 'training') continue;
-      const value = score(c, covered(c.group), taken.get(c.group) ?? []);
+      if (done(c.group) && whyOf(c) === 'training') continue;
+      const value = score(c, needOf(c.group), taken.get(c.group) ?? []);
       if (value > bestScore || (value === bestScore && c.id < (left[best]?.id ?? ''))) {
         best = i;
         bestScore = value;
@@ -184,7 +219,7 @@ export function selectUseful(
     have.set(chosen.group, (have.get(chosen.group) ?? 0) + chosen.endMs - chosen.startMs);
   }
   for (const c of left) {
-    if (covered(c.group) >= TARGET_MS && whyOf(c) === 'training') complete.add(c.group);
+    if (done(c.group) && whyOf(c) === 'training') complete.add(c.group);
   }
   return { picked, complete };
 }

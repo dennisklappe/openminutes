@@ -9,6 +9,10 @@
   gap: 20px;
 }
 
+.import-stack .record-speakers {
+  align-items: flex-start;
+}
+
 .import-drop {
   display: grid;
   justify-items: center;

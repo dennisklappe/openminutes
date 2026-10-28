@@ -35,6 +35,8 @@ export interface TalkRow {
   /** Colour slot, as in the transcript legend and the People card; null for the muted row. */
   slot: number | null;
   unassigned: boolean;
+  /** The participant to edit for this row, null when there is none (unassigned, unknown). */
+  participantId: string | null;
   ms: number;
   /** Whole percent; the rows add up to 100. */
   percent: number;
@@ -68,7 +70,7 @@ function percents(values: readonly number[]): number[] {
 export function talkTime(segments: readonly SegmentDto[]): TalkRow[] {
   const slots = speakerSlots(segments);
   const tiles = new Set(segments.flatMap((s) => (s.viaSpeaker ? [s.viaSpeaker] : [])));
-  const people = new Map<string, { name: string; ms: number }>();
+  const people = new Map<string, { name: string; ms: number; participantId: string | null }>();
   const unassigned = new Map<string, number>();
   for (const segment of segments) {
     const { speaker, startMs, endMs } = segment;
@@ -83,17 +85,19 @@ export function talkTime(segments: readonly SegmentDto[]): TalkRow[] {
       : segment.speakerId
         ? `id:${segment.speakerId}`
         : `name:${speaker}`;
-    const entry = people.get(key) ?? { name: speaker, ms: 0 };
+    const entry = people.get(key) ?? { name: speaker, ms: 0, participantId: null };
     entry.ms += ms;
+    entry.participantId ??= segment.speakerId;
     people.set(key, entry);
   }
   const total =
     [...people.values()].reduce((sum, row) => sum + row.ms, 0) +
     [...unassigned.values()].reduce((sum, ms) => sum + ms, 0);
   const rows: Omit<TalkRow, 'percent' | 'share'>[] = [
-    ...[...people].map(([key, { name, ms }]) => ({
+    ...[...people].map(([key, { name, ms, participantId }]) => ({
       key,
       name,
+      participantId,
       slot: slots.get(name) ?? null,
       unassigned: false,
       ms,
@@ -105,6 +109,7 @@ export function talkTime(segments: readonly SegmentDto[]): TalkRow[] {
         name: `Unassigned (${tile})`,
         slot: null,
         unassigned: true,
+        participantId: null,
         ms,
       })),
   ];
@@ -113,3 +118,23 @@ export function talkTime(segments: readonly SegmentDto[]): TalkRow[] {
   const whole = percents(rows.map((row) => row.ms));
   return rows.map((row, i) => ({ ...row, percent: whole[i] ?? 0, share: row.ms / shown }));
 }
+
+/** How many people have lines, once each; a shared tile counts through its voices. */
+export const countSpeakers = (segments: readonly SegmentDto[]): number =>
+  talkTime(segments).filter((row) => !row.unassigned).length;
+
+const plural = (count: number, one: string, many: string) => (count === 1 ? one : many);
+
+/** "9 speakers, requested 2": `requested` is the number fixed for a re-run, when there was one. */
+export function speakerCountLabel(
+  count: number,
+  requested: number | null,
+  noun: 'speakers' | 'people',
+): string {
+  const word =
+    noun === 'speakers' ? plural(count, 'speaker', 'speakers') : plural(count, 'person', 'people');
+  return `${String(count)} ${word}${requested === null ? '' : `, requested ${String(requested)}`}`;
+}
+
+export const speakerResultLine = (now: number, was: number): string =>
+  `Found ${String(now)} ${plural(now, 'speaker', 'speakers')} (was ${String(was)})`;

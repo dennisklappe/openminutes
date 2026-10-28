@@ -4,6 +4,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { SpeakerEditResultDto } from '../dto.js';
 import { rememberEnabled } from '../voices/load.js';
+import { MAX_SPEAKERS, MIN_SPEAKERS } from '../speakerCount.js';
+import { markProcessing, rerunOptions } from './rerun.js';
 import { loadSegments, loadSpeakerChoices } from './segments.js';
 import { markSpeakersChanged } from './speakers-notice.js';
 import { applySpeakerEdit, SpeakerEditError } from './speaker-edit.js';
@@ -16,6 +18,7 @@ interface SpeakerEditDeps {
 }
 
 const uuid = z.uuid();
+const rerunSpeakers = z.object({ speakers: z.int().min(MIN_SPEAKERS).max(MAX_SPEAKERS) });
 
 export function speakerEditRoutes(deps: SpeakerEditDeps): Hono {
   const routes = new Hono();
@@ -61,6 +64,35 @@ export function speakerEditRoutes(deps: SpeakerEditDeps): Hono {
       .set({ speakerCheckRequestedAt: new Date(), speakerCheckError: null })
       .where(eq(meetings.id, meeting.id));
     await deps.queue.send('meeting.review-speakers', { meetingId: meeting.id });
+    return c.json({ ok: true }, 202);
+  });
+
+  routes.post('/:id/rerun-speakers', async (c) => {
+    const meeting = await findMeeting(c.req.param('id'));
+    if (!meeting) return c.json({ error: 'Meeting not found' }, 404);
+    const body = rerunSpeakers.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: 'Invalid number of speakers' }, 400);
+    if (!(await rerunOptions(deps.db, deps.settings, meeting)).speakers) {
+      return c.json({ error: 'The speakers of this meeting cannot be found again' }, 409);
+    }
+    await markProcessing(deps.db, meeting.id, { processingStep: 'finding-voices' });
+    await deps.queue.send('meeting.rerun-speakers', {
+      meetingId: meeting.id,
+      speakers: body.data.speakers,
+    });
+    return c.json({ ok: true }, 202);
+  });
+
+  routes.post('/:id/rerun-voices', async (c) => {
+    const meeting = await findMeeting(c.req.param('id'));
+    if (!meeting) return c.json({ error: 'Meeting not found' }, 404);
+    const options = await rerunOptions(deps.db, deps.settings, meeting);
+    if (!options.available) return c.json({ error: 'This meeting cannot be re-run' }, 409);
+    if (!options.voiceCheckOn) {
+      return c.json({ error: 'Turn on Check lines against saved voices first' }, 409);
+    }
+    await markProcessing(deps.db, meeting.id, { processingStep: 'checking-voices' });
+    await deps.queue.send('meeting.check-voices', { meetingId: meeting.id });
     return c.json({ ok: true }, 202);
   });
 

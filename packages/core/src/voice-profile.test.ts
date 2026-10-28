@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { LANGUAGE_PENALTY } from './voice-language.js';
-import { buildPrototypes, MAX_PROTOTYPES, profileScore } from './voice-profile.js';
+import {
+  buildPrototypes,
+  buildProfile,
+  PROTOTYPE_CEILING,
+  profileScore,
+  pruneProfile,
+  PRUNE_AFTER_MS,
+} from './voice-profile.js';
 
 const angle = (degrees: number): number[] => [
   Math.cos((degrees * Math.PI) / 180),
@@ -21,9 +28,57 @@ describe('buildPrototypes', () => {
     expect(prototypes.map((p) => p.samples)).toEqual([2, 1]);
   });
 
-  it('never keeps more than five vectors', () => {
-    const many = [0, 72, 144, 216, 288, 36, 108, 180].map((degrees) => sample(degrees));
-    expect(buildPrototypes(many)).toHaveLength(MAX_PROTOTYPES);
+  it('has no fixed number of vectors: every different way of sounding gets its own', () => {
+    const many = [0, 60, 120, 180, 240, 300].map((degrees) => sample(degrees));
+    expect(buildPrototypes(many)).toHaveLength(6);
+  });
+
+  it('joins a sample to the closest vector at the merge similarity and not below it', () => {
+    const near = [sample(0), sample(50)];
+    expect(buildPrototypes(near, { mergeSimilarity: 0.6 })).toHaveLength(1);
+    expect(buildPrototypes(near, { mergeSimilarity: 0.7 })).toHaveLength(2);
+  });
+
+  it('joins the closest vector when several are close enough', () => {
+    const prototypes = buildPrototypes([sample(0), sample(80), sample(60)], {
+      mergeSimilarity: 0.5,
+    });
+    expect(prototypes.map((p) => p.samples)).toEqual([1, 2]);
+  });
+
+  it('keeps a safety ceiling by merging the two closest vectors', () => {
+    const angles = Array.from({ length: 12 }, (_, i) => i * 30 + (i % 2) * 2);
+    const built = buildPrototypes(
+      angles.map((a) => sample(a)),
+      {
+        mergeSimilarity: 0.99,
+        ceiling: 5,
+      },
+    );
+    expect(built).toHaveLength(5);
+    expect(built.reduce((sum, p) => sum + p.samples, 0)).toBe(12);
+    expect(PROTOTYPE_CEILING).toBe(30);
+  });
+
+  it('carries the usage counts over to the vector that comes out closest', () => {
+    const previous = [
+      {
+        vector: angle(0),
+        samples: 3,
+        language: 'und',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        lastMatchedAt: '2026-02-01T00:00:00.000Z',
+        matches: 4,
+        rejectedMatches: 1,
+      },
+    ];
+    const [kept, fresh] = buildPrototypes([sample(0), sample(5), sample(120)], { previous });
+    expect(kept).toMatchObject({
+      createdAt: previous[0]?.createdAt,
+      matches: 4,
+      rejectedMatches: 1,
+    });
+    expect(fresh?.createdAt).toBeUndefined();
   });
 
   it('weighs imported vectors by the samples they stand for', () => {
@@ -65,14 +120,13 @@ describe('voice profiles per language', () => {
   const dutch = (degrees: number, weight = 1) => ({ ...sample(degrees, weight), language: 'nl' });
   const english = (degrees: number, weight = 1) => ({ ...sample(degrees, weight), language: 'en' });
 
-  it('builds separate vectors for each language, up to five each', () => {
-    const many = [0, 72, 144, 216, 288, 36, 108, 180];
+  it('builds separate vectors for each language', () => {
     const prototypes = buildPrototypes([
-      ...many.map((d) => dutch(d)),
-      ...many.map((d) => english(d)),
+      ...[0, 90, 180].map((d) => dutch(d)),
+      ...[0, 90].map((d) => english(d)),
     ]);
-    expect(prototypes.filter((p) => p.language === 'nl')).toHaveLength(MAX_PROTOTYPES);
-    expect(prototypes.filter((p) => p.language === 'en')).toHaveLength(MAX_PROTOTYPES);
+    expect(prototypes.filter((p) => p.language === 'nl')).toHaveLength(3);
+    expect(prototypes.filter((p) => p.language === 'en')).toHaveLength(2);
   });
 
   it('does not mix a Dutch and an English sample of the same direction', () => {
@@ -108,5 +162,53 @@ describe('voice profiles per language', () => {
     const old = [{ vector: angle(0), samples: 3 }];
     expect(profileScore(angle(0), old, 'nl')).toBeCloseTo(1 - LANGUAGE_PENALTY);
     expect(profileScore(angle(0), old)).toBeCloseTo(1);
+  });
+});
+
+describe('pruneProfile', () => {
+  const now = new Date('2026-10-01T00:00:00.000Z');
+  const old = new Date(now.getTime() - PRUNE_AFTER_MS - 1000).toISOString();
+  const recent = new Date(now.getTime() - 1000).toISOString();
+  const previous = (extra: object, degrees: number) => ({
+    vector: angle(degrees),
+    samples: 1,
+    language: 'und',
+    createdAt: old,
+    ...extra,
+  });
+  const run = (prototypes: ReturnType<typeof previous>[]) =>
+    pruneProfile(
+      buildProfile(
+        prototypes.map((p, i) => sample(i * 90)),
+        { previous: prototypes },
+      ),
+      now,
+    );
+
+  it('drops a small vector that has not matched anything for a long time', () => {
+    const { prototypes, dropped } = run([previous({}, 0), previous({ lastMatchedAt: recent }, 90)]);
+    expect(prototypes).toHaveLength(1);
+    expect(dropped).toEqual([0]);
+  });
+
+  it('drops a small vector that only matched lines the owner turned down', () => {
+    const { prototypes } = run([
+      previous({ createdAt: recent, rejectedMatches: 2 }, 0),
+      previous({ createdAt: recent, matches: 1, rejectedMatches: 1 }, 90),
+    ]);
+    expect(prototypes).toHaveLength(1);
+  });
+
+  it('keeps a recent unmatched vector and a vector with more than two samples', () => {
+    const big = [sample(0), sample(2), sample(4)];
+    const built = buildProfile([...big, sample(90)], {
+      previous: [previous({}, 0), previous({ createdAt: recent }, 90)],
+    });
+    expect(pruneProfile(built, now).dropped).toEqual([]);
+  });
+
+  it('never prunes a vector without a creation time', () => {
+    const built = buildProfile([sample(0)]);
+    expect(pruneProfile(built, now).dropped).toEqual([]);
   });
 });

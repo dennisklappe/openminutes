@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { VoiceSnippetDto } from '../src/dto.js';
 import { formatDuration } from './format.js';
+import { useClip } from './useClip.js';
 
-const MAX_PLAY_MS = 5000;
-
-let playing: HTMLAudioElement | undefined;
+export const MAX_PLAY_MS = 5000;
 
 interface Props {
   audioUrl: string;
@@ -18,48 +17,12 @@ interface Props {
  */
 export function SnippetPlayer({ audioUrl, label, snippets }: Props) {
   const [index, setIndex] = useState(0);
-  const [active, setActive] = useState(false);
-  const audio = useRef<HTMLAudioElement>(null);
   const snippet = snippets[index];
-
-  const stop = () => {
-    audio.current?.pause();
-    setActive(false);
-  };
-
-  useEffect(() => stop, []);
+  const { active, loading, error, play, stop } = useClip(snippet, audioUrl, MAX_PLAY_MS);
 
   if (!snippet) return null;
   const keepFocus = (event: { preventDefault: () => void }) => {
     event.preventDefault();
-  };
-
-  const play = () => {
-    const element = audio.current;
-    if (!element) return;
-    if (playing && playing !== element) playing.pause();
-    playing = element;
-    const endsAt = Math.min(snippet.endMs, snippet.startMs + MAX_PLAY_MS) / 1000;
-    const start = () => {
-      element.currentTime = snippet.startMs / 1000;
-      element.play().then(
-        () => {
-          setActive(true);
-        },
-        () => {
-          setActive(false);
-        },
-      );
-    };
-    element.ontimeupdate = () => {
-      if (element.currentTime >= endsAt) stop();
-    };
-    element.onended = stop;
-    if (element.readyState >= 1) start();
-    else {
-      element.onloadedmetadata = start;
-      element.load();
-    }
   };
 
   const move = (step: number) => {
@@ -69,24 +32,24 @@ export function SnippetPlayer({ audioUrl, label, snippets }: Props) {
 
   return (
     <div className="snippet" aria-label={`Listen to ${label}`}>
-      <audio ref={audio} src={audioUrl} preload="none" />
       <button
         type="button"
         className="snippet-play"
         aria-pressed={active}
-        aria-label={active ? 'Stop' : 'Play a few seconds'}
+        aria-busy={loading}
+        aria-label={active || loading ? 'Stop' : 'Play a few seconds'}
         onMouseDown={keepFocus}
-        onClick={active ? stop : play}
+        onClick={active || loading ? stop : play}
       >
         <svg viewBox="0 0 16 16" aria-hidden="true">
-          {active ? (
+          {active || loading ? (
             <rect x="3" y="3" width="10" height="10" rx="1.5" />
           ) : (
             <path d="M3.5 1.8v12.4a.6.6 0 0 0 .9.5l10-6.2a.6.6 0 0 0 0-1L4.4 1.3a.6.6 0 0 0-.9.5z" />
           )}
         </svg>
         <span className="mono">{formatDuration(snippet.startMs)}</span>
-        <span className="truncate">{snippet.text}</span>
+        <span className="truncate">{loading ? 'Loading...' : snippet.text}</span>
       </button>
       {snippets.length > 1 && (
         <span className="snippet-nav">
@@ -115,6 +78,19 @@ export function SnippetPlayer({ audioUrl, label, snippets }: Props) {
           </button>
         </span>
       )}
+      {error && <ClipError message={error} onRetry={play} />}
     </div>
+  );
+}
+
+/** Says why a clip did not start and offers another try. */
+export function ClipError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <span className="snippet-error" role="alert">
+      {message}{' '}
+      <button type="button" className="link" onClick={onRetry}>
+        Retry
+      </button>
+    </span>
   );
 }

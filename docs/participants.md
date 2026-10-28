@@ -1,6 +1,6 @@
 # Participant names
 
-Calendar meetings show a **People** card with everyone who joined, when they joined and left, and how long they spoke. Use the pencil to rename someone, for example "Carla" instead of the Meet display name "Marketing Acme".
+Calendar meetings show a **People** card with everyone who joined, when they joined and left, and how long they spoke. Use the pencil (Edit) to rename someone, for example "Carla" instead of the Meet display name "Marketing Acme".
 
 ```mermaid
 flowchart LR
@@ -56,3 +56,13 @@ A shared account such as "Marketing Acme" renamed to "Carla" matches the invitee
 ## Privacy
 
 Calendar email addresses are never printed in shared or exported minutes: share pages, HTML, Markdown, Word, Google Docs and emails show names only. An invitee without a display name appears as the formatted local part of the address ("Carla Gonzalez" for `carla.gonzalez@...`). The People card in the app shows addresses to the owner.
+
+## Edit a speaker
+
+Every speaker row has an **Edit** button, in the People card and in the **Talk time** panel (so also for phone recordings and imports, which have no People card). The dialog shows:
+
+- **Name.** Renames the speaker in this meeting exactly like the rename above. When the name is someone who exists already, the dialog says so: saving joins the speaker with that person and keeps their addresses. Two voices of a recording that get one name are merged.
+- **Emails.** The addresses bound to the person behind the speaker. Add one, tap an invitee of this meeting (marked Invited), or remove one (asks first). An address another person has already is greyed out with their name, and saving it is refused. Removing an address takes it off the person in People too. If a typed address belongs to another person, the dialog says who and offers **Merge X into Y** (Y is the speaker's person and keeps the name) or **Keep separate**. Merging asks first, folds X in and saves again in one step; if the save still fails, nothing is merged.
+- **Open on People** jumps to the person.
+
+Save does the rename and the email changes in one request (`PUT /api/meetings/:id/participants/:participantId/identity`, owner only like the other routes). A speaker without a person gets one when it is saved with a real name; a generic "Speaker 2" cannot have emails. The voices of a shared account keep their own naming flow, so their name is fixed in this dialog and only the emails change. If the summary mentioned the old name, the app offers to regenerate it as after any rename.

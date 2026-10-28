@@ -40,6 +40,7 @@
 | Knows who spoke      | Transcript words are aligned to who was speaking, so segments carry names.                                    |
 | Transcribes anywhere | Local faster-whisper with no key, or OpenAI, Groq, Deepgram or AssemblyAI with yours.                         |
 | Summarises if asked  | Off by default. Any OpenAI-compatible endpoint (including Ollama) or Anthropic.                               |
+| Remembers people     | A People tab keeps names, emails and, only if you opt in, voice profiles that help suggest who spoke.         |
 | Sorts your minutes   | A Minutes tab sorts transcripts by date, company or person, or in your own folders.                           |
 | Shares minutes       | Email the minutes to attendees through Emailit, SMTP or Gmail. Never without a click.                         |
 | Records in person    | A phone recorder (installable web app) for conversations that are not on a call.                              |
@@ -202,6 +203,17 @@ OpenMinutes is early: v0.1.0 is the first release. Expect breaking changes befor
 - With the local transcriber and no summary provider, audio and text never leave your server.
 - Secrets are encrypted at rest with `OPENMINUTES_SECRET`.
 - The bot always announces itself by name. You are responsible for following the recording and consent laws that apply to your meetings, see [consent and legal notes](docs/consent-and-legal.md).
+
+## People and voice profiles
+
+- The People tab lists everyone you name or invite. Each person has a name, emails and notes. Doubles show a hint, and nothing is merged without you.
+- A voice profile is a set of numbers, not audio. It is kept per person and per language, because most people sound different in each.
+- Profiles only suggest or check who spoke. They never decide a name silently: you confirm or reject each line in the review queue.
+- A meeting room or two people on one account can be split into one person per voice. A person marked Do not track never gets a voice stored or suggested.
+- Both options are off by default and opt in: **Learn voices** and **Check lines against saved voices**, under Settings, Summaries, Voices.
+- Voice data stays in your own database and can be deleted per person or for everyone.
+
+Details in [Voices and speaker names](docs/voices.md). A voice can identify a person, see the [consent and legal notes](docs/consent-and-legal.md).
 
 ## Hosted option
 

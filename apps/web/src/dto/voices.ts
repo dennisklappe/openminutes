@@ -109,4 +109,57 @@ export interface VoiceSettingsDto {
   /** Check lines against the saved voices. */
   check: boolean;
   known: KnownVoiceDto[];
+  /** The numbers behind readiness, agreement and ways of sounding. */
+  tuning: VoiceTuningDto;
+  /** The defaults of `tuning`, for a Reset. */
+  tuningDefaults: VoiceTuningDto;
+}
+
+export interface VoiceTuningDto {
+  /** Seconds of clean speech that fill the Length bar. */
+  readySeconds: number;
+  /** Meetings that fill the Variety bar. */
+  readyMeetings: number;
+  /** Ways of sounding that fill the Variety bar. */
+  readyWays: number;
+  /** A line scoring at least this against a profile sounds like the person. */
+  agreeScore: number;
+  /** A sample joins the closest way of sounding at this similarity or more. */
+  mergeSimilarity: number;
+}
+
+export interface IdentityInviteeDto extends InviteeDto {
+  /** The person who has this address already, when it is not this one. */
+  takenBy: string | null;
+}
+
+/** Who a speaker of one meeting is: the name here and the addresses of the person behind it. */
+export interface SpeakerIdentityDto {
+  participantId: string;
+  personId: string | null;
+  name: string;
+  originalName: string | null;
+  /** The addresses bound to the person, [] when there is no person yet. */
+  emails: string[];
+  invitees: IdentityInviteeDto[];
+  /** The person a typed name would join, when it is someone else than this speaker. */
+  match: { personId: string | null; name: string } | null;
+  /** The voice of a shared account has its own naming flow, so the name is fixed here. */
+  nameLocked: boolean;
+}
+
+export interface SpeakerIdentityInput {
+  name: string;
+  /** Every address the person has, [] removes them all. */
+  emails: string[];
+  remember?: boolean;
+  /** Take an invitee from the person of the same shared account who has it. */
+  move?: boolean;
+  /** Fold this person into the speaker's person first, in the same transaction. */
+  mergeFrom?: string;
+}
+
+export interface SpeakerIdentityResultDto {
+  identity: SpeakerIdentityDto;
+  summaryUpdated: boolean;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ReviewLineDto } from '../src/dto.js';
+import type { ReviewLineDto, ReviewVoiceDto } from '../src/dto.js';
 import type { Decision } from './review.js';
 import {
   commit,
@@ -22,6 +22,12 @@ import {
   startReview,
   uncommit,
   undo,
+  undoable,
+  cardPerson,
+  cardStory,
+  coverageLabel,
+  isVoiceCard,
+  scoreLabel,
 } from './review.js';
 
 const line = (id: string, extra: Partial<ReviewLineDto> = {}): ReviewLineDto => ({
@@ -38,6 +44,7 @@ const line = (id: string, extra: Partial<ReviewLineDto> = {}): ReviewLineDto => 
   reason: 'uncertain',
   why: 'doubt',
   proposed: { id: 'p1', name: 'Anna' },
+  proposedScore: null,
   language: 'nl',
   languageName: 'Dutch',
   profileSeconds: 45,
@@ -101,18 +108,22 @@ describe('the review state', () => {
   });
 });
 
-describe('commit', () => {
-  const api = () => ({
-    verifyLine: vi.fn().mockResolvedValue({}),
-    rejectLine: vi.fn().mockResolvedValue({}),
-    moveLine: vi.fn().mockResolvedValue({}),
-    createPerson: vi.fn().mockResolvedValue({ person: { id: 'new' } }),
-    skipLine: vi.fn().mockResolvedValue({}),
-    undoReviewDecision: vi.fn().mockResolvedValue({}),
-    splitLine: vi.fn().mockResolvedValue({}),
-    markMixed: vi.fn().mockResolvedValue({}),
-  });
+const api = () => ({
+  verifyLine: vi.fn().mockResolvedValue({}),
+  rejectLine: vi.fn().mockResolvedValue({}),
+  moveLine: vi.fn().mockResolvedValue({}),
+  createPerson: vi.fn().mockResolvedValue({ person: { id: 'new' } }),
+  skipLine: vi.fn().mockResolvedValue({}),
+  undoReviewDecision: vi.fn().mockResolvedValue({}),
+  splitLine: vi.fn().mockResolvedValue({}),
+  markMixed: vi.fn().mockResolvedValue({}),
+  confirmVoice: vi.fn().mockResolvedValue({}),
+  moveVoice: vi.fn().mockResolvedValue({}),
+  skipVoice: vi.fn().mockResolvedValue({}),
+  reopenVoice: vi.fn().mockResolvedValue({}),
+});
 
+describe('commit', () => {
   it('verifies for the proposed person on approve', async () => {
     const a = api();
     await commit(a, { line: line('a'), decision: { kind: 'approve' } });
@@ -331,5 +342,148 @@ describe('splitting a line', () => {
       people: [],
     });
     expect(counts(state)).toMatchObject({ changed: 1, mixed: 1 });
+  });
+});
+
+const voice = (id: string, extra: Partial<ReviewVoiceDto> = {}): ReviewVoiceDto => ({
+  id,
+  meetingId: 'm1',
+  meetingTitle: 'Weekly',
+  meetingDate: '2026-10-01T10:00:00.000Z',
+  person: { id: 'p1', name: 'Jo Parker' },
+  voiceName: 'Jo Parker',
+  language: 'en',
+  languageName: 'English',
+  mismatch: 0.7,
+  lines: [{ id: 'x', startMs: 0, endMs: 3000, text: 'Hello there', hasAudio: true }],
+  status: 'open',
+  ...extra,
+});
+
+describe('voice cards', () => {
+  const start = () => startReview([voice('v1'), line('a')]);
+
+  it('tells a voice card from a line and names its person', () => {
+    expect(isVoiceCard(voice('v1'))).toBe(true);
+    expect(isVoiceCard(line('a'))).toBe(false);
+    expect(cardPerson(voice('v1')).name).toBe('Jo Parker');
+    expect(cardPerson(line('a')).name).toBe('Anna');
+  });
+
+  it('counts voice cards like lines and keeps a skipped one for another pass', () => {
+    let state = start();
+    expect(state.total).toBe(2);
+    state = decide(state, { kind: 'skip' });
+    expect(counts(state).skipped).toBe(1);
+    state = decide(state, { kind: 'approve' });
+    state = reviewSkipped(state);
+    expect(currentLine(state)?.id).toBe('v1');
+    expect(state.total).toBe(2);
+    state = decide(start(), { kind: 'confirm' });
+    expect(counts(state).approved).toBe(1);
+  });
+
+  it('opens a voice card by its own id, not a line with the same id', () => {
+    const state = startReview([line('a'), voice('a')]);
+    expect(isVoiceCard(focusLine(state, 'a', true)?.rest[0] ?? line('z'))).toBe(true);
+    expect(isVoiceCard(focusLine(state, 'a')?.rest[0] ?? voice('z'))).toBe(false);
+    expect(focusLine(startReview([line('a')]), 'a', true)).toBeUndefined();
+  });
+
+  it('sends confirm, move and skip to the voice endpoints', async () => {
+    const a = api();
+    await commit(a, { line: voice('v1'), decision: { kind: 'confirm' } });
+    expect(a.confirmVoice).toHaveBeenCalledWith('v1');
+    await commit(a, { line: voice('v1'), decision: { kind: 'move', personId: 'p2', name: 'Sam' } });
+    expect(a.moveVoice).toHaveBeenCalledWith('v1', 'p2');
+    await commit(a, { line: voice('v2'), decision: { kind: 'skip' } });
+    expect(a.skipVoice).toHaveBeenCalledWith('v2');
+    expect(a.skipLine).not.toHaveBeenCalled();
+    await expect(commit(a, { line: voice('v1'), decision: { kind: 'mixed' } })).rejects.toThrow();
+  });
+
+  it('reopens a skipped voice and cannot undo the other decisions', async () => {
+    const a = api();
+    await uncommit(a, { line: voice('v1'), decision: { kind: 'skip' } });
+    expect(a.reopenVoice).toHaveBeenCalledWith('v1');
+    expect(a.undoReviewDecision).not.toHaveBeenCalled();
+    expect(undoable({ line: voice('v1'), decision: { kind: 'skip' } })).toBe(true);
+    expect(undoable({ line: voice('v1'), decision: { kind: 'confirm' } })).toBe(false);
+    expect(undoable({ line: line('a'), decision: { kind: 'approve' } })).toBe(true);
+  });
+
+  it('says what happened and drops voices of an untracked person', () => {
+    expect(describeDecision({ line: voice('v1'), decision: { kind: 'confirm' } })).toBe(
+      'Confirmed: this voice is Jo Parker.',
+    );
+    const state = dropPerson(start(), 'p1');
+    expect(state.rest).toHaveLength(0);
+    expect(state.total).toBe(0);
+  });
+});
+
+describe('cardStory', () => {
+  const considered = (name: string, score: number) => ({ name, score });
+
+  it('puts the best scoring person first when the voice disagrees with the label', () => {
+    const story = cardStory(
+      line('a', {
+        proposed: { id: 'p1', name: 'Jo Parker' },
+        speakerConfidence: 0.47,
+        considered: [considered('Ann Lee', 0.49)],
+      }),
+    );
+    expect(story.voice.map(scoreLabel)).toEqual(['Ann Lee 49%', 'Jo Parker 47%']);
+    expect(story.source).toBe('the call');
+    expect(story.reason).toBe('Too close to call');
+    expect(story.splitHint).toBe(true);
+  });
+
+  it('says the voice disagrees when the other person is clearly ahead, without a split hint', () => {
+    const story = cardStory(
+      line('a', {
+        proposedScore: 0.2,
+        considered: [considered('Ann Lee', 0.7)],
+      }),
+    );
+    expect(story.reason).toBe('The voice disagrees with the label');
+    expect(story.splitHint).toBe(false);
+  });
+
+  it('keeps the label first when it scores best, and ties go to the label', () => {
+    const ahead = cardStory(
+      line('a', { proposedScore: 0.8, considered: [considered('Ann Lee', 0.3)] }),
+    );
+    expect(ahead.voice[0]?.labelled).toBe(true);
+    expect(ahead.splitHint).toBe(false);
+    const tie = cardStory(
+      line('a', { proposedScore: 0.5, considered: [considered('Ann Lee', 0.5)] }),
+    );
+    expect(tie.voice[0]?.labelled).toBe(true);
+    expect(tie.reason).toBe('Too close to call');
+  });
+
+  it('names the other reasons in plain words', () => {
+    expect(cardStory(line('a', { reason: 'mixed' })).reason).toBe('Probably two speakers');
+    expect(cardStory(line('a', { reason: 'voice', voiceScore: 0.2 })).reason).toMatch(
+      /^New environment/,
+    );
+    expect(cardStory(line('a', { reason: 'training', why: 'training' })).reason).toMatch(
+      /^Not enough voice yet/,
+    );
+    expect(cardStory(line('a', { reason: 'suggested' })).source).toBe('the speaker check');
+    expect(cardStory(line('a', { reason: 'uncertain' })).reason).toBe('Not sure who this is');
+  });
+
+  it('shows no voice row when nobody else was scored', () => {
+    expect(cardStory(line('a', { considered: [] })).voice).toEqual([]);
+  });
+});
+
+describe('coverageLabel', () => {
+  it('does not show a profile above its target as seconds of fewer seconds', () => {
+    const base = line('a', { profileSeconds: 155, profileTargetSeconds: 120 });
+    expect(coverageLabel(base)).toBe('Anna: enough voice, 155 s, Dutch');
+    expect(coverageLabel({ ...base, profileSeconds: 45 })).toBe('Anna: 45 s of 120 s, Dutch');
   });
 });

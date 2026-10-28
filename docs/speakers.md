@@ -90,10 +90,13 @@ flowchart TD
 ```
 
 - Audio never goes to a third party for speaker detection. The diarizer runs only with the local provider.
-- "How many people are talking?" on the Record screen takes Auto, 2, 3, 4 or 5+. Use a count only when certain: a count of 2 on a one voice recording invents a second speaker. On a finished recording use More, Re-process with 2 speakers (or other count).
+- "How many people are talking?" on the Record screen takes Auto, 2, 3, 4 or 5+. Use a count only when certain: a count of 2 on a one voice recording invents a second speaker. On a finished recording use Re-run, see [fixing the number of people](#fixing-the-number-of-people). Imports ask the same question before they start, see [import](import-fireflies.md).
 - Names are only ever suggested, never applied. A suggestion comes from voice memory (with learning on, up to 3 matches) or from names spoken in the call ("Thanks, Anna", text only). See [Voices](voices.md).
+- The **Talk time** panel and the People card have an **Edit** button per speaker for the name and the bound emails, see [Edit a speaker](participants.md#edit-a-speaker).
+- After transcription, a **Check the people** card on the meeting says how many people were found and who they probably are, from voice memory, the calendar and earlier meetings. Nothing is applied until you confirm. See [Check the people](voices.md#check-the-people).
 - A phone recording gets a short title (6 words at most) from its summary. Calendar and link meetings are never retitled.
-- Re-processing rebuilds speakers, keeps corrected lines and matches new voices to names you gave before.
+- Re-transcribing rebuilds speakers, keeps corrected lines and matches new voices to names you gave before.
+- Meet and Teams calls are not diarized: the speaking indicator decides, so the number of people does not apply to them.
 
 <details>
 <summary>Models and accuracy</summary>
@@ -121,6 +124,24 @@ The share was already under 5% and the change lowers it by about a tenth. What i
 
 </details>
 
+## Fixing the number of people
+
+Diarization sometimes splits one person in several voices (a two person call that shows nine speakers). Tell it how many people speak and it finds exactly that many voices.
+
+Every transcribed meeting has a **Re-run** menu on its page, owner only. Each action asks for confirmation and says what is kept and what changes. The meeting shows its progress while it runs, and it never starts a summary by itself.
+
+| Action                                  | What it does                                                                                                                                                                                                                                                           | Kept                                                                 |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Re-transcribe                           | Transcribes the recording again with a language (Auto or chosen) and a number of people (Auto or 2 to 5), then the full chain: speakers, voice check, name suggestions, speaker review, and a new summary version                                                      | Lines you set by hand, names of voices where the voice still matches |
+| Re-run voice recognition                | Compares every line with the saved voices again, then name suggestions and the speaker review. No transcription, no diarization. Needs "Check lines against saved voices" to be on and says so when it is off                                                          | Text, speakers, lines you set by hand                                |
+| Re-run speakers with a number of people | Finds the voices again with exactly that many people (phone recordings and imports), moves the lines to them, then runs the voice check, name suggestions and the speaker review as jobs (`meeting.rerun-speakers`, `meeting.check-voices`, `meeting.review-speakers`) | Text, lines you set by hand, named voices                            |
+
+Re-running speakers relabels the lines by overlap with the new voices. A line you set (`speakerSource: 'user'`) keeps its speaker: when that speaker was named the line follows the voice with that name, and a speaker only such lines still use is not removed. A count of 2 on a one voice recording invents a second speaker, so use it only when sure. If the voices cannot be found, nothing changes and the meeting shows why.
+
+The side of the meeting page opens with the number of speakers ("9 speakers", plus "requested 2" when a count was fixed) and a **Change** button that opens the same dialog. While any re-run is processing, the speaker list and talk time are replaced by the running step ("Finding the voices again", "Moving the lines", "Checking the voices"), so old speakers are never shown as final. The step stays until the voice check has finished, and "Checking voices..." shows while the speaker review runs. When a speaker re-run or re-transcription is done, a line such as "Found 2 speakers (was 9)" appears and can be dismissed.
+
+Re-transcribing and the two other actions mark the speakers as changed, so a meeting with a summary shows the notice described under [limits](#limits). Nothing is regenerated by itself.
+
 ## Limits
 
 > [!WARNING]
@@ -131,4 +152,4 @@ The share was already under 5% and the change lowers it by about a tenth. What i
 - A one-word reply over before its tile lights up can go to the previous speaker. Overlapping speech is only partly recoverable.
 - Selectors live in `packages/platforms/src/meet-dom.ts`.
 
-When you change who said a line after a summary was written, the meeting shows a quiet notice above the summary: speakers changed since it was written. **Regenerate summary** makes a new version with your own API key and keeps the old one in History, **Dismiss** hides the notice until the next change. Nothing is regenerated by itself. Changes made by the AI review or by reprocessing do not show it. Turning down a suggestion on a line counts as a change, because a pending suggestion makes the summary treat that line as a guess (see [summaries](summaries.md#uncertain-speakers)).
+When you change who said a line after a summary was written, the meeting shows a quiet notice above the summary: speakers changed since it was written. **Regenerate summary** makes a new version with your own API key and keeps the old one in History, **Dismiss** hides the notice until the next change. Nothing is regenerated by itself. Changes made by the AI review do not show it. Re-running speakers, voice recognition or the transcription does. Turning down a suggestion on a line counts as a change, because a pending suggestion makes the summary treat that line as a guess (see [summaries](summaries.md#uncertain-speakers)).

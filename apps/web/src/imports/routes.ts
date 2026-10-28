@@ -19,6 +19,7 @@ import { Readable } from 'node:stream';
 import type { ReadableStream as WebStream } from 'node:stream/web';
 import { z } from 'zod';
 import type { ImportFinishInput, ImportStartInput } from '../dto.js';
+import { MAX_SPEAKERS, MIN_SPEAKERS } from '../speakerCount.js';
 import { loadImportConfig, MAX_IMPORT_FILES } from './config.js';
 import { externalId, loadPreview } from './preview.js';
 import { startImport } from './start.js';
@@ -40,6 +41,7 @@ const finish = z.object({
 }) satisfies z.ZodType<ImportFinishInput>;
 const start = z.object({
   keys: z.array(z.string().min(1).max(64)).min(1).max(MAX_IMPORT_FILES),
+  speakers: z.int().min(MIN_SPEAKERS).max(MAX_SPEAKERS).optional(),
 }) satisfies z.ZodType<ImportStartInput>;
 const CHUNK_TYPE = /^application\/octet-stream(;.*)?$/i;
 const RUNNING = ['ended', 'processing'] as const;

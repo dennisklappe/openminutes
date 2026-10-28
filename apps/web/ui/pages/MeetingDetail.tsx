@@ -1,13 +1,18 @@
 import { useCallback, useRef, useState } from 'react';
 import { api, errorMessage, meetingUrl, type ReprocessOptions } from '../api.js';
+import { CheckPeople } from '../CheckPeople.js';
 import { CalendarLinkPanel } from '../CalendarLinkPanel.js';
 import { JoinChoice } from '../JoinChoice.js';
 import { formatDate, formatDuration, platformLabels, progressLabel } from '../format.js';
 import { languageName } from '../languages.js';
-import { RerunDialog } from '../RerunDialog.js';
+import { RerunDialog, type RerunChoice } from '../RerunDialog.js';
+import { rerunItems, type RerunKind } from '../rerun.js';
+import { Menu } from '../Menu.js';
 import { ChevronIcon, ClockIcon, ExternalIcon, PlatformIcon } from '../icons.js';
 import { Panel } from '../Panel.js';
-import { talkTime } from '../speakers.js';
+import { countSpeakers, speakerCountLabel, speakerResultLine } from '../speakers.js';
+import { SpeakerHeader, SpeakerResult, SpeakersRunning } from '../SpeakerOverview.js';
+import { useSpeakerResult } from '../useSpeakerResult.js';
 import { MinutesPanel } from '../MinutesPanel.js';
 import { StatusBadge } from '../StatusBadge.js';
 import { SummaryPanel } from '../SummaryPanel.js';
@@ -15,6 +20,7 @@ import { MeetingCompany } from '../MeetingCompany.js';
 import { MeetingTitle } from '../MeetingTitle.js';
 import { RoomNotice } from '../RoomNotice.js';
 import { PeopleCard } from '../participants/PeopleCard.js';
+import { TalkTime } from '../participants/TalkTime.js';
 import { TranscriptPlayer, type PlayerHandle } from '../TranscriptPlayer.js';
 import { WhoIsWho } from '../WhoIsWho.js';
 import { useBulk } from '../useBulk.js';
@@ -29,11 +35,14 @@ export function MeetingDetail({ id }: { id: string }) {
   const [actionError, setActionError] = useState<string>();
   const [showChat, setShowChat] = useShowChat();
   const [chosenTab, setChosenTab] = useState<'transcript' | 'summary'>();
-  const [rerun, setRerun] = useState(false);
+  const [rerunKind, setRerunKind] = useState<RerunKind>();
+  const [checking, setChecking] = useState(false);
   const player = useRef<PlayerHandle>(null);
   const bulk = useBulk(() => {
     refresh();
   });
+  const speakerTotal = data ? countSpeakers(data.segments) : 0;
+  const speakerResult = useSpeakerResult(data?.meeting.status, speakerTotal);
 
   if (error && !data) return <p className="error">{error.message}</p>;
   if (!data) return null;
@@ -50,6 +59,7 @@ export function MeetingDetail({ id }: { id: string }) {
     speakerCheck,
     chat,
     canTranscribe,
+    rerun,
     series,
     canSkip,
     canRejoin,
@@ -70,6 +80,22 @@ export function MeetingDetail({ id }: { id: string }) {
         setActionError(errorMessage(failure));
       },
     );
+  };
+
+  const runChoice = (kind: RerunKind, choice: RerunChoice) => {
+    setRerunKind(undefined);
+    if (kind !== 'voices') speakerResult.track();
+    if (kind === 'transcribe') {
+      const askSpeakers = meeting.platform === 'recording' || meeting.platform === 'imported';
+      reprocess({
+        ...(choice.language && { language: choice.language }),
+        ...(askSpeakers && { speakers: choice.speakers ?? null }),
+      });
+    } else if (kind === 'speakers' && choice.speakers !== undefined) {
+      change(() => api.rerunSpeakers(id, choice.speakers ?? 0));
+    } else if (kind === 'voices') {
+      change(() => api.rerunVoices(id));
+    }
   };
 
   const cancel = () => {
@@ -100,34 +126,65 @@ export function MeetingDetail({ id }: { id: string }) {
     hasAudio: Boolean(audio),
   });
   const more = moreItems({
-    canTranscribe,
     canDelete,
     archived: Boolean(meeting.archivedAt),
     hasTranscript: segments.length > 0,
-    speakerCount: meeting.speakerCount,
-    isRecording: meeting.platform === 'recording',
-    reprocess,
     reviewHref: `#/meetings/${id}/review`,
-    chooseLanguage: () => {
-      setRerun(true);
-    },
     toggleArchive: () => void bulk.run(meeting.archivedAt ? 'unarchive' : 'archive', item),
     remove: () => void remove(),
   });
 
+  const rerunMenu = rerunItems(
+    { canTranscribe, hasTranscript: segments.length > 0, rerun },
+    setRerunKind,
+  );
+  const processing = meeting.status === 'processing';
+  const recorded = meeting.platform === 'recording' || meeting.platform === 'imported';
+  const speakersHeader = (
+    <SpeakerHeader
+      label={speakerCountLabel(
+        speakerTotal,
+        recorded ? meeting.speakerCount : null,
+        recorded ? 'speakers' : 'people',
+      )}
+      checking={speakerCheck.running}
+      onChange={
+        rerun.speakers
+          ? () => {
+              setRerunKind('speakers');
+            }
+          : undefined
+      }
+    />
+  );
+  const showLine = (segmentId: string) => {
+    setChosenTab('transcript');
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`.transcript [data-segment-id="${segmentId}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  };
   const tab = chosenTab ?? (summaries.length > 0 ? 'summary' : 'transcript');
   const headline = meeting.startedAt ?? meeting.createdAt;
   return (
     <>
-      {rerun && (
+      {rerunKind && (
         <RerunDialog
+          kind={rerunKind}
           detected={meeting.language}
-          onRun={(language) => {
-            setRerun(false);
-            reprocess(language ? { language } : undefined);
+          speakerCount={meeting.speakerCount}
+          askSpeakers={
+            rerunKind === 'speakers' ||
+            (rerunKind === 'transcribe' &&
+              (meeting.platform === 'recording' || meeting.platform === 'imported'))
+          }
+          voiceCheckOn={rerun.voiceCheckOn}
+          onRun={(choice) => {
+            runChoice(rerunKind, choice);
           }}
           onClose={() => {
-            setRerun(false);
+            setRerunKind(undefined);
           }}
         />
       )}
@@ -167,6 +224,11 @@ export function MeetingDetail({ id }: { id: string }) {
               )}
             </p>
           </div>
+          {rerunMenu.length > 0 && !processing && (
+            <div className="actions">
+              <Menu trigger="Re-run" label="Re-run" items={rerunMenu} />
+            </div>
+          )}
           {(meeting.status === 'transcribed' || company.name) && (
             <MeetingCompany meetingId={id} company={company} onChanged={refresh} />
           )}
@@ -224,7 +286,36 @@ export function MeetingDetail({ id }: { id: string }) {
           {(actionError ?? bulk.error) && (
             <p className="banner banner-error">{actionError ?? bulk.error}</p>
           )}
-          {audio && segments.length > 0 && (
+          {speakerResult.result && !processing && (
+            <SpeakerResult
+              line={speakerResultLine(speakerResult.result.now, speakerResult.result.was)}
+              onDismiss={speakerResult.dismiss}
+            />
+          )}
+          {segments.length > 0 && !processing && (
+            <CheckPeople
+              meetingId={id}
+              transcriptSize={segments.length}
+              countItems={
+                canTranscribe &&
+                (meeting.platform === 'recording' || meeting.platform === 'imported')
+                  ? [
+                      {
+                        label: 'Change number of people...',
+                        onSelect: () => {
+                          setRerunKind('speakers');
+                        },
+                      },
+                    ]
+                  : []
+              }
+              onChanged={refresh}
+              onShown={setChecking}
+              audioUrl={audio ? meetingUrl(id, 'audio') : undefined}
+              onShowLine={showLine}
+            />
+          )}
+          {audio && segments.length > 0 && !checking && !processing && (
             <WhoIsWho
               meetingId={id}
               transcriptSize={segments.length}
@@ -290,7 +381,7 @@ export function MeetingDetail({ id }: { id: string }) {
             meeting.status !== 'processing' && (
               <p className="empty">
                 {meeting.status === 'transcribed'
-                  ? 'No speech was detected in this recording. Pick the language from the menu and re-run it.'
+                  ? 'No speech was detected in this recording. Pick the language from the Re-run menu and transcribe it again.'
                   : 'No transcript yet.'}
               </p>
             )}
@@ -362,7 +453,9 @@ export function MeetingDetail({ id }: { id: string }) {
               )}
             </dl>
           </Panel>
-          {meeting.platform !== 'recording' && (
+          {processing && <SpeakersRunning progress={meeting.progress} />}
+          {!processing && segments.length > 0 && speakersHeader}
+          {!processing && meeting.platform !== 'recording' && (
             <PeopleCard
               meetingId={id}
               transcriptSize={segments.length}
@@ -372,22 +465,16 @@ export function MeetingDetail({ id }: { id: string }) {
               onChanged={refresh}
             />
           )}
-          {segments.length > 0 && (
-            <Panel title="Talk time">
-              <ul className="talk">
-                {talkTime(segments).map(({ key, name, slot, unassigned, percent, share }) => (
-                  <li
-                    key={key}
-                    className={unassigned ? 'talk-unassigned' : undefined}
-                    data-speaker-slot={slot ?? undefined}
-                  >
-                    <span>{name}</span>
-                    <span className="mono muted">{percent}%</span>
-                    <i style={{ width: `${share * 100}%` }} />
-                  </li>
-                ))}
-              </ul>
-            </Panel>
+          {segments.length > 0 && !processing && (
+            <TalkTime
+              meetingId={id}
+              segments={segments}
+              hasSummary={summaries.length > 0}
+              onChanged={() => {
+                setPeopleKey((key) => key + 1);
+                refresh();
+              }}
+            />
           )}
           {(segments.length > 0 || summaries.length > 0 || audio || more.length > 0) && (
             <MinutesPanel

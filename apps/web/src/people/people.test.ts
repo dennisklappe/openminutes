@@ -5,6 +5,7 @@ import { createProviders } from '@openminutes/calendar';
 import {
   addVoiceSamples,
   LocalStorage,
+  rebuildProfile,
   SettingsStore,
   type JobName,
   type JobPayloads,
@@ -36,9 +37,21 @@ describe('people', () => {
   let cookie = '';
   const sent: { name: JobName; payload: JobPayloads[JobName] }[] = [];
 
+  /** Inserts voice samples straight into the table and builds the profile from them. */
+  async function seed(values: (typeof voiceSamples.$inferInsert)[]) {
+    await test.db.insert(voiceSamples).values(values);
+    for (const personId of new Set(values.map((v) => v.personId))) {
+      await rebuildProfile(test.db, personId);
+    }
+  }
+
   beforeAll(async () => {
     test = await createTestDatabase();
     settings = new SettingsStore(test.db, secret);
+    // The queue tests are written for a profile that is ready at 90 s from 1 meeting and 1 way.
+    await settings.set('voices.ready_seconds', '90');
+    await settings.set('voices.ready_meetings', '1');
+    await settings.set('voices.ready_ways', '1');
     app = createApp({
       db: test.db,
       settings,
@@ -466,6 +479,7 @@ describe('people', () => {
         speakerConfidence: 0.2,
         reason: 'uncertain',
         proposed: { id: person.id, name: person.name },
+        proposedScore: 0.6,
         considered: [{ name: 'Speaker 2', score: 0.4 }],
       });
       expect(Date.parse(body.lines[0]?.meetingDate ?? '')).not.toBeNaN();
@@ -678,12 +692,14 @@ describe('people', () => {
 
     it('stops asking for training at 90 seconds, shows who is good enough, keeps doubtful lines', async () => {
       const { person, mine } = await lines([{ rival: 0.8 }, { sure: true }, { sure: true }]);
-      await test.db.insert(voiceSamples).values({
-        personId: person.id,
-        kind: 'imported',
-        embedding: [1, 0],
-        durationMs: 90_000,
-      });
+      await seed([
+        {
+          personId: person.id,
+          kind: 'imported',
+          embedding: [1, 0],
+          durationMs: 90_000,
+        },
+      ]);
       const body = await queue(`?personId=${person.id}`);
       expect(ids(body)).toEqual([mine[0]?.id]);
       expect(body.lines[0]).toMatchObject({ profileSeconds: 90, profileTargetSeconds: 90 });
@@ -692,12 +708,14 @@ describe('people', () => {
 
     it('shows how far the profile is', async () => {
       const { person } = await lines([{ sure: true }]);
-      await test.db.insert(voiceSamples).values({
-        personId: person.id,
-        kind: 'imported',
-        embedding: [1, 0],
-        durationMs: 45_000,
-      });
+      await seed([
+        {
+          personId: person.id,
+          kind: 'imported',
+          embedding: [1, 0],
+          durationMs: 45_000,
+        },
+      ]);
       const body = await queue(`?personId=${person.id}`);
       expect(body.lines[0]).toMatchObject({
         profileSeconds: 45,
@@ -749,12 +767,14 @@ describe('people', () => {
           ...Array.from({ length: 3 }, () => ({ ms: 5000 })),
           ...Array.from({ length: 30 }, () => ({ ms: 5000, sure: true })),
         ]);
-        await test.db.insert(voiceSamples).values({
-          personId: person.id,
-          kind: 'imported',
-          embedding: [1, 0],
-          durationMs: 120_000,
-        });
+        await seed([
+          {
+            personId: person.id,
+            kind: 'imported',
+            embedding: [1, 0],
+            durationMs: 120_000,
+          },
+        ]);
         expect(await counts(person.id, person.name)).toEqual({ column: 3, header: 3, queue: 3 });
       });
 
@@ -825,13 +845,15 @@ describe('people', () => {
 
     it('counts coverage per language: a finished Dutch profile does not stop English training', async () => {
       const { person, dutch, english } = await bilingual();
-      await test.db.insert(voiceSamples).values({
-        personId: person.id,
-        kind: 'imported',
-        embedding: [1, 0],
-        durationMs: 90_000,
-        language: 'nl',
-      });
+      await seed([
+        {
+          personId: person.id,
+          kind: 'imported',
+          embedding: [1, 0],
+          durationMs: 90_000,
+          language: 'nl',
+        },
+      ]);
       const body = await queue(`?personId=${person.id}`);
       const ids = body.lines.map((l) => l.id);
       expect(ids).toContain(english.a.id);
@@ -972,7 +994,7 @@ describe('people', () => {
       const [card] = ((await removed.json()) as PersonDetailDto).profiles;
       expect(card).toMatchObject({ seconds: 40, autoSamples: 0, autoSeconds: 0 });
       const [row] = await test.db.select().from(people).where(eq(people.id, person.id));
-      expect(row?.voicePrototypes).toEqual([{ vector: [1, 0], samples: 1, language: 'nl' }]);
+      expect(row?.voicePrototypes).toMatchObject([{ vector: [1, 0], samples: 1, language: 'nl' }]);
       expect((await call('DELETE', `/people/${missing}/voice/nl/auto`)).status).toBe(404);
     });
 

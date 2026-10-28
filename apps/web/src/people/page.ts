@@ -1,8 +1,9 @@
-import { inArray, people, sql } from '@openminutes/db';
+import { loadVoiceTuning } from '@openminutes/core';
+import { and, eq, inArray, participants, people, sql } from '@openminutes/db';
 import type { PeopleDto, PeopleQuery } from '../dto.js';
 import { checkEnabled, rememberEnabled } from '../voices/load.js';
 import { loadDuplicates, loadSharedLabels, toDto, type PeopleDeps } from './load.js';
-import { loadProfileRows } from './profiles.js';
+import { loadProfileRows, loadStandings } from './profiles.js';
 import { loadReviewCounts } from './review.js';
 import { SESSION_CAP } from './useful.js';
 import { loadMeetingStats, seenStats } from './stats.js';
@@ -24,12 +25,14 @@ export async function loadPeoplePage(
   const pageSize = Math.min(Math.max(query.pageSize ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
   const page = Math.max(query.page ?? 1, 1);
   const needle = query.q?.trim() ?? '';
+  // Someone who spoke in a meeting is joined, whatever the person was first made from.
+  const onlyInvited = sql`(p.source = 'invited' and not exists (select 1 from participants x where x.person_id = p.id and not x.is_bot))`;
   const filters = [
     needle === ''
       ? undefined
       : sql`(p.name ilike ${likePattern(needle)} or p.emails::text ilike ${likePattern(needle)} or coalesce(p.notes, '') ilike ${likePattern(needle)})`,
-    query.source === 'joined' ? sql`p.source <> 'invited'` : undefined,
-    query.source === 'invited' ? sql`p.source = 'invited'` : undefined,
+    query.source === 'joined' ? sql`not (${onlyInvited})` : undefined,
+    query.source === 'invited' ? onlyInvited : undefined,
     query.source === 'unnamed' ? sql`p.unnamed` : undefined,
     query.tracking === 'untracked' ? sql`p.tracking = 'off'` : undefined,
     query.tracking === 'all' || query.tracking === 'untracked' ? undefined : sql`p.tracking = 'on'`,
@@ -59,18 +62,35 @@ export async function loadPeoplePage(
   }
 
   const { rows: invited } = await db.execute<{ n: number }>(
-    sql`select count(*)::int as n from people where source = 'invited' and tracking = 'on'`,
+    sql`select count(*)::int as n from people p where ${onlyInvited} and p.tracking = 'on'`,
   );
   const review = await loadReviewCounts(deps);
   const ids = found.map((row) => row.id);
-  const [rows, samples, seen, dupes, shared] = await Promise.all([
+  const tuning = await loadVoiceTuning(db);
+  const [rows, samples, seen, dupes, shared, standings] = await Promise.all([
     ids.length === 0 ? [] : db.select().from(people).where(inArray(people.id, ids)),
     loadProfileRows(db, ids),
     loadMeetingStats(db, ids),
     loadDuplicates(db),
     loadSharedLabels(db),
+    loadStandings(db, tuning, ids),
   ]);
-  const byId = new Map(rows.map((row) => [row.id, row]));
+  const spoke = new Set(
+    ids.length === 0
+      ? []
+      : (
+          await db
+            .selectDistinct({ id: participants.personId })
+            .from(participants)
+            .where(and(inArray(participants.personId, ids), eq(participants.isBot, false)))
+        ).map((row) => row.id),
+  );
+  const byId = new Map(
+    rows.map((row) => [
+      row.id,
+      row.source === 'invited' && spoke.has(row.id) ? { ...row, source: 'joined' as const } : row,
+    ]),
+  );
   return {
     people: ids.flatMap((id) => {
       const person = byId.get(id);
@@ -83,6 +103,7 @@ export async function loadPeoplePage(
               review.byPerson,
               dupes,
               shared,
+              { standings, tuning },
             ),
           ]
         : [];

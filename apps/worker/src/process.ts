@@ -36,6 +36,7 @@ import { reviewTranscript } from './speaker-review/transcript-review.js';
 import { checkVoices } from './speaker-review/voice-check.js';
 import type { TrimAudio } from './trim-audio.js';
 import { autoLearn } from './auto-learn.js';
+import { createVoiceReviews } from './voice-reviews.js';
 import type { EmbeddedLine, ScoredLine } from './speaker-review/voice-check.js';
 import { saveRoomVoices } from './room-voices.js';
 import { saveTranscript, toTranscriptRows, type TranscriptRow } from './transcript-store.js';
@@ -271,20 +272,27 @@ export async function processMeeting(
         range,
         staleIds,
       );
+      // A diarized import of two speakers is only scored, for learning by 1:1 elimination.
+      const pairImport = labels !== undefined && meeting.speakerCount === 2;
       checked =
-        labels || !deps.recording
+        (labels && !pairImport) || !deps.recording
           ? corrected
           : await checkVoices(
               {
                 db: deps.db,
                 createDiarizer: deps.recording.createDiarizer,
-                enabled: deps.recording.voicesChecked,
+                enabled: pairImport
+                  ? deps.recording.voicesRemembered
+                  : deps.recording.voicesChecked,
+                scoreOnly: pairImport,
                 onScored: (lines) => {
                   scored.push(...lines);
                 },
-                onEmbedded: (lines) => {
-                  embedded.push(...lines);
-                },
+                ...(!pairImport && {
+                  onEmbedded: (lines: EmbeddedLine[]) => {
+                    embedded.push(...lines);
+                  },
+                }),
               },
               meetingId,
               corrected,
@@ -317,6 +325,7 @@ export async function processMeeting(
           }
         : undefined,
     );
+    await createVoiceReviews(deps.db, meetingId, scored);
     await archive(deps.db, storage, meetingId);
     if (segments.length > 0) await startSummary(deps, meetingId);
   } catch (error) {

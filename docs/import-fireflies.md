@@ -28,7 +28,8 @@ Fireflies describes the process in its [export guide](https://guide.fireflies.ai
 2. Pick the `.tar.gz` or `.zip`. It uploads in 8 MiB pieces, so it also works behind Cloudflare's 100 MB request limit.
 3. Check the preview: title, date, length, attendees, whether a recording exists. Meetings you already imported are skipped. They are matched by the Fireflies id, so importing the same export twice never duplicates a meeting.
 4. Tick the meetings. Meetings without a recording are listed as not importable.
-5. Start. The worker imports one meeting at a time and the page shows progress. One failing meeting never stops the others, Retry failed runs them again.
+5. Answer "How many people speak?". Auto is the default: the voices are counted from the audio. Pick 2 to 5 when you know the number, for example when a two person call came out as nine speakers. The answer applies to every meeting you start in this go, is stored on the meeting and is used when it is transcribed. You can change it later, see [speakers](speakers.md#fixing-the-number-of-people).
+6. Start. The worker imports one meeting at a time and the page shows progress. One failing meeting never stops the others, Retry failed runs them again, with the number you chose.
 
 ## What is imported
 

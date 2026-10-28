@@ -84,6 +84,8 @@ Calendar sync (or a pasted link) starts the bot a minute before the meeting. Aft
 ### Reference
 
 - [Consent and privacy](consent-and-legal.md): What to think about before a bot records your meetings. General information, not legal advice.
+- [API](api.md): Create an API key and let other services read transcripts and summaries and change meetings, people and settings.
+- [API endpoint reference](api-reference.md): Every API method and path, generated from the routes, with the key access each one needs.
 - [Phone recorder API](phone-recorder-api.md): The upload endpoints behind the phone recorder: what the phone sends and what the server answers.
 - [Architecture](design.md): How the pieces of OpenMinutes fit together, what version 1 covers and leaves out, and why it was built this way.
 - [Roadmap and status](roadmap.md): Where OpenMinutes stands today and what comes next.

@@ -33,6 +33,17 @@ export interface PersonDto {
   sharedAccount: string | null;
 }
 
+/** The readiness bars of one voice profile. All shares run from 0 to 1. */
+export interface ReadinessDto {
+  /** Clean speech against the target seconds. */
+  length: number;
+  /** The weaker of meetings and ways of sounding against their targets. */
+  variety: number;
+  meetings: { have: number; target: number };
+  ways: { have: number; target: number };
+  ready: boolean;
+}
+
 /** How far one voice profile, a person in one language, is. */
 export interface LanguageCoverageDto {
   /** Two letter code, 'und' when the language is not known. */
@@ -47,8 +58,10 @@ export interface LanguageCoverageDto {
   autoSeconds: number;
   /** Verified seconds plus the part of the auto seconds that counts, what the target is held against. */
   effectiveSeconds: number;
-  /** The seconds after which the profile is good enough. */
+  /** The seconds that fill the Length bar (the Voices setting). */
   targetSeconds: number;
+  /** The two bars of the profile. Ready means 100% on both. */
+  readiness: ReadinessDto;
   /** Where the auto samples come from, to remove them per meeting. */
   autoMeetings: { meetingId: string; title: string; seconds: number }[];
 }
@@ -155,6 +168,20 @@ export interface PersonUpdateInput {
   name?: string;
   emails?: string[];
   notes?: string | null;
+  /** Fold this person into the one being saved first, in the same transaction. */
+  mergeFrom?: string;
+}
+
+/** The 409 body when an address already belongs to another person. */
+export interface EmailConflictDto {
+  email: string;
+  /** The person who has the address. */
+  personId: string;
+  name: string;
+  unnamed: boolean;
+  source: 'manual' | 'joined' | 'invited';
+  /** The person being saved, who would keep their name in a merge. Null when there is none yet. */
+  into: { id: string; name: string } | null;
 }
 
 export interface PersonMergeInput {
@@ -198,8 +225,10 @@ export interface ReviewLineDto {
   reason: PersonLineReason;
   /** doubt: not sure who this is. training: sure, but the voice profile still needs samples. */
   why: 'doubt' | 'training';
-  /** The person the system thinks said it. */
+  /** The person the line is labelled as, and who Approve confirms. */
   proposed: PersonChoiceDto;
+  /** How well the labelled person scored among the candidates for this line, 0 to 1. */
+  proposedScore: number | null;
   /** The language of this line. */
   language: string;
   languageName: string;
@@ -220,7 +249,41 @@ export interface ReviewScopeDto {
   meeting?: { id: string; title: string };
 }
 
+/** A line to play on a voice card. */
+export interface ReviewVoiceLineDto {
+  id: string;
+  startMs: number;
+  endMs: number;
+  text: string;
+  hasAudio: boolean;
+}
+
+/**
+ * The environment card: the voice labelled as a person in one meeting does not match their
+ * profile for most of the meeting. Is it them, or someone else on that account?
+ */
+export interface ReviewVoiceDto {
+  id: string;
+  meetingId: string;
+  meetingTitle: string;
+  meetingDate: string;
+  /** The person the voice is labelled as. */
+  person: PersonChoiceDto;
+  /** The label in the meeting, such as the name of the account. */
+  voiceName: string;
+  language: string;
+  languageName: string;
+  /** The share of the voice's speech that did not match, 0 to 1. */
+  mismatch: number;
+  /** A few lines to play, the clearest first. */
+  lines: ReviewVoiceLineDto[];
+  /** Open, or skipped when asked for with the skipped lines. */
+  status: 'open' | 'skipped';
+}
+
 export interface ReviewQueueDto {
+  /** Environment cards, ranked before every line. They count towards the session size. */
+  voices: ReviewVoiceDto[];
   /** Newest meeting first by default, or the least sure first. */
   lines: ReviewLineDto[];
   order: ReviewOrder;

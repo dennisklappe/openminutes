@@ -81,7 +81,7 @@ describe('useful lines', () => {
     expect(whyOf(cand('sure'))).toBe('training');
     expect(whyOf(cand('x', { confidence: 0.1 }))).toBe('doubt');
     const lines = [cand('a', { endMs: 50_000 }), cand('b', { meetingId: 'm2', endMs: 50_000 })];
-    expect(selectUseful(lines, new Map([['p1', 50_000]])).picked.map((c) => c.id)).toHaveLength(1);
+    expect(selectUseful(lines, new Map([['p1', 70_000]])).picked.map((c) => c.id)).toHaveLength(1);
   });
 
   it('asks doubt before training', () => {
@@ -120,6 +120,44 @@ describe('useful lines', () => {
       new Map(),
     ).picked;
     expect(picked[0]?.id).toBe('rival');
+  });
+
+  it('stops asking training lines of a ready profile, whatever its speech', () => {
+    const lines = [cand('sure')];
+    const ready = new Set(['p1']);
+    expect(selectUseful(lines, new Map(), { ready }).picked).toEqual([]);
+    expect([...selectUseful(lines, new Map(), { ready }).complete]).toEqual(['p1']);
+    // Long enough speech is not ready by itself: Variety may be missing.
+    const long = new Map([['p1', TARGET_MS * 2]]);
+    const options = { ready: new Set<string>(), moreMeetings: () => 4 };
+    expect(selectUseful(lines, long, options).picked).toHaveLength(1);
+    // The meetings wanted are capped by the meetings there are lines from.
+    const more = [cand('a'), cand('b', { meetingId: 'm2' }), cand('c', { meetingId: 'm3' })];
+    expect(selectUseful(more, long, options).picked).toHaveLength(3);
+    expect(selectUseful(more, long, { ...options, moreMeetings: () => 1 }).picked).toHaveLength(1);
+  });
+
+  it('never exempts a line the voice disagrees with, not even for a ready person', () => {
+    const odd = cand('odd', { disagrees: true });
+    expect(whyOf(odd)).toBe('doubt');
+    const picked = selectUseful([odd, cand('sure', { meetingId: 'b' })], new Map(), {
+      ready: new Set(['p1']),
+    }).picked;
+    expect(picked.map((c) => c.id)).toEqual(['odd']);
+  });
+
+  it('asks the people who need the most first, by the need given', () => {
+    const picked = selectUseful(
+      [cand('a', { group: 'a', personId: 'a' }), cand('b', { group: 'b', personId: 'b' })],
+      new Map(),
+      {
+        need: new Map([
+          ['a', 0.1],
+          ['b', 0.9],
+        ]),
+      },
+    ).picked;
+    expect(picked[0]?.id).toBe('b');
   });
 
   it('has a session of 25 cards', () => {

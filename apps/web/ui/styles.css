@@ -3374,3 +3374,51 @@ th .cell-select {
     min-height: 44px;
   }
 }
+
+.speaker-count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+
+.speaker-count strong {
+  font-size: 1.1rem;
+}
+
+.speaker-running {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.speaker-spinner {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 8px;
+  border: 2px solid var(--info-soft);
+  border-top-color: var(--info);
+  border-radius: 50%;
+  animation: speaker-spin 0.8s linear infinite;
+}
+
+@keyframes speaker-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.api-secret {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  min-height: 44px;
+}
+
+.api-keys .people-meta {
+  overflow-wrap: anywhere;
+}
+
+.api-keys .people-name button {
+  min-height: 44px;
+}

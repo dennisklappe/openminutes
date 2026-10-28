@@ -1,3 +1,4 @@
+import './recorder.css';
 import { MAX_SPEAKERS, MIN_SPEAKERS } from '../../src/speakerCount.js';
 
 const options = Array.from(
@@ -8,11 +9,14 @@ const options = Array.from(
 export function SpeakerCountSelect(props: {
   value: number | undefined;
   disabled: boolean;
+  label?: string;
+  /** Offer Auto next to the numbers. Default true. */
+  auto?: boolean;
   onChange: (value: number | undefined) => void;
 }) {
   return (
     <label className="record-speakers">
-      <span>How many people are talking?</span>
+      <span>{props.label ?? 'How many people are talking?'}</span>
       <select
         value={props.value ?? ''}
         disabled={props.disabled}
@@ -20,7 +24,7 @@ export function SpeakerCountSelect(props: {
           props.onChange(event.target.value ? Number(event.target.value) : undefined);
         }}
       >
-        <option value="">Auto</option>
+        {props.auto !== false && <option value="">Auto</option>}
         {options.map((count) => (
           <option key={count} value={count}>
             {count === MAX_SPEAKERS ? `${String(count)}+` : count}

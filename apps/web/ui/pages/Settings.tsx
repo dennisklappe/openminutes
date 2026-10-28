@@ -4,6 +4,7 @@ import { Panel, SectionHead } from '../Panel.js';
 import { useTheme, type Theme } from '../theme.js';
 import { TimeZoneSettings } from './TimeZoneSettings.js';
 import { UpdateSettings } from '../Updates.js';
+import { ApiKeysSettings } from './ApiKeysSettings.js';
 import { BotSettings } from './BotSettings.js';
 import { CalendarSection } from './CalendarSection.js';
 import { EmailSettings } from './EmailSettings.js';
@@ -197,6 +198,14 @@ const sections: Section[] = [
     title: 'Storage and retention',
     description: 'Recordings stay on the local volume by default. Transcripts are always kept.',
     render: () => <StorageSettings />,
+  },
+  {
+    id: 'api',
+    label: 'API',
+    title: 'API',
+    description:
+      'Let other services use OpenMinutes over HTTP, with the same calls this app makes. Create a key for each service.',
+    render: () => <ApiKeysSettings />,
   },
   {
     id: 'access',

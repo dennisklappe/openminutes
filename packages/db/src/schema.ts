@@ -45,6 +45,7 @@ export const companySources = ['calendar', 'ai', 'manual'] as const;
 export const speakerSources = ['indicator', 'diarization', 'user', 'ai', 'guess'] as const;
 /** marked: a person said the line has two speakers. probable: the voice guard thinks so. */
 export const mixedStates = ['marked', 'probable'] as const;
+export const apiKeyScopes = ['read', 'full'] as const;
 export const shareEmailStatuses = ['sent', 'failed'] as const;
 
 export type CompanySource = (typeof companySources)[number];
@@ -153,8 +154,14 @@ export interface VoicePrototype {
   vector: number[];
   /** How many samples this vector stands for. */
   samples: number;
-  /** The language of the samples, a person keeps up to 5 vectors per language. Missing: 'und'. */
+  /** The language of the samples. A person keeps as many vectors per language as they sound different. Missing: 'und'. */
   language?: string;
+  /** When the vector first appeared, so a long unmatched one can be pruned. Missing: legacy. */
+  createdAt?: string;
+  /** When a line last matched this vector, and how many lines did or were rejected after matching it. */
+  lastMatchedAt?: string;
+  matches?: number;
+  rejectedMatches?: number;
 }
 
 /** How a person came to be known: added by hand, was in a meeting, or only on an invitation. */
@@ -185,7 +192,7 @@ export const people = pgTable(
     unnamed: boolean('unnamed').notNull().default(false),
     /** Lower case. A person may have none, one or several. */
     emails: jsonb('emails').$type<string[]>().notNull().default([]),
-    /** Up to 5 vectors built from the voice samples, matched by the highest cosine. */
+    /** One vector per way of sounding, built from the voice samples and matched by the highest cosine. */
     voicePrototypes: jsonb('voice_prototypes').$type<VoicePrototype[]>().notNull().default([]),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
@@ -354,6 +361,8 @@ export const voiceSamples = pgTable(
     source: text('source', { enum: voiceSampleSources }).notNull().default('verified'),
     /** A line the owner said is not this person, kept so it is not offered again. */
     rejected: boolean('rejected').notNull().default(false),
+    /** Left out of the profile because its way of sounding never matched anything. Kept as a line. */
+    prunedAt: timestamptz('pruned_at'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
   },
   (t) => [
@@ -362,6 +371,46 @@ export const voiceSamples = pgTable(
     uniqueIndex('voice_samples_meeting_idx')
       .on(t.personId, t.meetingId)
       .where(sql`${t.kind} = 'meeting'`),
+  ],
+);
+
+export const voiceReviewStatuses = ['open', 'skipped', 'confirmed', 'moved'] as const;
+export type VoiceReviewStatus = (typeof voiceReviewStatuses)[number];
+
+/**
+ * One question per voice per meeting: the voice labelled as a person does not match that
+ * person's profile for most of the meeting. Is it them (a new environment) or someone else on
+ * the same account? Nothing enters the profile until the owner answers.
+ */
+export const voiceReviews = pgTable(
+  'voice_reviews',
+  {
+    id: id(),
+    meetingId: meetingId(),
+    participantId: uuid('participant_id')
+      .notNull()
+      .references(() => participants.id, { onDelete: 'cascade' }),
+    /** The person the voice is labelled as. */
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: voiceReviewStatuses }).notNull().default('open'),
+    /** The person the owner said it is, when it was someone else. */
+    decidedPersonId: uuid('decided_person_id').references((): AnyPgColumn => people.id, {
+      onDelete: 'set null',
+    }),
+    /** The language of the lines, the profile this question is about. */
+    language: text('language').notNull().default('und'),
+    /** The share of the voice's speech that did not match, 0 to 1. */
+    mismatch: real('mismatch').notNull(),
+    /** The lines to play, best first. */
+    sampleSegmentIds: jsonb('sample_segment_ids').$type<string[]>().notNull().default([]),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    decidedAt: timestamptz('decided_at'),
+  },
+  (t) => [
+    uniqueIndex('voice_reviews_voice_idx').on(t.meetingId, t.participantId),
+    index('voice_reviews_status_idx').on(t.status),
   ],
 );
 
@@ -642,4 +691,22 @@ export const chatMessages = pgTable(
     uniqueIndex('chat_messages_dedupe_idx').on(t.meetingId, t.dedupeKey),
     index('chat_messages_meeting_offset_idx').on(t.meetingId, t.offsetMs),
   ],
+);
+
+/** Only the sha256 of the secret is stored. `prefix` is the first characters, for display. */
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    keyHash: text('key_hash').notNull(),
+    prefix: text('prefix').notNull(),
+    scope: text('scope', { enum: apiKeyScopes }).notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    lastUsedAt: timestamptz('last_used_at'),
+    lastUsedIp: text('last_used_ip'),
+    revokedAt: timestamptz('revoked_at'),
+    expiresAt: timestamptz('expires_at'),
+  },
+  (t) => [uniqueIndex('api_keys_key_hash_idx').on(t.keyHash)],
 );

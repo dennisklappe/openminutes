@@ -1,8 +1,22 @@
-import type { PersonChoiceDto, ReviewLineDto, ReviewRosterDto } from '../src/dto.js';
+import type {
+  PersonChoiceDto,
+  ReviewLineDto,
+  ReviewRosterDto,
+  ReviewVoiceDto,
+} from '../src/dto.js';
+
+/** One card of the queue: a line to check, or a voice that does not match its label. */
+export type ReviewCard = ReviewLineDto | ReviewVoiceDto;
+
+export const isVoiceCard = (card: ReviewCard): card is ReviewVoiceDto => 'lines' in card;
+
+/** The person a card is about: the proposed one for a line, the labelled one for a voice. */
+export const cardPerson = (card: ReviewCard): PersonChoiceDto =>
+  isVoiceCard(card) ? card.person : card.proposed;
 
 /** Drops every line proposed for one person, such as after they are marked do not track. */
 export function dropPerson(state: ReviewState, personId: string): ReviewState {
-  const keep = (line: ReviewLineDto) => line.proposed.id !== personId;
+  const keep = (card: ReviewCard) => cardPerson(card).id !== personId;
   const rest = state.rest.filter(keep);
   const skipped = state.skipped.filter(keep);
   return {
@@ -18,6 +32,8 @@ export function dropPerson(state: ReviewState, personId: string): ReviewState {
 export type Decision =
   | { kind: 'skip' }
   | { kind: 'approve' }
+  /** A voice card: yes, the labelled voice is the person. */
+  | { kind: 'confirm' }
   /** Not the proposed person: someone from the meeting or the people list, or a new name. */
   | { kind: 'move'; personId: string; name: string }
   | { kind: 'create'; name: string }
@@ -29,20 +45,20 @@ export type Decision =
   | { kind: 'mixed' };
 
 export interface Entry {
-  line: ReviewLineDto;
+  line: ReviewCard;
   decision: Decision;
 }
 
 export interface ReviewState {
   /** Still to look at, in order. The first is on screen. */
-  rest: ReviewLineDto[];
-  skipped: ReviewLineDto[];
+  rest: ReviewCard[];
+  skipped: ReviewCard[];
   /** Everything decided in this session, oldest first. */
   history: Entry[];
   total: number;
 }
 
-export const startReview = (lines: readonly ReviewLineDto[]): ReviewState => ({
+export const startReview = (lines: readonly ReviewCard[]): ReviewState => ({
   rest: [...lines],
   skipped: [],
   history: [],
@@ -50,13 +66,14 @@ export const startReview = (lines: readonly ReviewLineDto[]): ReviewState => ({
 });
 
 /**
- * Puts the line with this id on screen, the others keep their order behind it. Undefined when
- * the line is no longer to be looked at: decided, skipped or not in this queue.
+ * Puts the card with this id on screen, the others keep their order behind it. Undefined when
+ * the card is no longer to be looked at: decided, skipped or not in this queue. A voice card
+ * is looked up among the voices only, a line among the lines.
  */
-export function focusLine(state: ReviewState, id: string): ReviewState | undefined {
-  const found = state.rest.find((line) => line.id === id);
+export function focusLine(state: ReviewState, id: string, voice = false): ReviewState | undefined {
+  const found = state.rest.find((card) => card.id === id && isVoiceCard(card) === voice);
   if (!found) return undefined;
-  return { ...state, rest: [found, ...state.rest.filter((line) => line !== found)] };
+  return { ...state, rest: [found, ...state.rest.filter((card) => card !== found)] };
 }
 
 export const currentLine = (state: ReviewState) => state.rest[0];
@@ -111,7 +128,7 @@ export function reviewSkipped(state: ReviewState): ReviewState {
 }
 
 export const counts = (state: ReviewState) => ({
-  approved: state.history.filter((e) => e.decision.kind === 'approve').length,
+  approved: state.history.filter((e) => ['approve', 'confirm'].includes(e.decision.kind)).length,
   changed: state.history.filter((e) =>
     ['move', 'create', 'reject', 'split'].includes(e.decision.kind),
   ).length,
@@ -123,13 +140,15 @@ export const counts = (state: ReviewState) => ({
 export function describeDecision({ line, decision }: Entry): string {
   switch (decision.kind) {
     case 'approve':
-      return `Approved: ${line.proposed.name}.`;
+      return `Approved: ${cardPerson(line).name}.`;
+    case 'confirm':
+      return `Confirmed: this voice is ${cardPerson(line).name}.`;
     case 'move':
       return `Moved to ${decision.name}.`;
     case 'create':
       return `Moved to new person ${decision.name}.`;
     case 'reject':
-      return `Not ${line.proposed.name}.`;
+      return `Not ${cardPerson(line).name}.`;
     case 'skip':
       return 'Skipped.';
     case 'split':
@@ -152,13 +171,36 @@ export interface ReviewApi {
     body: { cuts: number[]; personIds: string[] },
   ) => Promise<unknown>;
   markMixed: (personId: string, segmentId: string) => Promise<unknown>;
+  confirmVoice: (id: string) => Promise<unknown>;
+  moveVoice: (id: string, personId: string) => Promise<unknown>;
+  skipVoice: (id: string) => Promise<unknown>;
+  reopenVoice: (id: string) => Promise<unknown>;
 }
+
+/** A sent decision the server can take back: lines always, a voice only when it was skipped. */
+export const undoable = ({ line, decision }: Entry) =>
+  !isVoiceCard(line) || decision.kind === 'skip';
 
 /**
  * Sends one decision at once, with the endpoints the person page uses. A skip is stored too, so
  * the line does not come back after a refresh.
  */
 export async function commit(api: ReviewApi, { line, decision }: Entry): Promise<void> {
+  if (isVoiceCard(line)) {
+    switch (decision.kind) {
+      case 'skip':
+        await api.skipVoice(line.id);
+        return;
+      case 'confirm':
+        await api.confirmVoice(line.id);
+        return;
+      case 'move':
+        await api.moveVoice(line.id, decision.personId);
+        return;
+      default:
+        throw new Error('That choice does not fit a voice card.');
+    }
+  }
   const from = line.proposed.id;
   switch (decision.kind) {
     case 'skip':
@@ -167,6 +209,8 @@ export async function commit(api: ReviewApi, { line, decision }: Entry): Promise
     case 'approve':
       await api.verifyLine(from, line.id);
       return;
+    case 'confirm':
+      throw new Error('That choice does not fit a line.');
     case 'reject':
       await api.rejectLine(from, line.id);
       return;
@@ -204,7 +248,12 @@ export async function commit(api: ReviewApi, { line, decision }: Entry): Promise
 }
 
 /** Takes a sent decision back on the server, so the line is open again. */
-export async function uncommit(api: ReviewApi, { line }: Entry): Promise<void> {
+export async function uncommit(api: ReviewApi, { line, decision }: Entry): Promise<void> {
+  if (isVoiceCard(line)) {
+    if (decision.kind !== 'skip') throw new Error('A decision on a voice cannot be undone.');
+    await api.reopenVoice(line.id);
+    return;
+  }
   await api.undoReviewDecision(line.id);
 }
 
@@ -310,6 +359,83 @@ export function confidenceLabel(line: Pick<ReviewLineDto, 'speakerConfidence' | 
   return parts.join(', ');
 }
 
+/** Scores closer than this are too close to tell apart. */
+export const CLOSE_MARGIN = 0.1;
+
+export interface VoiceSays {
+  name: string;
+  score: number;
+  /** This is the person the line is labelled as. */
+  labelled: boolean;
+}
+
+export interface CardStory {
+  /** Who the voice points at, best first. Empty when only the labelled person was scored. */
+  voice: VoiceSays[];
+  /** Where the label comes from. */
+  source: 'the call' | 'the speaker check';
+  /** Why the line is asked about, in plain words. */
+  reason: string;
+  /** The best scoring person is not the label and the two are close: maybe two speakers. */
+  splitHint: boolean;
+}
+
+/** "Jo Parker 49%". */
+export const scoreLabel = (who: Pick<VoiceSays, 'name' | 'score'>) =>
+  `${who.name} ${String(Math.round(who.score * 100))}%`;
+
+/**
+ * What a review card says in plain words: the label, what the voice says about everyone scored
+ * (the best first, even when that is not the label), and why the line is asked about.
+ */
+export function cardStory(
+  line: Pick<
+    ReviewLineDto,
+    | 'proposed'
+    | 'proposedScore'
+    | 'considered'
+    | 'speakerConfidence'
+    | 'voiceScore'
+    | 'reason'
+    | 'why'
+  >,
+): CardStory {
+  const own = line.proposedScore ?? line.voiceScore ?? line.speakerConfidence;
+  const voice: VoiceSays[] =
+    line.considered.length === 0 || own === null
+      ? []
+      : [
+          { name: line.proposed.name, score: own, labelled: true },
+          ...line.considered.map((c) => ({ name: c.name, score: c.score, labelled: false })),
+        ].sort((a, b) => b.score - a.score);
+  const [top, next] = voice;
+  const elsewhere = top !== undefined && !top.labelled;
+  const gap = elsewhere && own !== null ? top.score - own : 1;
+  const close = elsewhere
+    ? gap < CLOSE_MARGIN
+    : top !== undefined && next !== undefined && top.score - next.score < CLOSE_MARGIN;
+
+  let reason: string;
+  if (line.reason === 'mixed') reason = 'Probably two speakers';
+  else if (elsewhere) reason = close ? 'Too close to call' : 'The voice disagrees with the label';
+  else if (close) reason = 'Too close to call';
+  else if (line.reason === 'voice')
+    reason = 'New environment: the voice does not fit the profile yet';
+  else if (line.reason === 'elimination')
+    reason = 'By elimination: the voice fits nobody else here';
+  else if (line.reason === 'suggested') reason = 'The speaker check suggests this person';
+  else if (line.reason === 'training' || line.why === 'training') {
+    reason = 'Not enough voice yet: an approval adds to the profile';
+  } else reason = 'Not sure who this is';
+
+  return {
+    voice,
+    source: line.reason === 'suggested' ? 'the speaker check' : 'the call',
+    reason,
+    splitHint: elsewhere && close && line.reason !== 'mixed',
+  };
+}
+
 /** "Dennis: 45 s of 90 s, Dutch", how far the voice profile is from good enough. */
 export const coverageLabel = (
   line: Pick<
@@ -317,7 +443,9 @@ export const coverageLabel = (
     'proposed' | 'profileSeconds' | 'profileTargetSeconds' | 'languageName'
   >,
 ) =>
-  `${line.proposed.name}: ${String(line.profileSeconds)} s of ${String(line.profileTargetSeconds)} s, ${line.languageName}`;
+  line.profileSeconds >= line.profileTargetSeconds
+    ? `${line.proposed.name}: enough voice, ${String(line.profileSeconds)} s, ${line.languageName}`
+    : `${line.proposed.name}: ${String(line.profileSeconds)} s of ${String(line.profileTargetSeconds)} s, ${line.languageName}`;
 
 /** The words of a line split into its parts, before the words at `cuts`. */
 export function splitIntoParts(words: readonly string[], cuts: readonly number[]): string[][] {

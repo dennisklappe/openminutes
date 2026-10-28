@@ -15,8 +15,10 @@ import {
   deletePerson,
   mergePeople,
   PeopleError,
+  peopleErrorBody,
   setTracking,
   updatePerson,
+  updatePersonMerging,
 } from './edit.js';
 import {
   markMixed,
@@ -28,6 +30,7 @@ import {
   verifyLine,
 } from './lines.js';
 import { deleteProfile } from './profiles.js';
+import { confirmVoice, moveVoice, reopenVoice, skipVoice } from './voice-cards.js';
 import { loadReviewCounts, loadReviewQueue } from './review.js';
 import { loadPersonDetail, type PeopleDeps } from './load.js';
 import { loadPeoplePage } from './page.js';
@@ -56,8 +59,13 @@ const emails = z
 const notes = z.string().max(2000).nullable();
 const createInput = z.strictObject({ name, emails: emails.optional(), notes: notes.optional() });
 const updateInput = z
-  .strictObject({ name: name.optional(), emails: emails.optional(), notes: notes.optional() })
-  .refine((body) => Object.keys(body).length > 0);
+  .strictObject({
+    name: name.optional(),
+    emails: emails.optional(),
+    notes: notes.optional(),
+    mergeFrom: uuid.optional(),
+  })
+  .refine((body) => Object.keys(body).some((key) => key !== 'mergeFrom'));
 const mergeInput = z.strictObject({ sourceId: uuid });
 const nameVoiceInput = z.union([z.strictObject({ name }), z.strictObject({ personId: uuid })]);
 const listQuery = z.object({
@@ -105,7 +113,7 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     try {
       return await run();
     } catch (error) {
-      if (error instanceof PeopleError) return c.json({ error: error.message }, error.status);
+      if (error instanceof PeopleError) return c.json(peopleErrorBody(error), error.status);
       throw error;
     }
   };
@@ -154,6 +162,30 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     return c.json({ undone: (await undoDecision(deps.db, body.data.segmentId)) ?? null });
   });
 
+  /** The environment cards: is the voice labelled as a person really them? */
+  const voiceRoute = (path: string, run: (id: string, body: unknown) => Promise<void>) => {
+    routes.post(`/review/voices/:id${path}`, async (c) => {
+      const id = uuid.safeParse(c.req.param('id'));
+      if (!id.success) return c.json({ error: 'Question not found' }, 404);
+      return guard(c, async () => {
+        await run(id.data, await c.req.json().catch(() => null));
+        return c.json({ ok: true });
+      });
+    });
+  };
+  voiceRoute('/confirm', async (id) => {
+    const { personId, request } = await confirmVoice(deps.db, id);
+    await learn(request, personId);
+  });
+  voiceRoute('/move', async (id, raw) => {
+    const body = moveInput.safeParse(raw);
+    if (!body.success) throw new PeopleError('Pick who it is', 400);
+    const { personId, request } = await moveVoice(deps.db, id, body.data.personId);
+    await learn(request, personId);
+  });
+  voiceRoute('/skip', (id) => skipVoice(deps.db, id));
+  voiceRoute('/reopen', (id) => reopenVoice(deps.db, id));
+
   routes.post('/', async (c) => {
     const body = createInput.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: 'Invalid person' }, 400);
@@ -179,11 +211,16 @@ export function peopleRoutes(deps: PeopleRouteDeps): Hono {
     const body = updateInput.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: 'Invalid person' }, 400);
     return guard(c, async () => {
-      await updatePerson(deps.db, id.data, {
+      const change = {
         ...(body.data.name !== undefined && { name: body.data.name }),
         ...(body.data.emails && { emails: body.data.emails }),
         ...(body.data.notes !== undefined && { notes: body.data.notes }),
-      });
+      };
+      if (body.data.mergeFrom) {
+        await updatePersonMerging(deps.db, id.data, change, body.data.mergeFrom);
+      } else {
+        await updatePerson(deps.db, id.data, change);
+      }
       return c.json<PersonDetailDto | undefined>(await detail(id.data));
     });
   });

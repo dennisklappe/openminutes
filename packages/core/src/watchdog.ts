@@ -37,7 +37,7 @@ const STOPPED_ERROR =
   'The bot stopped responding. Audio recorded so far is kept, press Transcribe to use it.';
 
 const INTERRUPTED_ERROR =
-  'Processing was interrupted, probably by a restart. Press Re-process to try again.';
+  'Processing was interrupted, probably by a restart. Use Re-run to try again.';
 
 /** Fails every active meeting that outlived its limits, no matter whether the bot process is still alive. */
 export async function failStuckMeetings(

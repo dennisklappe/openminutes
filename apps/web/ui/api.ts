@@ -1,6 +1,9 @@
 import type { CustomTemplate } from '@openminutes/minutes';
 import type {
   AccountsDto,
+  ApiKeyCreatedDto,
+  ApiKeyDto,
+  ApiKeyInput,
   ImportConfigDto,
   ImportPreviewDto,
   ImportStartInput,
@@ -21,6 +24,8 @@ import type {
   MinutesSettingsInput,
   MinutesPreviewInput,
   CalendarProviderId,
+  CheckPeopleConfirmInput,
+  CheckPeopleDto,
   CompanyRenameInput,
   FolderDto,
   FolderInput,
@@ -51,6 +56,9 @@ import type {
   ParticipantsDto,
   PhoneSettingsDto,
   SpeakerEditInput,
+  SpeakerIdentityDto,
+  SpeakerIdentityInput,
+  SpeakerIdentityResultDto,
   SpeakerEditResultDto,
   SpeakerSettingsDto,
   SummaryChatSettingsDto,
@@ -73,6 +81,7 @@ import type {
   VoiceNameInput,
   VoicesDto,
   VoiceSettingsDto,
+  VoiceTuningDto,
   WizardDto,
 } from '../src/dto.js';
 
@@ -81,6 +90,8 @@ export class ApiError extends Error {
     readonly status: number,
     message: string,
     readonly code?: string,
+    /** The whole error body, for the errors that carry more than a message. */
+    readonly body?: unknown,
   ) {
     super(message);
   }
@@ -104,7 +115,7 @@ async function request<T>(
   });
   const data = (await response.json()) as T & { error?: string; code?: string };
   if (!response.ok) {
-    throw new ApiError(response.status, data.error ?? response.statusText, data.code);
+    throw new ApiError(response.status, data.error ?? response.statusText, data.code, data);
   }
   return data;
 }
@@ -196,12 +207,28 @@ export const api = {
   speakerEdit: (id: string, body: SpeakerEditInput) =>
     request<SpeakerEditResultDto>(`/meetings/${id}/speaker-edits`, { method: 'POST', body }),
   speakerCheck: (id: string) => request(`/meetings/${id}/speaker-check`, { method: 'POST' }),
+  checkPeople: (id: string) => request<CheckPeopleDto>(`/meetings/${id}/check-people`),
+  confirmCheckPeople: (id: string, body: CheckPeopleConfirmInput) =>
+    request<CheckPeopleDto>(`/meetings/${id}/check-people/confirm`, { method: 'POST', body }),
+  dismissCheckPeople: (id: string) =>
+    request<CheckPeopleDto>(`/meetings/${id}/check-people/dismiss`, { method: 'POST' }),
   voices: (id: string) => request<VoicesDto>(`/meetings/${id}/voices`),
   nameVoice: (id: string, participantId: string, body: VoiceNameInput) =>
     request<VoicesDto>(`/meetings/${id}/voices/${participantId}`, { method: 'PUT', body }),
   participants: (id: string) => request<ParticipantsDto>(`/meetings/${id}/participants`),
   renameParticipant: (id: string, participantId: string, body: ParticipantNameInput) =>
     request<ParticipantsDto>(`/meetings/${id}/participants/${participantId}`, {
+      method: 'PUT',
+      body,
+    }),
+  speakerIdentity: (id: string, participantId: string, name?: string) =>
+    request<SpeakerIdentityDto>(
+      `/meetings/${id}/participants/${participantId}/identity${
+        name === undefined ? '' : `?name=${encodeURIComponent(name)}`
+      }`,
+    ),
+  saveSpeakerIdentity: (id: string, participantId: string, body: SpeakerIdentityInput) =>
+    request<SpeakerIdentityResultDto>(`/meetings/${id}/participants/${participantId}/identity`, {
       method: 'PUT',
       body,
     }),
@@ -230,7 +257,7 @@ export const api = {
   deleteParticipantAlias: (id: string) =>
     request<ParticipantAliasesDto>(`/settings/participant-aliases/${id}`, { method: 'DELETE' }),
   voiceSettings: () => request<VoiceSettingsDto>('/settings/voices'),
-  saveVoiceSettings: (body: { remember?: boolean; check?: boolean }) =>
+  saveVoiceSettings: (body: Partial<{ remember: boolean; check: boolean } & VoiceTuningDto>) =>
     request<VoiceSettingsDto>('/settings/voices', { method: 'PUT', body }),
   people: (query: PeopleQuery = {}) => {
     const params = new URLSearchParams();
@@ -307,6 +334,26 @@ export const api = {
       body: { personId, segmentId },
       keepalive: true,
     }),
+  confirmVoice: (id: string) =>
+    request<{ ok: true }>(`/people/review/voices/${id}/confirm`, {
+      method: 'POST',
+      body: {},
+      keepalive: true,
+    }),
+  moveVoice: (id: string, personId: string) =>
+    request<{ ok: true }>(`/people/review/voices/${id}/move`, {
+      method: 'POST',
+      body: { personId },
+      keepalive: true,
+    }),
+  skipVoice: (id: string) =>
+    request<{ ok: true }>(`/people/review/voices/${id}/skip`, {
+      method: 'POST',
+      body: {},
+      keepalive: true,
+    }),
+  reopenVoice: (id: string) =>
+    request<{ ok: true }>(`/people/review/voices/${id}/reopen`, { method: 'POST', body: {} }),
   undoReviewDecision: (segmentId: string) =>
     request<{ undone: string | null }>('/people/review/undo', {
       method: 'POST',
@@ -323,6 +370,9 @@ export const api = {
   forgetVoice: (id: string) =>
     request<VoiceSettingsDto>(`/settings/voices/${id}`, { method: 'DELETE' }),
   forgetAllVoices: () => request<VoiceSettingsDto>('/settings/voices', { method: 'DELETE' }),
+  rerunSpeakers: (id: string, speakers: number) =>
+    request(`/meetings/${id}/rerun-speakers`, { method: 'POST', body: { speakers } }),
+  rerunVoices: (id: string) => request(`/meetings/${id}/rerun-voices`, { method: 'POST' }),
   cancelProcessing: (id: string) => request(`/meetings/${id}/cancel`, { method: 'POST' }),
   reprocess: (id: string, options: ReprocessOptions = {}) =>
     request(`/meetings/${id}/reprocess`, { method: 'POST', body: options }),
@@ -368,6 +418,10 @@ export const api = {
       method: 'POST',
       body,
     }),
+  apiKeys: () => request<ApiKeyDto[]>('/settings/api-keys'),
+  createApiKey: (body: ApiKeyInput) =>
+    request<ApiKeyCreatedDto>('/settings/api-keys', { method: 'POST', body }),
+  revokeApiKey: (id: string) => request(`/settings/api-keys/${id}`, { method: 'DELETE' }),
   sharedAccounts: () => request<SharedAccountsDto>('/settings/shared-accounts'),
   saveSharedAccounts: (body: SharedAccountsInput) =>
     request<SharedAccountsDto>('/settings/shared-accounts', { method: 'PUT', body }),

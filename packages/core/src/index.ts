@@ -190,6 +190,8 @@ export {
   penalizeAutoMargin,
   removeAutoSamples,
   rebuildProfile,
+  recordPrototypeHits,
+  type PrototypeHit,
   rememberVoice,
   resumeTracking,
   savedVoices,
@@ -200,6 +202,7 @@ export {
 export * from './voice-anchors.js';
 export * from './mixed-line.js';
 export * from './voice-auto.js';
+export * from './voice-readiness.js';
 export * from './voice-rooms.js';
 export * from './shared-accounts.js';
 export {
@@ -209,13 +212,33 @@ export {
   UNKNOWN_LANGUAGE,
 } from './voice-language.js';
 export {
+  buildProfile,
   buildPrototypes,
   prototypesIn,
-  MAX_PROTOTYPES,
   profileScore,
-  PROTOTYPE_JOIN_SIMILARITY,
+  pruneProfile,
+  PROTOTYPE_CEILING,
+  PROTOTYPE_MERGE_SIMILARITY,
+  PRUNE_AFTER_MS,
+  PRUNE_MAX_SAMPLES,
+  type BuildOptions,
+  type BuiltProfile,
   type ProfileSample,
 } from './voice-profile.js';
+export {
+  assignVoices,
+  companyHint,
+  fillFromCalendar,
+  SURE_MARGIN,
+  SURE_SCORE,
+  type Attendee,
+  type Certainty,
+  type CheckPerson,
+  type CheckVoice,
+  type CompanyHint,
+  type VoiceFit,
+} from './check-people.js';
+export * from './voice-tuning.js';
 export { cosineSimilarity, matchVoices, mergeEmbeddings, VOICE_MATCH_THRESHOLD } from './voices.js';
 export {
   assembleChunks,

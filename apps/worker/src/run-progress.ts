@@ -4,7 +4,15 @@ const BEAT_MS = 15_000;
 const MIN_LIMIT_MS = 30 * 60_000;
 const SLOWEST_SPEED = 4;
 
-export type Step = 'preparing' | 'transcribing' | 'repairing' | 'speakers' | 'saving';
+export type Step =
+  | 'preparing'
+  | 'transcribing'
+  | 'repairing'
+  | 'speakers'
+  | 'saving'
+  | 'finding-voices'
+  | 'moving-lines'
+  | 'checking-voices';
 
 export class Cancelled extends Error {
   constructor() {
@@ -83,6 +91,12 @@ export class Run {
       .update(meetings)
       .set({ processingStep: null, processingCurrent: null, processingTotal: null })
       .where(eq(meetings.id, this.meetingId));
+  }
+
+  /** Ends this job but keeps the meeting on `step`, for the job that is queued next. */
+  async handOver(step: Step): Promise<void> {
+    this.stop();
+    await this.step(step);
   }
 
   stop(): void {

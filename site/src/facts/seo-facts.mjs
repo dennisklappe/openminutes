@@ -83,8 +83,8 @@ export const om = {
   },
   api: {
     value:
-      'The docs describe an API only for the phone recorder. There is no general integration API yet.',
-    src: [`${DOCS}phone-recorder-api`],
+      'OpenMinutes has an HTTP API with API keys (read only or full) for transcripts, summaries, meetings and people. It follows the app and may change between minor versions until 1.0.',
+    src: [`${DOCS}api`],
   },
   compliance: {
     value:

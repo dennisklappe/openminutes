@@ -1,9 +1,8 @@
 import { useState, type SyntheticEvent } from 'react';
 import type { VoiceDto } from '../src/dto.js';
 import { api, errorMessage } from './api.js';
-import { formatLength } from './format.js';
 import { CheckIcon } from './icons.js';
-import { SnippetPlayer } from './SnippetPlayer.js';
+import { VoiceChips, VoiceFrame, VoiceSamples } from './VoiceFrame.js';
 import { canSave, initialName, NAME_MAX, sourceLabels } from './voices.js';
 
 interface Props {
@@ -40,20 +39,23 @@ export function VoiceCard({ meetingId, voice, slot, rememberEnabled, audioUrl, o
   };
 
   return (
-    <form className="voice" data-speaker-slot={slot} onSubmit={save}>
-      <header>
-        <i className="voice-dot" aria-hidden="true" />
-        <strong className="truncate">{voice.name}</strong>
-        <span className="muted">{formatLength(voice.durationMs)} speaking</span>
-        {voice.confirmed && (
+    <VoiceFrame
+      as="form"
+      slot={slot}
+      label={voice.name}
+      durationMs={voice.durationMs}
+      onSubmit={save}
+      badge={
+        voice.confirmed && (
           <span className="voice-saved">
             <CheckIcon />
             Saved
           </span>
-        )}
-      </header>
+        )
+      }
+    >
       {voice.snippets.length > 0 && (
-        <SnippetPlayer audioUrl={audioUrl} label={voice.name} snippets={voice.snippets} />
+        <VoiceSamples samples={voice.snippets} label={voice.name} audioUrl={audioUrl} />
       )}
       <label htmlFor={inputId}>Who is this?</label>
       <div className="voice-name">
@@ -77,23 +79,16 @@ export function VoiceCard({ meetingId, voice, slot, rememberEnabled, audioUrl, o
         </button>
       </div>
       {voice.suggestions.length > 0 && (
-        <ul className="chips" aria-label="Suggested names">
-          {voice.suggestions.map(({ name, source }) => (
-            <li key={name}>
-              <button
-                type="button"
-                className="chip"
-                aria-pressed={draft.trim() === name}
-                onClick={() => {
-                  setDraft(name);
-                }}
-              >
-                {name}
-                <small>{sourceLabels[source]}</small>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <VoiceChips
+          label="Suggested names"
+          chips={voice.suggestions.map(({ name, source }) => ({
+            key: name,
+            name,
+            note: sourceLabels[source],
+            pressed: draft.trim() === name,
+          }))}
+          onPick={setDraft}
+        />
       )}
       {rememberEnabled && (
         <label className="check">
@@ -112,6 +107,6 @@ export function VoiceCard({ meetingId, voice, slot, rememberEnabled, audioUrl, o
           {error}
         </p>
       )}
-    </form>
+    </VoiceFrame>
   );
 }

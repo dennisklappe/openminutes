@@ -1,13 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import type { PersonDto } from '../src/dto.js';
+import type { EmailConflictDto, PersonDto } from '../src/dto.js';
 import {
+  conflictEffect,
+  conflictMergeLabel,
+  conflictMessage,
+  conflictOrigin,
+  emailConflictOf,
   filterPeople,
   mergePreview,
   parseEmails,
+  barPercent,
+  lengthLabel,
+  missingHint,
   profileLevel,
   reasonLabel,
   reviewLabel,
   validEmail,
+  varietyLabel,
 } from './people.js';
 
 const person = (name: string, extra: Partial<PersonDto> = {}): PersonDto => ({
@@ -75,6 +84,59 @@ describe('profileLevel', () => {
   });
 });
 
+describe('profileLevel with readiness', () => {
+  const language = (ready: boolean) => ({
+    readiness: {
+      length: 1,
+      variety: 1,
+      meetings: { have: 5, target: 5 },
+      ways: { have: 5, target: 5 },
+      ready,
+    },
+  });
+
+  it('is good when one language is ready, building when none is', () => {
+    const base = { samples: 9, voiceSeconds: 300 };
+    expect(profileLevel({ ...base, languages: [language(false), language(true)] })).toBe('good');
+    expect(profileLevel({ ...base, languages: [language(false)] })).toBe('building');
+    expect(profileLevel({ samples: 0, voiceSeconds: 0, languages: [language(true)] })).toBe('none');
+  });
+});
+
+describe('readiness labels', () => {
+  const readiness = (extra = {}) => ({
+    length: 0.7,
+    variety: 0.6,
+    meetings: { have: 3, target: 5 },
+    ways: { have: 4, target: 5 },
+    ready: false,
+    ...extra,
+  });
+
+  it('writes the two bars', () => {
+    expect(lengthLabel({ effectiveSeconds: 84.4, targetSeconds: 120 })).toBe('84 s of 120 s');
+    expect(varietyLabel(readiness())).toBe('3 of 5 meetings, 4 of 5 ways of sounding');
+    expect(barPercent(0.666)).toBe(67);
+    expect(barPercent(1.4)).toBe(100);
+    expect(barPercent(-1)).toBe(0);
+  });
+
+  it('says what is still missing', () => {
+    const profile = { effectiveSeconds: 84, targetSeconds: 120, readiness: readiness() };
+    expect(missingHint(profile)).toBe(
+      'Needs 36 s more speech, 2 more meetings and 1 more way of sounding.',
+    );
+    expect(
+      missingHint({
+        effectiveSeconds: 130,
+        targetSeconds: 120,
+        readiness: readiness({ ways: { have: 4, target: 5 }, meetings: { have: 5, target: 5 } }),
+      }),
+    ).toBe('Needs 1 more way of sounding.');
+    expect(missingHint({ ...profile, readiness: readiness({ ready: true }) })).toBe('');
+  });
+});
+
 describe('reasonLabel', () => {
   it('explains why a line needs a look', () => {
     expect(reasonLabel({ reason: 'uncertain', speakerConfidence: 0.42, voiceScore: null })).toBe(
@@ -111,5 +173,43 @@ describe('reviewLabel', () => {
     expect(reviewLabel(12)).toBe('12 lines');
     expect(reviewLabel(25)).toBe('25 lines');
     expect(reviewLabel(140)).toBe('25 of 140 lines');
+  });
+});
+
+describe('email conflicts', () => {
+  const conflict = (extra: Partial<EmailConflictDto> = {}): EmailConflictDto => ({
+    email: 'jo@parker.example',
+    personId: 'p2',
+    name: 'Ann Lee',
+    unnamed: false,
+    source: 'manual',
+    into: { id: 'p1', name: 'Jo Parker' },
+    ...extra,
+  });
+  const failure = (code: string, body: unknown) =>
+    Object.assign(new Error('x'), { status: 409, code, body });
+
+  it('reads the conflict from an API error and ignores other errors', () => {
+    const found = conflict();
+    expect(emailConflictOf(failure('email_taken', { error: 'x', conflict: found }))).toEqual(found);
+    expect(emailConflictOf(failure('other', { conflict: found }))).toBeUndefined();
+    expect(emailConflictOf(failure('email_taken', { error: 'x' }))).toBeUndefined();
+    expect(emailConflictOf(new Error('x'))).toBeUndefined();
+    expect(emailConflictOf('x')).toBeUndefined();
+  });
+
+  it('names who merges into whom', () => {
+    expect(conflictMergeLabel(conflict())).toBe('Merge Ann Lee into Jo Parker');
+    expect(conflictEffect(conflict())).toContain('move to Jo Parker');
+    expect(conflictEffect(conflict())).toContain('cannot be undone');
+  });
+
+  it('says lightly when the other person came from an invitation', () => {
+    expect(conflictOrigin(conflict())).toBeUndefined();
+    expect(conflictOrigin(conflict({ source: 'invited' }))).toBe('created from an invitation');
+    expect(conflictOrigin(conflict({ unnamed: true }))).toBe('created from an invitation');
+    expect(conflictMessage(conflict({ source: 'invited' }))).toBe(
+      'jo@parker.example already belongs to Ann Lee (created from an invitation). Are they the same person?',
+    );
   });
 });
