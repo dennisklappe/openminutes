@@ -113,3 +113,23 @@ export function talkTime(segments: readonly SegmentDto[]): TalkRow[] {
   const whole = percents(rows.map((row) => row.ms));
   return rows.map((row, i) => ({ ...row, percent: whole[i] ?? 0, share: row.ms / shown }));
 }
+
+/** How many people have lines, once each; a shared tile counts through its voices. */
+export const countSpeakers = (segments: readonly SegmentDto[]): number =>
+  talkTime(segments).filter((row) => !row.unassigned).length;
+
+const plural = (count: number, one: string, many: string) => (count === 1 ? one : many);
+
+/** "9 speakers, requested 2": `requested` is the number fixed for a re-run, when there was one. */
+export function speakerCountLabel(
+  count: number,
+  requested: number | null,
+  noun: 'speakers' | 'people',
+): string {
+  const word =
+    noun === 'speakers' ? plural(count, 'speaker', 'speakers') : plural(count, 'person', 'people');
+  return `${String(count)} ${word}${requested === null ? '' : `, requested ${String(requested)}`}`;
+}
+
+export const speakerResultLine = (now: number, was: number): string =>
+  `Found ${String(now)} ${plural(now, 'speaker', 'speakers')} (was ${String(was)})`;

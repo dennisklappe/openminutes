@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { makeSegment } from './segment.fixture.js';
 import type { SegmentDto } from '../src/dto.js';
-import { SPEAKER_COLORS, speakerSlots, talkTime } from './speakers.js';
+import {
+  countSpeakers,
+  SPEAKER_COLORS,
+  speakerCountLabel,
+  speakerResultLine,
+  speakerSlots,
+  talkTime,
+} from './speakers.js';
 
 describe('speakerSlots', () => {
   it('numbers speakers by first appearance and skips unattributed segments', () => {
@@ -135,5 +142,49 @@ describe('talkTime with a shared tile', () => {
       ['Dennis', 75, false],
       ['Room', 25, false],
     ]);
+  });
+});
+
+describe('countSpeakers', () => {
+  const line = (id: string, speaker: string | null, viaSpeaker: string | null = null) =>
+    makeSegment({
+      id,
+      speaker,
+      viaSpeaker,
+      startMs: Number(id) * 1000,
+      endMs: Number(id) * 1000 + 900,
+    });
+
+  it('counts each person with lines once and skips unattributed lines', () => {
+    expect(
+      countSpeakers([line('0', 'Ann'), line('1', 'Bob'), line('2', 'Ann'), line('3', null)]),
+    ).toBe(2);
+    expect(countSpeakers([])).toBe(0);
+  });
+
+  it('counts the voices of a shared tile, not the tile', () => {
+    const segments = [line('0', 'Voice 1', 'Room'), line('1', 'Voice 2', 'Room'), line('2', 'Ann')];
+    expect(countSpeakers(segments)).toBe(3);
+  });
+});
+
+describe('speakerCountLabel', () => {
+  it('words the count for recordings and calls', () => {
+    expect(speakerCountLabel(9, null, 'speakers')).toBe('9 speakers');
+    expect(speakerCountLabel(1, null, 'speakers')).toBe('1 speaker');
+    expect(speakerCountLabel(1, null, 'people')).toBe('1 person');
+    expect(speakerCountLabel(4, null, 'people')).toBe('4 people');
+  });
+
+  it('adds the requested number when it was fixed', () => {
+    expect(speakerCountLabel(9, 2, 'speakers')).toBe('9 speakers, requested 2');
+  });
+});
+
+describe('speakerResultLine', () => {
+  it('says what the re-run found and what it was', () => {
+    expect(speakerResultLine(2, 9)).toBe('Found 2 speakers (was 9)');
+    expect(speakerResultLine(1, 3)).toBe('Found 1 speaker (was 3)');
+    expect(speakerResultLine(3, 3)).toBe('Found 3 speakers (was 3)');
   });
 });

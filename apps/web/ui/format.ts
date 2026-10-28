@@ -73,6 +73,9 @@ const stepLabels: Record<string, string> = {
   repairing: 'Redoing a window',
   speakers: 'Identifying speakers',
   saving: 'Saving',
+  'finding-voices': 'Finding the voices again',
+  'moving-lines': 'Moving the lines',
+  'checking-voices': 'Checking the voices',
 };
 
 export function progressLabel(progress: ProgressDto | null, now = Date.now()): string {

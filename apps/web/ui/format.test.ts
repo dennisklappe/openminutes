@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysLeft, leftLabel } from './format.js';
+import { daysLeft, leftLabel, progressLabel } from './format.js';
 
 const NOW = new Date('2026-10-20T12:00:00Z').getTime();
 const DAY_MS = 86_400_000;
@@ -20,5 +20,15 @@ describe('bin countdown', () => {
     expect(leftLabel(30)).toBe('30 days');
     expect(leftLabel(1)).toBe('1 day');
     expect(leftLabel(0)).toBe('Removed today');
+  });
+});
+
+describe('progressLabel for a speaker re-run', () => {
+  const step = (name: string) => ({ step: name, current: null, total: null, startedAt: null });
+
+  it('names the steps of the chain', () => {
+    expect(progressLabel(step('finding-voices'))).toBe('Finding the voices again');
+    expect(progressLabel(step('moving-lines'))).toBe('Moving the lines');
+    expect(progressLabel(step('checking-voices'))).toBe('Checking the voices');
   });
 });
