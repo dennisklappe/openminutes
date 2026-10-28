@@ -378,9 +378,13 @@ export async function loadReviewQueue(
     const here = roster.filter((p) => p.meetingId === line.meetingId);
     const seen = new Set<string>();
     const considered: ReviewConsideredDto[] = [];
+    let proposedScore: number | null = null;
     for (const candidate of [...(candidatesOf.get(line.id) ?? [])].sort(
       (a, b) => b.score - a.score,
     )) {
+      if (byId.get(candidate.participantId)?.personId === person.id && candidate.score > 0) {
+        proposedScore ??= candidate.score;
+      }
       const who = byId.get(candidate.participantId);
       if (!who || candidate.score <= 0 || who.personId === person.id || hidden(who)) continue;
       const name = labelOf(who);
@@ -412,6 +416,7 @@ export async function loadReviewQueue(
       reason: line.reason ?? 'uncertain',
       why: why.get(line.id) ?? 'doubt',
       proposed: person,
+      proposedScore,
       language: line.language,
       languageName: languageName(line.language),
       profileSeconds: Math.round((coverage.get(profileKey(person.id, line.language)) ?? 0) / 1000),
