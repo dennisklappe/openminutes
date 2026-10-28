@@ -84,7 +84,7 @@ export async function rerunSpeakers(
   let created: string[] = [];
   try {
     await run.begin();
-    await run.step('speakers');
+    await run.step('finding-voices');
     const earlier = await deps.db
       .select()
       .from(participants)
@@ -93,7 +93,7 @@ export async function rerunSpeakers(
     const labels = await labelRecording(deps.db, deps.recording, meetingId, [], path, 0, speakers);
     created = labels.speakers.map((speaker) => speaker.id);
     if (created.length === 0) throw new Error('the voices could not be found, nothing changed');
-    await run.step('saving');
+    await run.step('moving-lines');
     const idOf = new Map(
       earlier
         .filter((row) => row.nameConfirmed)
@@ -151,7 +151,7 @@ export async function rerunSpeakers(
     await linkMeetingPeople(deps.db, meetingId).catch((failure: unknown) => {
       console.error(`the people of meeting ${meetingId} could not be saved`, failure);
     });
-    await run.finish();
+    await run.handOver('checking-voices');
     await deps.queue.send('meeting.check-voices', { meetingId });
   } catch (error) {
     if (created.length > 0) {
@@ -178,7 +178,7 @@ export async function checkMeetingVoices(
   const run = new Run(deps.db, meetingId);
   try {
     await run.begin();
-    await run.step('speakers');
+    await run.step('checking-voices');
     if (await deps.recording.voicesChecked())
       await recheckLines(deps, meetingId, meeting?.trimStartMs);
     if (meeting?.platform === 'recording' || meeting?.platform === 'imported') {

@@ -514,6 +514,8 @@ describe('speaker edits', () => {
         { name: 'meeting.rerun-speakers', payload: { meetingId: meeting.id, speakers: 2 } },
       ]);
       expect(await statusOf(meeting.id)).toBe('processing');
+      const [row] = await test.db.select().from(meetings).where(eq(meetings.id, meeting.id));
+      expect(row?.processingStep).toBe('finding-voices');
     });
 
     it.each([1, 6, 2.5, '3', null])('refuses %s as the number of people', async (speakers) => {
@@ -555,6 +557,8 @@ describe('speaker edits', () => {
       expect((await call('POST', `/meetings/${meeting.id}/rerun-voices`)).status).toBe(202);
       expect(sent).toEqual([{ name: 'meeting.check-voices', payload: { meetingId: meeting.id } }]);
       expect(await statusOf(meeting.id)).toBe('processing');
+      const [row] = await test.db.select().from(meetings).where(eq(meetings.id, meeting.id));
+      expect(row?.processingStep).toBe('checking-voices');
     });
 
     it('marks speakers changed when the meeting is transcribed again', async () => {

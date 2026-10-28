@@ -75,7 +75,7 @@ export function speakerEditRoutes(deps: SpeakerEditDeps): Hono {
     if (!(await rerunOptions(deps.db, deps.settings, meeting)).speakers) {
       return c.json({ error: 'The speakers of this meeting cannot be found again' }, 409);
     }
-    await markProcessing(deps.db, meeting.id);
+    await markProcessing(deps.db, meeting.id, { processingStep: 'finding-voices' });
     await deps.queue.send('meeting.rerun-speakers', {
       meetingId: meeting.id,
       speakers: body.data.speakers,
@@ -91,7 +91,7 @@ export function speakerEditRoutes(deps: SpeakerEditDeps): Hono {
     if (!options.voiceCheckOn) {
       return c.json({ error: 'Turn on Check lines against saved voices first' }, 409);
     }
-    await markProcessing(deps.db, meeting.id);
+    await markProcessing(deps.db, meeting.id, { processingStep: 'checking-voices' });
     await deps.queue.send('meeting.check-voices', { meetingId: meeting.id });
     return c.json({ ok: true }, 202);
   });

@@ -39,10 +39,16 @@ describe('re-running the speakers of a finished recording', () => {
   let checked: boolean;
   let suggested: number;
 
+  let watching: string;
+  let stepDuringDiarize: string | null | undefined;
   const diarizer: Diarizer = {
-    diarize: (_input, o = {}) => {
+    diarize: async (_input, o = {}) => {
       options.push(o);
-      return Promise.resolve(outcome);
+      if (watching) {
+        const [row] = await test.db.select().from(meetings).where(eq(meetings.id, watching));
+        stepDuringDiarize = row?.processingStep;
+      }
+      return outcome;
     },
     embed: () => Promise.resolve(undefined),
     embedEach: () => Promise.resolve({ embeddings: [...embedded, null, null], model: 'm' }),
@@ -79,6 +85,8 @@ describe('re-running the speakers of a finished recording', () => {
     embedded = [null, null];
     checked = false;
     suggested = 0;
+    watching = '';
+    stepDuringDiarize = undefined;
   });
 
   /** An over-split recording: Speaker 1 to 3 and Ann, who was named, with one line set by hand. */
@@ -178,6 +186,16 @@ describe('re-running the speakers of a finished recording', () => {
     expect(sent).toEqual([{ name: 'meeting.check-voices', payload: { meetingId: meeting.id } }]);
   });
 
+  it('shows what it is doing and keeps the step for the voice check that follows', async () => {
+    const { meeting } = await setup();
+    watching = meeting.id;
+    await rerunSpeakers(deps(), { meetingId: meeting.id, speakers: 2 });
+
+    expect(stepDuringDiarize).toBe('finding-voices');
+    const [row] = await test.db.select().from(meetings).where(eq(meetings.id, meeting.id));
+    expect(row).toMatchObject({ status: 'processing', processingStep: 'checking-voices' });
+  });
+
   it('changes nothing when the voices cannot be found, and says so', async () => {
     const { meeting } = await setup();
     outcome = undefined;
@@ -205,6 +223,7 @@ describe('re-running the speakers of a finished recording', () => {
 
       const [row] = await test.db.select().from(meetings).where(eq(meetings.id, meeting.id));
       expect(row?.status).toBe('transcribed');
+      expect(row?.processingStep).toBeNull();
       expect(row?.speakerCheckRequestedAt).not.toBeNull();
       expect(sent).toEqual([
         {
