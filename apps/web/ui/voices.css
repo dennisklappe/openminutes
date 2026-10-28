@@ -225,3 +225,48 @@
   color: var(--muted);
   font-size: 13px;
 }
+
+.check-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check-voice {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+}
+
+.check-voice header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.check-voice .check-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.check-voice .check-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.check-voice .check-fields input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.check-voice select {
+  max-width: 100%;
+}

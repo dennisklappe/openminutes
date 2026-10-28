@@ -106,6 +106,25 @@ The check also builds a temporary voice per participant from the meeting itself,
 
 The labels are never changed by the check. Lines you set yourself are skipped. Lines marked mixed are never anchors and never learned from. The check runs when a meeting is transcribed, not when only the speaker check is rerun.
 
+## Check the people
+
+After a phone recording or an import is transcribed there is no call roster, so the meeting page shows a **Check the people** card above the transcript, for example "2 people detected: Jo Parker (sure), Ann Lee (probable). Is that right?". It is shown once per meeting, only to you, and never for a Meet or Teams call. It goes away when you confirm or dismiss it, or when every voice already has a confirmed name.
+
+Each voice gets a name from these sources, best first:
+
+- **Saved voices.** The voice of the recording is scored against the voice profile of every tracked person, in the language of the meeting, with the same score the [voice check](#the-voice-check) uses. At least 55% fit is a match. It is **sure** when the fit is 70% or more and leads the next person by 10 points, else **probable**. One person is given to one voice only, the better fit keeps them. Nothing new is matched or trained for this
+- **The calendar.** The attendees of the meeting's own invitation (imports), or of the calendar event around the start of the recording (it starts at most 15 minutes after the recording began and at most 2 hours before). You, people who declined and resource calendars are left out. When exactly one voice and exactly one attendee are left after the matching, they are offered as a **probable** pair. With more left, the attendees are only offered as suggestions for a voice without a match. Calendar events without a meeting link are not stored by OpenMinutes, so this works for events that are
+- **A name the voice already has**, for instance from an import, is shown as probable.
+
+Next to a person the card can say "probably Acme". That company is a guess from the work email domain of the person or the attendee (free mail and your own domains are skipped), else from the company most of your earlier meetings with them had. It is only shown, never saved: People have no company field.
+
+Actions:
+
+- **Confirm** sets the names shown as confirmed names, as naming a voice does, and creates a person for a new name. With **Learn voices** on, the lines of each confirmed voice (3 seconds or more, one speaker, not just filler, the 20 longest) are queued for learning, the same job that runs after you verify a line, so the profile of that person grows. Nothing is learned from a voice you did not confirm, from a person marked do not track, or with Learn voices off
+- **Change this person** picks someone else: an attendee of the calendar event, anybody in People, or **New person...** with a name and an optional email. A voice without a match shows the attendees as suggestions and a name field
+- **Change number of people** opens the speaker count choices of the meeting (re-process with 2 to 5 speakers). When the voices were split wrongly, change the count first, then check again
+- **Dismiss** hides the card without changing anything
+
 ## Several people in one tile
 
 A meeting room, or two people in front of one screen, shows up as one participant, so the speaking indicator cannot tell them apart. With **Check lines against saved voices** on, the check looks at the clean lines of each participant (the same lines as the [voices of this meeting](#voices-of-this-meeting), up to 60 per participant) and groups them by voice. A participant whose lines fall into two or more clear groups (each with at least 3 lines and 12 seconds of speech, at most 4 groups) is flagged as probably several people. A group that sounds like another participant of the meeting is ignored, and so are bots and people marked do not track.

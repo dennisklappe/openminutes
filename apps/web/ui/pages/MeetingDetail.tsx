@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { api, errorMessage, meetingUrl, type ReprocessOptions } from '../api.js';
+import { CheckPeople } from '../CheckPeople.js';
 import { CalendarLinkPanel } from '../CalendarLinkPanel.js';
 import { JoinChoice } from '../JoinChoice.js';
 import { formatDate, formatDuration, platformLabels, progressLabel } from '../format.js';
@@ -20,7 +21,7 @@ import { WhoIsWho } from '../WhoIsWho.js';
 import { useBulk } from '../useBulk.js';
 import { usePolling } from '../usePolling.js';
 import { useShowChat } from '../useShowChat.js';
-import { downloadItems, moreItems } from './meetingMenus.js';
+import { downloadItems, moreItems, speakerItems } from './meetingMenus.js';
 
 export function MeetingDetail({ id }: { id: string }) {
   const load = useCallback(() => api.meeting(id), [id]);
@@ -30,6 +31,7 @@ export function MeetingDetail({ id }: { id: string }) {
   const [showChat, setShowChat] = useShowChat();
   const [chosenTab, setChosenTab] = useState<'transcript' | 'summary'>();
   const [rerun, setRerun] = useState(false);
+  const [checking, setChecking] = useState(false);
   const player = useRef<PlayerHandle>(null);
   const bulk = useBulk(() => {
     refresh();
@@ -224,7 +226,21 @@ export function MeetingDetail({ id }: { id: string }) {
           {(actionError ?? bulk.error) && (
             <p className="banner banner-error">{actionError ?? bulk.error}</p>
           )}
-          {audio && segments.length > 0 && (
+          {segments.length > 0 && (
+            <CheckPeople
+              meetingId={id}
+              transcriptSize={segments.length}
+              // TODO: open the Re-run speakers flow once it lands, the speaker items are its stand-in.
+              countItems={
+                canTranscribe && meeting.platform === 'recording'
+                  ? speakerItems(meeting.speakerCount, reprocess)
+                  : []
+              }
+              onChanged={refresh}
+              onShown={setChecking}
+            />
+          )}
+          {audio && segments.length > 0 && !checking && (
             <WhoIsWho
               meetingId={id}
               transcriptSize={segments.length}
