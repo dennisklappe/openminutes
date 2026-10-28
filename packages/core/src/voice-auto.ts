@@ -25,9 +25,10 @@ export const ENV_MISMATCH_SHARE = 0.6;
 /** ... and has at least this much clean speech and so many lines, so a short visit asks nothing. */
 export const ENV_MIN_MS = 30_000;
 export const ENV_MIN_LINES = 5;
-/** Lines shown on the card to play, and lines that become samples when the owner says it is them. */
-export const ENV_PLAY_LINES = 4;
-export const ENV_LEARN_LINES = 6;
+/** Lines judged for the card must be at least this long, a shorter voice print says too little. */
+export const ENV_MIN_LINE_MS = 2500;
+/** Lines on the card to play, and the lines that become samples when the owner says it is them. */
+export const ENV_LINES = 6;
 /** An auto sample counts this much of a verified one when the profile is built. */
 export const AUTO_SAMPLE_WEIGHT = 0.4;
 /** What a rejected auto sample adds to that person's required margin, and the most it can reach. */

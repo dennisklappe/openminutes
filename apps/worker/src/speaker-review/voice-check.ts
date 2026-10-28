@@ -40,6 +40,8 @@ export interface VoiceCheckDeps {
    * a meeting is also embedded when a tile has enough clean lines for that.
    */
   onEmbedded?: (lines: EmbeddedLine[]) => void;
+  /** Only score the lines for learning, never change a label or a confidence (diarized imports). */
+  scoreOnly?: boolean;
 }
 
 /** A line with its voice, as handed to the search for shared tiles. */
@@ -411,6 +413,7 @@ export async function checkVoices(
           scores: profileScores,
         });
       }
+      if (deps.scoreOnly) continue;
       result[i] = {
         ...row,
         speakerConfidence: left?.confidence ?? firm ?? verdict.confidence,

@@ -271,20 +271,27 @@ export async function processMeeting(
         range,
         staleIds,
       );
+      // A diarized import of two speakers is only scored, for learning by 1:1 elimination.
+      const pairImport = labels !== undefined && meeting.speakerCount === 2;
       checked =
-        labels || !deps.recording
+        (labels && !pairImport) || !deps.recording
           ? corrected
           : await checkVoices(
               {
                 db: deps.db,
                 createDiarizer: deps.recording.createDiarizer,
-                enabled: deps.recording.voicesChecked,
+                enabled: pairImport
+                  ? deps.recording.voicesRemembered
+                  : deps.recording.voicesChecked,
+                scoreOnly: pairImport,
                 onScored: (lines) => {
                   scored.push(...lines);
                 },
-                onEmbedded: (lines) => {
-                  embedded.push(...lines);
-                },
+                ...(!pairImport && {
+                  onEmbedded: (lines: EmbeddedLine[]) => {
+                    embedded.push(...lines);
+                  },
+                }),
               },
               meetingId,
               corrected,
