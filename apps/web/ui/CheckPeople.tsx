@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { CheckOptionDto, CheckPeopleDto, CheckSampleDto, CheckVoiceDto } from '../src/dto.js';
+import type { CheckOptionDto, CheckPeopleDto, CheckVoiceDto } from '../src/dto.js';
 import { api, errorMessage } from './api.js';
 import {
+  attendeeChips,
   canConfirm,
   companyText,
   confirmInput,
@@ -11,9 +12,9 @@ import {
   optionChoice,
   type Choice,
 } from './checkPeople.js';
-import { formatDuration, formatLength } from './format.js';
 import { Menu, type MenuItem } from './Menu.js';
-import { useClip } from './useClip.js';
+import { SPEAKER_COLORS } from './speakers.js';
+import { VoiceChips, VoiceFrame, VoiceSamples } from './VoiceFrame.js';
 import { NAME_MAX } from './voices.js';
 import './voices.css';
 
@@ -34,65 +35,16 @@ interface Props {
 
 const NEW = 'new';
 
-function Sample(props: {
-  sample: CheckSampleDto;
-  label: string;
-  audioUrl?: string | undefined;
-  onShowLine?: ((segmentId: string) => void) | undefined;
-}) {
-  const { sample, label, audioUrl, onShowLine } = props;
-  const { audio, active, play, stop } = useClip(sample, sample.endMs - sample.startMs);
-  return (
-    <li className="check-sample">
-      {audioUrl && (
-        <>
-          <audio ref={audio} src={audioUrl} preload="none" />
-          <button
-            type="button"
-            className="check-sample-play"
-            aria-pressed={active}
-            aria-label={`${active ? 'Stop' : 'Play'} ${label} at ${formatDuration(sample.startMs)}`}
-            onClick={active ? stop : play}
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              {active ? (
-                <rect x="3" y="3" width="10" height="10" rx="1.5" />
-              ) : (
-                <path d="M3.5 1.8v12.4a.6.6 0 0 0 .9.5l10-6.2a.6.6 0 0 0 0-1L4.4 1.3a.6.6 0 0 0-.9.5z" />
-              )}
-            </svg>
-            <span className="mono">{formatDuration(sample.startMs)}</span>
-          </button>
-        </>
-      )}
-      <p>
-        {!audioUrl && <span className="mono muted">{formatDuration(sample.startMs)} </span>}
-        {sample.text}
-      </p>
-      {onShowLine && (
-        <button
-          type="button"
-          className="check-sample-show"
-          onClick={() => {
-            onShowLine(sample.id);
-          }}
-        >
-          Show in transcript
-        </button>
-      )}
-    </li>
-  );
-}
-
 function VoiceChoice(props: {
   voice: CheckVoiceDto;
+  slot: number;
   options: CheckOptionDto[];
   choice: Choice;
   onChoice: (choice: Choice) => void;
   audioUrl?: string | undefined;
   onShowLine?: ((segmentId: string) => void) | undefined;
 }) {
-  const { voice, options, choice, onChoice, audioUrl, onShowLine } = props;
+  const { voice, slot, options, choice, onChoice, audioUrl, onShowLine } = props;
   const [changing, setChanging] = useState(!voice.match);
   const { match } = voice;
   const nameId = `check-name-${voice.id}`;
@@ -114,13 +66,9 @@ function VoiceChoice(props: {
   };
 
   return (
-    <li className="check-voice">
-      <header>
-        <strong>{voice.label}</strong>
-        <span className="muted">{formatLength(voice.durationMs)} speaking</span>
-      </header>
+    <VoiceFrame as="li" slot={slot} label={voice.label} durationMs={voice.durationMs}>
       {picked && (
-        <div className="check-pick">
+        <div className="voice-pick">
           {choice.kind === 'match' && match ? (
             <p>{matchText(match)}</p>
           ) : (
@@ -135,27 +83,12 @@ function VoiceChoice(props: {
         </div>
       )}
       {!picked && choice.kind === 'none' && <p className="muted">Nobody matched this voice.</p>}
-      {voice.samples.length > 0 ? (
-        <>
-          <p className="muted">{audioUrl ? 'Listen to this voice' : 'What this voice said'}</p>
-          <ul className="check-samples">
-            {voice.samples.map((sample) => (
-              <Sample
-                key={sample.id}
-                sample={sample}
-                label={voice.label}
-                audioUrl={audioUrl}
-                onShowLine={onShowLine}
-              />
-            ))}
-          </ul>
-          {!audioUrl && (
-            <p className="muted">The audio was deleted, so these lines cannot be played.</p>
-          )}
-        </>
-      ) : (
-        <p className="muted">No clear line to play for this voice.</p>
-      )}
+      <VoiceSamples
+        samples={voice.samples}
+        label={voice.label}
+        audioUrl={audioUrl}
+        onShowLine={onShowLine}
+      />
       {!changing && (
         <p>
           <button
@@ -169,7 +102,7 @@ function VoiceChoice(props: {
         </p>
       )}
       {changing && (
-        <div className="check-fields">
+        <div className="voice-name voice-fields">
           <select
             aria-label={`Who is ${voice.label}?`}
             value={choice.kind === 'new' ? NEW : ''}
@@ -214,26 +147,16 @@ function VoiceChoice(props: {
         </div>
       )}
       {changing && !match && voice.attendees.length > 0 && (
-        <ul className="chips" aria-label="Invited to this meeting, tap one to pick them">
-          {voice.attendees.map((attendee) => (
-            <li key={attendee.email ?? attendee.name}>
-              <button
-                type="button"
-                className="chip"
-                aria-pressed={choice.kind !== 'none' && picked === attendee.name}
-                aria-label={`${attendee.name}, invited`}
-                onClick={() => {
-                  onChoice(optionChoice(attendee));
-                }}
-              >
-                {attendee.name}
-                <small>Invited</small>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <VoiceChips
+          label="Invited to this meeting, tap one to pick them"
+          chips={attendeeChips(voice.attendees, choice, picked)}
+          onPick={(key) => {
+            const attendee = voice.attendees.find((a) => (a.email ?? a.name) === key);
+            if (attendee) onChoice(optionChoice(attendee));
+          }}
+        />
       )}
-    </li>
+    </VoiceFrame>
   );
 }
 
@@ -294,10 +217,11 @@ export function CheckPeople({
         <p>{headline(data.voices)}</p>
       </header>
       <div className="card-body">
-        <ul className="check-list">
-          {data.voices.map((voice) => (
+        <div className="voices">
+          {data.voices.map((voice, index) => (
             <VoiceChoice
               key={voice.id}
+              slot={index % SPEAKER_COLORS}
               voice={voice}
               options={data.options}
               audioUrl={audioUrl}
@@ -308,7 +232,7 @@ export function CheckPeople({
               }}
             />
           ))}
-        </ul>
+        </div>
         {data.rememberEnabled && (
           <p className="muted">
             Confirming also teaches these voices to Learn voices. Only the names you confirm are

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CheckMatchDto, CheckOptionDto, CheckVoiceDto } from '../src/dto.js';
 import {
+  attendeeChips,
   canConfirm,
   optionChoice,
   companyText,
@@ -132,5 +133,33 @@ describe('confirm', () => {
   it('refuses the same person twice', () => {
     const both = [voice('a', match()), voice('b', match({ name: 'jo parker' }))];
     expect(canConfirm(both, initialChoices(both))).toBe(false);
+  });
+});
+
+describe('attendeeChips', () => {
+  const ann: CheckOptionDto = {
+    personId: null,
+    name: 'Ann Lee',
+    email: 'ann@acme.example',
+    source: 'calendar',
+  };
+  it('lists the invited people and presses the one picked', () => {
+    const chips = attendeeChips(
+      [ann],
+      { kind: 'person', personId: null, name: 'Ann Lee' },
+      'Ann Lee',
+    );
+    expect(chips).toEqual([
+      {
+        key: 'ann@acme.example',
+        name: 'Ann Lee',
+        note: 'Invited',
+        label: 'Ann Lee, invited',
+        pressed: true,
+      },
+    ]);
+  });
+  it('presses nothing while nobody is chosen', () => {
+    expect(attendeeChips([ann], { kind: 'none' }, undefined)[0]?.pressed).toBe(false);
   });
 });

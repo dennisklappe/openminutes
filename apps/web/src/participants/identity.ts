@@ -1,5 +1,6 @@
 import { cleanEmails, findPersonByName } from '@openminutes/core';
-import { and, eq, meetings, ne, participants, people, sql, type Database } from '@openminutes/db';
+import type { meetings } from '@openminutes/db';
+import { and, eq, ne, participants, people, sql, type Database } from '@openminutes/db';
 import type { IdentityInviteeDto, SpeakerIdentityDto } from '../dto.js';
 import { PeopleError, updatePerson } from '../people/edit.js';
 import { nameVoice } from '../voices/rename.js';

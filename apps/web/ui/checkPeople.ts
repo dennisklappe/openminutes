@@ -106,3 +106,26 @@ export function canConfirm(
   if (names.some((name) => name === '' || name.length > NAME_MAX)) return false;
   return new Set(names.map((name) => name.toLowerCase())).size === names.length;
 }
+
+export interface AttendeeChip {
+  key: string;
+  name: string;
+  note: string;
+  label: string;
+  pressed: boolean;
+}
+
+/** The invited people of a meeting as chips; the one that is picked now is pressed. */
+export function attendeeChips(
+  attendees: readonly CheckOptionDto[],
+  choice: Choice,
+  picked: string | undefined,
+): AttendeeChip[] {
+  return attendees.map((attendee) => ({
+    key: attendee.email ?? attendee.name,
+    name: attendee.name,
+    note: 'Invited',
+    label: `${attendee.name}, invited`,
+    pressed: choice.kind !== 'none' && picked === attendee.name,
+  }));
+}
