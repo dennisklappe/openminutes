@@ -30,6 +30,8 @@ const definitions = {
   'voices.check': { secret: false, default: 'false' },
   /** Set once the first run over the existing meetings gave everyone a profile. */
   'people.backfilled': { secret: false, default: 'false' },
+  /** Meeting ids whose "Check the people" card was confirmed or dismissed, a JSON list. */
+  'people.checked': { secret: false, default: '[]' },
   'people.cleanup_shared': { secret: false, default: 'false' },
   'bot.name': { secret: false, default: undefined },
   'bot.join_message': { secret: false, default: undefined },

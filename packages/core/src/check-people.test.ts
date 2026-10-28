@@ -10,7 +10,12 @@ import {
 } from './check-people.js';
 
 const proto = (vector: number[], language = 'en') => ({ vector, samples: 3, language });
-const person = (id: string, name: string, vector: number[], emails: string[] = []): CheckPerson => ({
+const person = (
+  id: string,
+  name: string,
+  vector: number[],
+  emails: string[] = [],
+): CheckPerson => ({
   id,
   name,
   emails,
@@ -46,11 +51,7 @@ describe('assignVoices', () => {
   });
 
   it('never gives one person to two voices, the better fit keeps them', () => {
-    const result = assignVoices(
-      [voice('v1', [0.8, 0.3, 0]), voice('v2', [1, 0, 0])],
-      [JO],
-      'en',
-    );
+    const result = assignVoices([voice('v1', [0.8, 0.3, 0]), voice('v2', [1, 0, 0])], [JO], 'en');
     expect(result.get('v2')?.personId).toBe('jo');
     expect(result.has('v1')).toBe(false);
   });
