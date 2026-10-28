@@ -18,7 +18,7 @@ export interface ProfileFacts {
   /** Speech of lines a person confirmed, and of lines added by themselves, in milliseconds. */
   verifiedMs: number;
   autoMs: number;
-  /** Different meetings the samples come from. */
+  /** Different meetings the samples come from, imported voices counting as one. */
   meetings: number;
   /** Ways of sounding: the vectors of the profile in this language. */
   ways: number;
@@ -81,7 +81,8 @@ export async function loadProfileFacts(
     .select({
       personId: voiceSamples.personId,
       language: voiceSamples.language,
-      meetings: sql<number>`count(distinct ${voiceSamples.meetingId})::int`,
+      // Samples without a meeting (imported voices) count together as one more source.
+      meetings: sql<number>`(count(distinct ${voiceSamples.meetingId}) + (case when bool_or(${voiceSamples.meetingId} is null) then 1 else 0 end))::int`,
     })
     .from(voiceSamples)
     .where(

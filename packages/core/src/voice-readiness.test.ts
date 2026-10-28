@@ -90,6 +90,13 @@ describe('loadProfileFacts', () => {
       ways: 2,
     });
     expect(facts.get(readinessKey(jo.id, 'en'))).toMatchObject({ meetings: 1, ways: 1 });
+    // A sample without a meeting (an imported voice) is one more source.
+    await addVoiceSamples(test.db, jo.id, [
+      { kind: 'imported', embedding: [1, 0], durationMs: 1000, language: 'en' },
+    ]);
+    expect(
+      (await loadProfileFacts(test.db, [jo.id])).get(readinessKey(jo.id, 'en'))?.meetings,
+    ).toBe(2);
     expect((await readyProfiles(test.db, tuning, [jo.id])).size).toBe(0);
     const eager = { ...tuning, readySeconds: 60, readyMeetings: 2, readyWays: 2 };
     expect([...(await readyProfiles(test.db, eager, [jo.id]))]).toEqual([
