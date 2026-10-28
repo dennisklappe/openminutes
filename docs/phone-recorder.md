@@ -37,7 +37,7 @@ flowchart LR
 3. Pause and Resume if needed (paused time is not counted). Stop ends the recording, with a confirmation under three seconds.
 4. The app uploads the rest and opens the new meeting, processing until the minutes are ready.
 
-"How many people are talking?" takes Auto (default), 2, 3, 4 or 5+. Use 2 for two people at a table: one microphone hears a quiet second voice as part of the loud one. The choice is remembered on the device and saved with the recording. Change it later from More, Re-process with 2 speakers.
+"How many people are talking?" takes Auto (default), 2, 3, 4 or 5+. Use 2 for two people at a table: one microphone hears a quiet second voice as part of the loud one. The choice is remembered on the device and saved with the recording. Change it later from Re-run, Re-run speakers with a number of people.
 
 The level meter shows whether the microphone hears anything. Echo cancellation, noise suppression and automatic gain are on.
 
