@@ -24,6 +24,7 @@ import {
   type Database,
 } from '@openminutes/db';
 import type { CheckMatchDto, CheckOptionDto, CheckPeopleDto, CheckVoiceDto } from '../dto.js';
+import { pickSamples } from './check-samples.js';
 import { isFiller, MIN_LINE_MS } from '../people/useful.js';
 import { isGenericName } from '../voices/names.js';
 
@@ -133,7 +134,10 @@ export async function loadCheckPeople(deps: CheckDeps, meeting: Meeting): Promis
     deps.db.select().from(participants).where(eq(participants.meetingId, meeting.id)),
     deps.db
       .select({
+        id: transcriptSegments.id,
         participantId: transcriptSegments.participantId,
+        text: transcriptSegments.text,
+        mixed: transcriptSegments.mixed,
         startMs: transcriptSegments.startMs,
         endMs: transcriptSegments.endMs,
       })
@@ -257,6 +261,7 @@ export async function loadCheckPeople(deps: CheckDeps, meeting: Meeting): Promis
       durationMs: talk.get(voice.id) ?? 0,
       match,
       attendees: [],
+      samples: pickSamples(lines.filter((line) => line.participantId === voice.id)),
     };
   });
 

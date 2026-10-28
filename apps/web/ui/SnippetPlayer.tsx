@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { VoiceSnippetDto } from '../src/dto.js';
 import { formatDuration } from './format.js';
+import { useClip } from './useClip.js';
 
 const MAX_PLAY_MS = 5000;
-
-let playing: HTMLAudioElement | undefined;
 
 interface Props {
   audioUrl: string;
@@ -18,48 +17,12 @@ interface Props {
  */
 export function SnippetPlayer({ audioUrl, label, snippets }: Props) {
   const [index, setIndex] = useState(0);
-  const [active, setActive] = useState(false);
-  const audio = useRef<HTMLAudioElement>(null);
   const snippet = snippets[index];
-
-  const stop = () => {
-    audio.current?.pause();
-    setActive(false);
-  };
-
-  useEffect(() => stop, []);
+  const { audio, active, play, stop } = useClip(snippet, MAX_PLAY_MS);
 
   if (!snippet) return null;
   const keepFocus = (event: { preventDefault: () => void }) => {
     event.preventDefault();
-  };
-
-  const play = () => {
-    const element = audio.current;
-    if (!element) return;
-    if (playing && playing !== element) playing.pause();
-    playing = element;
-    const endsAt = Math.min(snippet.endMs, snippet.startMs + MAX_PLAY_MS) / 1000;
-    const start = () => {
-      element.currentTime = snippet.startMs / 1000;
-      element.play().then(
-        () => {
-          setActive(true);
-        },
-        () => {
-          setActive(false);
-        },
-      );
-    };
-    element.ontimeupdate = () => {
-      if (element.currentTime >= endsAt) stop();
-    };
-    element.onended = stop;
-    if (element.readyState >= 1) start();
-    else {
-      element.onloadedmetadata = start;
-      element.load();
-    }
   };
 
   const move = (step: number) => {

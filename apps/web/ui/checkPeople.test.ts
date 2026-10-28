@@ -26,6 +26,7 @@ const voice = (id: string, m: CheckMatchDto | null, label = 'Speaker 1'): CheckV
   durationMs: 5000,
   match: m,
   attendees: [],
+  samples: [],
 });
 
 describe('headline', () => {

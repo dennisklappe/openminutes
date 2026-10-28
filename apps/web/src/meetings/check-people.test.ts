@@ -120,6 +120,66 @@ describe('check the people', () => {
     return row;
   }
 
+  describe('samples to listen to', () => {
+    async function line(
+      meetingId: string,
+      participantId: string,
+      startS: number,
+      lengthS: number,
+      values: Partial<typeof transcriptSegments.$inferInsert> = {},
+    ) {
+      const [row] = await test.db
+        .insert(transcriptSegments)
+        .values({
+          meetingId,
+          participantId,
+          startMs: startS * 1000,
+          endMs: (startS + lengthS) * 1000,
+          text: LONG,
+          ...values,
+        })
+        .returning();
+      if (!row) throw new Error('insert failed');
+      return row;
+    }
+
+    it('gives each voice up to 3 of its own clean lines with id, times and text', async () => {
+      const meeting = await recording();
+      const jo = await voice(meeting.id, 'Speaker 1', null);
+      const ann = await voice(meeting.id, 'Speaker 2', null);
+      await test.db.delete(transcriptSegments).where(eq(transcriptSegments.meetingId, meeting.id));
+      const first = await line(meeting.id, jo.id, 5, 8);
+      await line(meeting.id, jo.id, 60, 2);
+      await line(meeting.id, jo.id, 70, 9, { mixed: 'marked' });
+      await line(meeting.id, jo.id, 100, 5);
+      await line(meeting.id, jo.id, 200, 6);
+      await line(meeting.id, jo.id, 300, 4);
+      await line(meeting.id, ann.id, 30, 7, { text: 'Thanks, that works for me as well.' });
+      const card = await check(meeting.id);
+      const joCard = card.voices.find((v) => v.id === jo.id);
+      const annCard = card.voices.find((v) => v.id === ann.id);
+      expect(joCard?.samples).toHaveLength(3);
+      expect(joCard?.samples.map((s) => s.startMs)).toEqual([5000, 100_000, 200_000]);
+      expect(joCard?.samples[0]).toEqual({
+        id: first.id,
+        startMs: 5000,
+        endMs: 13_000,
+        text: LONG,
+      });
+      expect(annCard?.samples).toEqual([
+        expect.objectContaining({ startMs: 30_000, text: 'Thanks, that works for me as well.' }),
+      ]);
+    });
+
+    it('gives a voice without a usable line no samples', async () => {
+      const meeting = await recording();
+      const jo = await voice(meeting.id, 'Speaker 1', null);
+      await test.db.delete(transcriptSegments).where(eq(transcriptSegments.meetingId, meeting.id));
+      await line(meeting.id, jo.id, 0, 1);
+      expect((await check(meeting.id)).voices[0]?.samples).toEqual([]);
+    });
+  });
+
   describe('who is detected', () => {
     it('names the voices from the saved profiles with a certainty and a company hint', async () => {
       await known('Jo Parker', [1, 0, 0], { emails: ['jo@acme.example'] });

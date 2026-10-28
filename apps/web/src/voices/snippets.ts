@@ -5,7 +5,7 @@ const MAX_MS = 12_000;
 const MIN_GAP_MS = 20_000;
 const MAX_SNIPPETS = 3;
 
-const isClean = (text: string) => text.trim().length >= 12 && /\p{L}{2}/u.test(text);
+export const isClean = (text: string) => text.trim().length >= 12 && /\p{L}{2}/u.test(text);
 
 export function pickSnippets(segments: readonly VoiceSnippetDto[]): VoiceSnippetDto[] {
   const candidates = segments

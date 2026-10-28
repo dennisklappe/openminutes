@@ -24,6 +24,15 @@ export interface CheckMatchDto {
   company: CheckCompanyDto | null;
 }
 
+/** A line of a voice to listen to, played from the audio of the meeting between startMs and endMs. */
+export interface CheckSampleDto {
+  /** The transcript segment. */
+  id: string;
+  startMs: number;
+  endMs: number;
+  text: string;
+}
+
 export interface CheckVoiceDto {
   /** The participant of this voice. */
   id: string;
@@ -32,6 +41,8 @@ export interface CheckVoiceDto {
   match: CheckMatchDto | null;
   /** Attendees nobody was matched to, offered for a voice without a match. */
   attendees: CheckOptionDto[];
+  /** Up to 3 clean lines of this voice, in meeting order. */
+  samples: CheckSampleDto[];
 }
 
 export interface CheckPeopleDto {
