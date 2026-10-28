@@ -162,16 +162,14 @@ describe('createVoiceReviews', () => {
 
   it('skips shared tiles, people who are not tracked and lines marked mixed', async () => {
     const tile = await setup();
-    await test.db
-      .insert(roomVoices)
-      .values({
-        meetingId: tile.meeting.id,
-        participantId: tile.seats[0]?.id ?? '',
-        number: 1,
-        centroid: [1, 0],
-        lines: 2,
-        durationMs: 10_000,
-      });
+    await test.db.insert(roomVoices).values({
+      meetingId: tile.meeting.id,
+      participantId: tile.seats[0]?.id ?? '',
+      number: 1,
+      centroid: [1, 0],
+      lines: 2,
+      durationMs: 10_000,
+    });
     expect(await createVoiceReviews(test.db, tile.meeting.id, tile.scored)).toBe(0);
     const off = await setup();
     await stopTracking(test.db, off.people[0]?.id ?? '');
