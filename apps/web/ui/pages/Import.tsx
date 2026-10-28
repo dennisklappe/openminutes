@@ -5,6 +5,7 @@ import { selectableKeys } from '../import/choices.js';
 import { ImportList } from '../import/ImportList.js';
 import { ImportProgress, isFinished } from '../import/ImportProgress.js';
 import { PickFile } from '../import/PickFile.js';
+import { SpeakerCountSelect } from '../recorder/SpeakerCountSelect.js';
 import { useUpload } from '../import/useUpload.js';
 import '../import/import.css';
 
@@ -15,6 +16,7 @@ export function Import() {
   const [started, setStarted] = useState<string[]>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [speakers, setSpeakers] = useState<number>();
 
   useEffect(() => {
     api.importConfig().then(setConfig, (failure: unknown) => {
@@ -40,7 +42,7 @@ export function Import() {
   const start = (keys: string[]) => {
     if (!preview) return;
     setBusy(true);
-    api.importStart(preview.id, { keys }).then(
+    api.importStart(preview.id, speakers === undefined ? { keys } : { keys, speakers }).then(
       (next) => {
         setPreview(next);
         setStarted(keys);
@@ -97,6 +99,16 @@ export function Import() {
           <p className="hint">
             Only the recordings and the meeting details are imported. Each recording is transcribed
             and summarised here, like any other recording.
+          </p>
+          <SpeakerCountSelect
+            label="How many people speak?"
+            value={speakers}
+            disabled={busy}
+            onChange={setSpeakers}
+          />
+          <p className="hint">
+            Choose Auto unless you know the number. A wrong number merges or invents voices. You can
+            change it later on the meeting.
           </p>
           <div className="actions import-actions">
             <button

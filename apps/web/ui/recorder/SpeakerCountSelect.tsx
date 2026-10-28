@@ -1,3 +1,4 @@
+import './recorder.css';
 import { MAX_SPEAKERS, MIN_SPEAKERS } from '../../src/speakerCount.js';
 
 const options = Array.from(
@@ -8,11 +9,12 @@ const options = Array.from(
 export function SpeakerCountSelect(props: {
   value: number | undefined;
   disabled: boolean;
+  label?: string;
   onChange: (value: number | undefined) => void;
 }) {
   return (
     <label className="record-speakers">
-      <span>How many people are talking?</span>
+      <span>{props.label ?? 'How many people are talking?'}</span>
       <select
         value={props.value ?? ''}
         disabled={props.disabled}

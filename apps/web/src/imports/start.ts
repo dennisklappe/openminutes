@@ -35,7 +35,7 @@ export async function startImport(
       await removeStagedMeeting(deps.storage, uploadId, id);
       continue;
     }
-    const meetingId = await claim(deps, uploadId, id);
+    const meetingId = await claim(deps, uploadId, id, input.speakers ?? null);
     if (meetingId) {
       await deps.queue.send('meeting.import', {
         meetingId,
@@ -57,11 +57,16 @@ async function isRunning(db: Database, id: string): Promise<boolean> {
 }
 
 /** The id of the meeting to run an import for, undefined when it was imported already. */
-async function claim(deps: StartDeps, uploadId: string, id: string): Promise<string | undefined> {
+async function claim(
+  deps: StartDeps,
+  uploadId: string,
+  id: string,
+  speakerCount: number | null,
+): Promise<string | undefined> {
   const key = externalId(id);
   const [retry] = await deps.db
     .update(meetings)
-    .set({ status: 'ended', error: null })
+    .set({ status: 'ended', error: null, speakerCount })
     .where(and(eq(meetings.externalId, key), eq(meetings.status, 'failed')))
     .returning({ id: meetings.id });
   if (retry) return retry.id;
@@ -77,6 +82,7 @@ async function claim(deps: StartDeps, uploadId: string, id: string): Promise<str
       platform: 'imported',
       joinUrl: meeting.url,
       externalId: key,
+      speakerCount,
       status: 'ended',
       startedAt: meeting.startedAt,
       endedAt: meeting.endedAt,

@@ -278,6 +278,24 @@ describe('Fireflies import API', () => {
       expect(row).toMatchObject({ status: 'ended', error: null });
     });
 
+    it('stores the number of speakers on a new or retried meeting, Auto leaves it empty', async () => {
+      const key = `fireflies:${KEYS[0] ?? ''}`;
+      const speakerCount = async () =>
+        (await test.db.select().from(meetings).where(eq(meetings.externalId, key)))[0]
+          ?.speakerCount;
+      expect(await speakerCount()).toBeNull();
+      await test.db.update(meetings).set({ status: 'failed' }).where(eq(meetings.externalId, key));
+      await post(`/${id}/start`, { keys: [KEYS[0]], speakers: 2 });
+      expect(await speakerCount()).toBe(2);
+      await test.db.update(meetings).set({ status: 'failed' }).where(eq(meetings.externalId, key));
+      await post(`/${id}/start`, { keys: [KEYS[0]] });
+      expect(await speakerCount()).toBeNull();
+    });
+
+    it.each([1, 6, 2.5, '3'])('refuses %s as a number of speakers', async (speakers) => {
+      expect((await post(`/${id}/start`, { keys: [KEYS[0]], speakers })).status).toBe(400);
+    });
+
     it('will not discard an import that is running, and discards it otherwise', async () => {
       expect((await request(`/${id}`, { method: 'DELETE' })).status).toBe(409);
       await test.db.update(meetings).set({ status: 'transcribed' });
