@@ -1,6 +1,6 @@
 # Phone recorder upload API
 
-All endpoints need a session (the same cookie or Cloudflare Access login as the rest of the API). Types: `apps/web/src/dto.ts`.
+All endpoints need a session (the same cookie or Cloudflare Access login as the rest of the API, or an [API key](api.md) with full access). Types: `apps/web/src/dto.ts`.
 
 | Call                                                          | Purpose                                                                                                                                                                                                                            |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

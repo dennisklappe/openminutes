@@ -164,6 +164,16 @@
           "lead": "What to think about before a bot records your meetings. General information, not legal advice."
         },
         {
+          "file": "api",
+          "title": "API",
+          "lead": "Create an API key and let other services read transcripts and summaries and change meetings, people and settings."
+        },
+        {
+          "file": "api-reference",
+          "title": "API endpoint reference",
+          "lead": "Every API method and path, generated from the routes, with the key access each one needs."
+        },
+        {
           "file": "phone-recorder-api",
           "title": "Phone recorder API",
           "lead": "The upload endpoints behind the phone recorder: what the phone sends and what the server answers."
