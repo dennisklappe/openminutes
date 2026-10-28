@@ -13,6 +13,7 @@ const DISPLAY_PREFIX_LENGTH = API_KEY_PREFIX.length + 4;
 
 /** Paths no key may use: key management, connected accounts and the sign-in routes. */
 const KEY_FORBIDDEN = /^\/api\/(settings\/api-keys|accounts|oauth|setup|login|logout)(\/|$)/;
+export const keyForbidden = (path: string): boolean => KEY_FORBIDDEN.test(path);
 
 export const hashApiKey = (secret: string): string =>
   createHash('sha256').update(secret).digest('hex');
@@ -96,7 +97,7 @@ export function apiKeyAuth(deps: { db: Database; limiter: ApiKeyRateLimiter }) {
       c.header('retry-after', String(retryAfter));
       return c.json({ error: 'Too many requests, slow down' }, 429);
     }
-    if (KEY_FORBIDDEN.test(c.req.path)) {
+    if (keyForbidden(c.req.path)) {
       return c.json({ error: 'An API key cannot use this endpoint' }, 403);
     }
     if (key.scope === 'read' && c.req.method !== 'GET' && c.req.method !== 'HEAD') {

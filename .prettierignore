@@ -6,3 +6,4 @@ CHANGELOG.md
 NOTICE.md
 site/.astro
 site/src/demo/app.css
+docs/api-reference.md

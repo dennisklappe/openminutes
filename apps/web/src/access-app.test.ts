@@ -66,6 +66,23 @@ describe('web API behind Cloudflare Access', () => {
     expect((await app.request('/other')).status).toBe(401);
   });
 
+  it('takes an API key instead of an Access login, and nothing else without one', async () => {
+    const bogus = { authorization: `Bearer omk_${'C'.repeat(43)}` };
+    expect((await app.request('/api/meetings', { headers: bogus })).status).toBe(401);
+    expect(
+      (await app.request('/api/meetings', { headers: { authorization: 'Bearer x' } })).status,
+    ).toBe(401);
+    const created = await app.request('/api/settings/api-keys', {
+      method: 'POST',
+      headers: { ...asUser(), 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Sync', scope: 'read', expiresInDays: null }),
+    });
+    const { secret } = (await created.json()) as { secret: string };
+    const headers = { authorization: `Bearer ${secret}` };
+    expect((await app.request('/api/meetings', { headers })).status).toBe(200);
+    expect((await app.request('/api/settings/api-keys', { headers })).status).toBe(403);
+  });
+
   it('keeps the version endpoint open', async () => {
     expect((await app.request('/api/version')).status).toBe(200);
   });
