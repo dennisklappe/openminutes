@@ -3,6 +3,7 @@ import {
   asc,
   eq,
   inArray,
+  isNull,
   meetings,
   ne,
   participants,
@@ -17,7 +18,9 @@ import {
 } from '@openminutes/db';
 import { AUTO_MARGIN_MAX, AUTO_MARGIN_STEP, AUTO_SAMPLE_WEIGHT } from './voice-auto.js';
 import { normalizeLanguage } from './voice-language.js';
-import { buildPrototypes } from './voice-profile.js';
+import { buildPrototypes, buildProfile, pruneProfile } from './voice-profile.js';
+import { loadVoiceTuning } from './voice-tuning.js';
+import { cosineSimilarity } from './voices.js';
 
 type Writer = Pick<Database, 'select' | 'insert' | 'update' | 'delete'>;
 export type Person = typeof people.$inferSelect;
@@ -129,28 +132,132 @@ export async function resumeTracking(db: Writer, personId: string): Promise<void
     .where(eq(people.id, personId));
 }
 
-/** Builds the voice profile of a person again from their samples. */
+/**
+ * Builds the voice profile of a person again from their samples. The usage counts of the vectors
+ * carry over, and a small vector that never matched anything for a long time, or only lines the
+ * owner turned down, is pruned: its samples stay as lines but leave the profile.
+ */
 export async function rebuildProfile(db: Writer, personId: string): Promise<void> {
-  const samples = await db
-    .select({
-      embedding: voiceSamples.embedding,
-      weight: voiceSamples.weight,
-      language: voiceSamples.language,
-      source: voiceSamples.source,
-    })
-    .from(voiceSamples)
-    .where(and(eq(voiceSamples.personId, personId), eq(voiceSamples.rejected, false)))
-    .orderBy(asc(voiceSamples.createdAt), asc(voiceSamples.id));
+  const [tuning, [owner], samples] = await Promise.all([
+    loadVoiceTuning(db),
+    db
+      .select({ voicePrototypes: people.voicePrototypes })
+      .from(people)
+      .where(eq(people.id, personId)),
+    db
+      .select({
+        id: voiceSamples.id,
+        embedding: voiceSamples.embedding,
+        weight: voiceSamples.weight,
+        language: voiceSamples.language,
+        source: voiceSamples.source,
+      })
+      .from(voiceSamples)
+      .where(
+        and(
+          eq(voiceSamples.personId, personId),
+          eq(voiceSamples.rejected, false),
+          isNull(voiceSamples.prunedAt),
+        ),
+      )
+      .orderBy(asc(voiceSamples.createdAt), asc(voiceSamples.id)),
+  ]);
   // A sample added by itself counts less than one a person confirmed.
-  const usable = samples.flatMap(({ embedding, weight, language, source }) =>
+  const usable = samples.flatMap(({ id, embedding, weight, language, source }) =>
     embedding
-      ? [{ embedding, weight: source === 'auto' ? weight * AUTO_SAMPLE_WEIGHT : weight, language }]
+      ? [
+          {
+            id,
+            embedding,
+            weight: source === 'auto' ? weight * AUTO_SAMPLE_WEIGHT : weight,
+            language,
+          },
+        ]
       : [],
   );
+  const now = new Date();
+  const built = buildProfile(usable, {
+    mergeSimilarity: tuning.mergeSimilarity,
+    previous: owner?.voicePrototypes ?? [],
+  });
+  const stamped = {
+    ...built,
+    prototypes: built.prototypes.map((p) => ({
+      ...p,
+      createdAt: p.createdAt ?? now.toISOString(),
+    })),
+  };
+  const { prototypes, dropped } = pruneProfile(stamped, now);
+  if (dropped.length > 0) {
+    await db
+      .update(voiceSamples)
+      .set({ prunedAt: now })
+      .where(
+        inArray(
+          voiceSamples.id,
+          dropped.flatMap((i) => usable[i]?.id ?? []),
+        ),
+      );
+  }
   await db
     .update(people)
-    .set({ voicePrototypes: buildPrototypes(usable), updatedAt: new Date() })
+    .set({
+      voicePrototypes:
+        dropped.length === 0
+          ? prototypes
+          : buildPrototypes(
+              usable.filter((_, i) => !dropped.includes(i)),
+              { mergeSimilarity: tuning.mergeSimilarity, previous: prototypes },
+            ).map((p) => ({ ...p, createdAt: p.createdAt ?? now.toISOString() })),
+      updatedAt: now,
+    })
     .where(eq(people.id, personId));
+}
+
+/** A line scored against a profile: it matched a way of sounding, or the owner turned it down. */
+export interface PrototypeHit {
+  embedding: readonly number[];
+  language: string | null | undefined;
+  outcome: 'matched' | 'rejected';
+}
+
+/**
+ * Notes which way of sounding each line was closest to, so a vector nobody matches, or that only
+ * attracts lines the owner turned down, can be pruned later. Counts only; the vectors stay.
+ */
+export async function recordPrototypeHits(
+  db: Writer,
+  personId: string,
+  hits: readonly PrototypeHit[],
+): Promise<void> {
+  if (hits.length === 0) return;
+  const [owner] = await db
+    .select({ voicePrototypes: people.voicePrototypes })
+    .from(people)
+    .where(eq(people.id, personId));
+  if (!owner || owner.voicePrototypes.length === 0) return;
+  const now = new Date().toISOString();
+  const prototypes = owner.voicePrototypes.map((p) => ({ ...p }));
+  let changed = false;
+  for (const hit of hits) {
+    const language = normalizeLanguage(hit.language);
+    const pool = prototypes.filter(
+      (p) => normalizeLanguage(p.language) === language && p.vector.length === hit.embedding.length,
+    );
+    const best = pool
+      .map((p) => ({ p, score: cosineSimilarity(hit.embedding, p.vector) }))
+      .toSorted((a, b) => b.score - a.score)[0]?.p;
+    if (!best) continue;
+    changed = true;
+    if (hit.outcome === 'matched') {
+      best.matches = (best.matches ?? 0) + 1;
+      best.lastMatchedAt = now;
+    } else {
+      best.rejectedMatches = (best.rejectedMatches ?? 0) + 1;
+    }
+  }
+  if (changed)
+    await db.update(people).set({ voicePrototypes: prototypes }).where(eq(people.id, personId));
 }
 
 export interface NewSample {

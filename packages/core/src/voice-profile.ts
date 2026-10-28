@@ -2,11 +2,15 @@ import type { VoicePrototype } from '@openminutes/db';
 import { cosineSimilarity } from './voices.js';
 import { isKnownLanguage, LANGUAGE_PENALTY, normalizeLanguage } from './voice-language.js';
 
-/** A person's voice is kept as at most this many vectors per language, one per way they sound. */
-export const MAX_PROTOTYPES = 5;
+/** A sample joins an existing vector when it is at least this similar to it (the setting default). */
+export const PROTOTYPE_MERGE_SIMILARITY = 0.6;
 
-/** A sample joins an existing vector when it is at least this similar to it. */
-export const PROTOTYPE_JOIN_SIMILARITY = 0.6;
+/** Hidden safety ceiling: beyond this many vectors per language the two closest are merged. */
+export const PROTOTYPE_CEILING = 30;
+
+/** A vector of at most this many samples that matched nothing for this long is pruned. */
+export const PRUNE_AFTER_MS = 120 * 24 * 60 * 60 * 1000;
+export const PRUNE_MAX_SAMPLES = 2;
 
 export interface ProfileSample {
   embedding: readonly number[];
@@ -14,6 +18,21 @@ export interface ProfileSample {
   weight: number;
   /** The language spoken. Missing: unknown. */
   language?: string | undefined;
+}
+
+export interface BuildOptions {
+  /** Cosine at which a sample joins the closest vector. */
+  mergeSimilarity?: number;
+  /** Most vectors per language, the two closest are merged beyond it. */
+  ceiling?: number;
+  /** The profile as it was, to carry the usage counts of each vector over. */
+  previous?: readonly VoicePrototype[];
+}
+
+/** The vectors of a profile and, per vector, the indexes of the input samples it is made of. */
+export interface BuiltProfile {
+  prototypes: VoicePrototype[];
+  members: number[][];
 }
 
 const normalize = (vector: readonly number[]): number[] => {
@@ -40,50 +59,147 @@ function currentDimension(samples: readonly ProfileSample[]): number {
 }
 
 /**
- * Builds the voice profile from the samples, oldest first, up to MAX_PROTOTYPES vectors for each
- * language: each sample joins the closest vector of its language when it is similar enough or
- * there is no room for another, else it starts a new one. A vector is the length-normalised,
- * weight-averaged direction of its samples. The result depends only on the samples, so removing
- * one and building again gives the profile without it.
+ * Builds the voice profile from the samples, oldest first, one vector per way of sounding: each
+ * sample joins the closest vector of its language when it is at least `mergeSimilarity` like it,
+ * else it starts a new one. A vector is the length-normalised, weight-averaged direction of its
+ * samples. There is no fixed number of vectors, only a safety ceiling per language. The result
+ * depends only on the samples (and the usage counts carried over), so removing one and building
+ * again gives the profile without it.
  */
-export function buildPrototypes(samples: readonly ProfileSample[]): VoicePrototype[] {
+export function buildProfile(
+  samples: readonly ProfileSample[],
+  options: BuildOptions = {},
+): BuiltProfile {
   const languages = [...new Set(samples.map((s) => normalizeLanguage(s.language)))].sort();
-  return languages.flatMap((language) =>
-    buildForLanguage(
-      samples.filter((s) => normalizeLanguage(s.language) === language),
-      language,
-    ),
-  );
+  const built = languages.map((language) => {
+    const own = samples.flatMap((sample, index) =>
+      normalizeLanguage(sample.language) === language ? [{ sample, index }] : [],
+    );
+    return buildForLanguage(own, language, options);
+  });
+  return {
+    prototypes: built.flatMap((b) => b.prototypes),
+    members: built.flatMap((b) => b.members),
+  };
 }
 
-function buildForLanguage(samples: readonly ProfileSample[], language: string): VoicePrototype[] {
-  const dimension = currentDimension(samples);
-  const groups: { sum: number[]; samples: number }[] = [];
-  for (const sample of samples) {
-    if (sample.embedding.length !== dimension || dimension === 0) continue;
-    const direction = normalize(sample.embedding);
-    let nearest = -1;
-    let nearestScore = -Infinity;
-    for (const [i, group] of groups.entries()) {
+export const buildPrototypes = (samples: readonly ProfileSample[], options: BuildOptions = {}) =>
+  buildProfile(samples, options).prototypes;
+
+interface Group {
+  sum: number[];
+  samples: number;
+  members: number[];
+}
+
+function buildForLanguage(
+  own: readonly { sample: ProfileSample; index: number }[],
+  language: string,
+  {
+    mergeSimilarity = PROTOTYPE_MERGE_SIMILARITY,
+    ceiling = PROTOTYPE_CEILING,
+    previous = [],
+  }: BuildOptions,
+): BuiltProfile {
+  const dimension = currentDimension(own.map((o) => o.sample));
+  const groups: Group[] = [];
+  const nearest = (direction: readonly number[], among: readonly Group[]) => {
+    let best = -1;
+    let bestScore = -Infinity;
+    for (const [i, group] of among.entries()) {
       const score = cosineSimilarity(group.sum, direction);
-      if (score > nearestScore) {
-        nearest = i;
-        nearestScore = score;
+      if (score > bestScore) {
+        best = i;
+        bestScore = score;
       }
     }
-    const target = groups[nearest];
-    if (target && (nearestScore >= PROTOTYPE_JOIN_SIMILARITY || groups.length >= MAX_PROTOTYPES)) {
+    return { best, score: bestScore };
+  };
+  for (const { sample, index } of own) {
+    if (sample.embedding.length !== dimension || dimension === 0) continue;
+    const direction = normalize(sample.embedding);
+    const { best, score } = nearest(direction, groups);
+    const target = groups[best];
+    if (target && score >= mergeSimilarity) {
       target.sum = target.sum.map((value, i) => value + (direction[i] ?? 0) * sample.weight);
       target.samples += sample.weight;
+      target.members.push(index);
     } else {
-      groups.push({ sum: direction.map((value) => value * sample.weight), samples: sample.weight });
+      groups.push({
+        sum: direction.map((value) => value * sample.weight),
+        samples: sample.weight,
+        members: [index],
+      });
     }
   }
-  return groups.map((group) => ({
-    vector: normalize(group.sum),
-    samples: group.samples,
-    language,
-  }));
+  while (groups.length > Math.max(1, ceiling)) mergeClosest(groups);
+  const before = prototypesIn(previous, language);
+  return {
+    prototypes: groups.map((group) => {
+      const vector = normalize(group.sum);
+      const origin = before
+        .map((p) => ({ p, score: cosineSimilarity(vector, p.vector) }))
+        .filter((c) => c.score >= mergeSimilarity)
+        .toSorted((a, b) => b.score - a.score)[0]?.p;
+      return {
+        vector,
+        samples: group.samples,
+        language,
+        ...(origin?.createdAt !== undefined && { createdAt: origin.createdAt }),
+        ...(origin?.lastMatchedAt !== undefined && { lastMatchedAt: origin.lastMatchedAt }),
+        ...(origin?.matches !== undefined && { matches: origin.matches }),
+        ...(origin?.rejectedMatches !== undefined && { rejectedMatches: origin.rejectedMatches }),
+      };
+    }),
+    members: groups.map((group) => group.members),
+  };
+}
+
+/** Joins the two most alike vectors into one, in place. */
+function mergeClosest(groups: Group[]): void {
+  let a = 0;
+  let b = 1;
+  let best = -Infinity;
+  for (let i = 0; i < groups.length; i++) {
+    for (let j = i + 1; j < groups.length; j++) {
+      const score = cosineSimilarity(groups[i]?.sum ?? [], groups[j]?.sum ?? []);
+      if (score > best) {
+        best = score;
+        a = i;
+        b = j;
+      }
+    }
+  }
+  const left = groups[a];
+  const right = groups[b];
+  if (!left || !right) return;
+  left.sum = left.sum.map((value, i) => value + (right.sum[i] ?? 0));
+  left.samples += right.samples;
+  left.members.push(...right.members);
+  groups.splice(b, 1);
+}
+
+/**
+ * Takes out the vectors that are not worth keeping: made of one or two samples and either not
+ * matched by any line for PRUNE_AFTER_MS, or matched only by lines the owner turned down. A vector
+ * without a creation time is new to the bookkeeping and stays. `dropped` lists the input samples
+ * of the removed vectors, which the caller leaves out of the profile from then on.
+ */
+export function pruneProfile(
+  built: BuiltProfile,
+  now: Date,
+): { prototypes: VoicePrototype[]; dropped: number[] } {
+  const prototypes: VoicePrototype[] = [];
+  const dropped: number[] = [];
+  for (const [i, prototype] of built.prototypes.entries()) {
+    const members = built.members[i] ?? [];
+    const idleSince = Date.parse(prototype.lastMatchedAt ?? prototype.createdAt ?? '');
+    const idle = Number.isFinite(idleSince) && now.getTime() - idleSince > PRUNE_AFTER_MS;
+    const onlyRejected = (prototype.matches ?? 0) === 0 && (prototype.rejectedMatches ?? 0) > 0;
+    if (members.length <= PRUNE_MAX_SAMPLES && (idle || onlyRejected)) dropped.push(...members);
+    else prototypes.push(prototype);
+  }
+  return { prototypes, dropped };
 }
 
 /** The vectors of a profile in one language. */
