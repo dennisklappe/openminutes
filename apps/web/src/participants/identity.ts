@@ -115,6 +115,9 @@ export async function saveIdentity(
     seat.email && typed.includes(seat.email.toLowerCase()) ? seat.email : (typed[0] ?? null);
   await assertSharedLinksFree(db, seat, { inviteeEmails: links, email }, change.move);
 
+  // Renaming the person this speaker already is keeps their addresses and voices: rename the person
+  // first, so the rename below joins them instead of creating a second person with the new name.
+  if (renamed && current && !twin) await updatePerson(db, current.id, { name: change.name });
   let seatId = seat.id;
   let summaryUpdated = false;
   if (renamed && meeting.platform === 'recording') {

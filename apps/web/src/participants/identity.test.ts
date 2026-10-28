@@ -143,6 +143,30 @@ describe('speaker identity', () => {
     expect(seat?.displayName).toBe('Tnf');
   });
 
+  it.each(['meet', 'recording'] as const)(
+    'renames the person it already has and keeps their address (%s)',
+    async (platform) => {
+      const { meeting, tnf } = await meet(platform);
+      const [person] = await test.db
+        .insert(people)
+        .values({ name: 'Tnf', emails: ['tnf@acme.example'] })
+        .returning();
+      await test.db
+        .update(participants)
+        .set({ personId: person?.id ?? null })
+        .where(eq(participants.id, tnf.id));
+      const response = await call('PUT', url(meeting.id, tnf.id), {
+        name: 'Thomas Nijhof',
+        emails: ['tnf@acme.example'],
+      });
+      expect(response.status).toBe(200);
+      const all = await test.db.select().from(people);
+      expect(all.map((p) => [p.name, p.emails])).toEqual([['Thomas Nijhof', ['tnf@acme.example']]]);
+      const [seat] = await test.db.select().from(participants).where(eq(participants.id, tnf.id));
+      expect(seat).toMatchObject({ displayName: 'Thomas Nijhof', personId: person?.id });
+    },
+  );
+
   it('joins the person of the same name without losing their addresses', async () => {
     const { meeting, tnf } = await meet();
     await test.db.insert(people).values({ name: 'Jo Parker', emails: ['jo@old.example'] });
