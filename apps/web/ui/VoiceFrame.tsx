@@ -1,5 +1,6 @@
 import type { ReactNode, SubmitEventHandler } from 'react';
 import { formatDuration, formatLength } from './format.js';
+import { ClipError } from './SnippetPlayer.js';
 import { useClip } from './useClip.js';
 
 export interface VoiceSample {
@@ -17,22 +18,26 @@ function Sample(props: {
   onShowLine?: ((segmentId: string) => void) | undefined;
 }) {
   const { sample, label, audioUrl, onShowLine } = props;
-  const { audio, active, play, stop } = useClip(sample, sample.endMs - sample.startMs);
+  const { active, loading, error, play, stop } = useClip(
+    sample,
+    audioUrl,
+    sample.endMs - sample.startMs,
+  );
   const id = sample.id;
   return (
     <li className="voice-sample">
       {audioUrl && (
         <>
-          <audio ref={audio} src={audioUrl} preload="none" />
           <button
             type="button"
             className="voice-sample-play"
             aria-pressed={active}
-            aria-label={`${active ? 'Stop' : 'Play'} ${label} at ${formatDuration(sample.startMs)}`}
-            onClick={active ? stop : play}
+            aria-busy={loading}
+            aria-label={`${active || loading ? 'Stop' : 'Play'} ${label} at ${formatDuration(sample.startMs)}`}
+            onClick={active || loading ? stop : play}
           >
             <svg viewBox="0 0 16 16" aria-hidden="true">
-              {active ? (
+              {active || loading ? (
                 <rect x="3" y="3" width="10" height="10" rx="1.5" />
               ) : (
                 <path d="M3.5 1.8v12.4a.6.6 0 0 0 .9.5l10-6.2a.6.6 0 0 0 0-1L4.4 1.3a.6.6 0 0 0-.9.5z" />
@@ -40,6 +45,7 @@ function Sample(props: {
             </svg>
             <span className="mono">{formatDuration(sample.startMs)}</span>
           </button>
+          {error && <ClipError message={error} onRetry={play} />}
         </>
       )}
       <p>

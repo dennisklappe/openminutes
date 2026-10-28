@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type SubmitEvent,
+} from 'react';
 import type { ReviewLineDto, ReviewOrder, ReviewQueueDto, ReviewVoiceDto } from '../../src/dto.js';
 import { api, errorMessage, meetingUrl } from '../api.js';
 import { useConfirm } from '../Confirm.js';
@@ -7,6 +15,7 @@ import { isTyping } from '../keyboard.js';
 import {
   clickWord,
   commit,
+  cardStory,
   confidenceLabel,
   coverageLabel,
   counts,
@@ -26,6 +35,7 @@ import {
   restore,
   reviewSkipped,
   rosterOptions,
+  scoreLabel,
   splitIntoParts,
   splitOptions,
   startReview,
@@ -38,10 +48,11 @@ import {
   type ReviewState,
 } from '../review.js';
 import { buildReviewRoute, type ReviewRoute } from '../reviewRoute.js';
-import { barPercent, reasonLabel } from '../people.js';
+import { barPercent } from '../people.js';
 import { splitTimes } from '../../src/meetings/split-times.js';
 import { splitWords } from '../speakerEdits.js';
-import { SnippetPlayer } from '../SnippetPlayer.js';
+import { MAX_PLAY_MS, SnippetPlayer } from '../SnippetPlayer.js';
+import { usePrefetchClip } from '../useClip.js';
 import '../people.css';
 
 type Picker = 'closed' | 'roster' | 'other' | 'new' | 'split';
@@ -567,6 +578,7 @@ function Card({
   const disapprove = useRef<HTMLButtonElement>(null);
   const splitButton = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
+  const story = cardStory(line);
   useEffect(() => {
     heading.current?.focus();
   }, [line.id]);
@@ -592,28 +604,37 @@ function Card({
           />
         )}
         <dl className="facts review-facts">
-          <dt>Proposed</dt>
-          <dd>
-            <strong>{line.proposed.name}</strong>
-            <span className="muted"> · {confidenceLabel(line)}</span>
-            <br />
-            <span className="muted">
-              {line.reason === 'mixed'
-                ? ''
-                : `${line.why === 'training' ? 'Needs more samples' : 'Not sure who this is'}: `}
-              {reasonLabel(line)}
-            </span>
-          </dd>
-          {line.considered.length > 0 && (
+          {story.voice.length > 0 && (
             <>
-              <dt>Also considered</dt>
+              <dt>The voice says</dt>
               <dd>
-                {line.considered
-                  .map((c) => `${c.name} ${String(Math.round(c.score * 100))}%`)
-                  .join(', ')}
+                {story.voice.map((who, i) => (
+                  <Fragment key={who.name}>
+                    {i > 0 && ', '}
+                    {i === 0 ? <strong>{scoreLabel(who)}</strong> : scoreLabel(who)}
+                  </Fragment>
+                ))}
               </dd>
             </>
           )}
+          <dt>Labelled</dt>
+          <dd>
+            {story.voice.length === 0 ? <strong>{line.proposed.name}</strong> : line.proposed.name}
+            <span className="muted">
+              {' '}
+              (from {story.source}) · {confidenceLabel(line)}
+            </span>
+          </dd>
+          <dt>Why</dt>
+          <dd>
+            {story.reason}
+            {story.splitHint && (
+              <>
+                <br />
+                <span className="muted">Two voices close together? Use Split line.</span>
+              </>
+            )}
+          </dd>
           <dt>Voice profile</dt>
           <dd>
             {coverageLabel(line)}
@@ -693,7 +714,7 @@ function Card({
               onDecide({ kind: 'approve' });
             }}
           >
-            Approve <Key>A</Key>
+            Approve <span className="approve-name">{line.proposed.name}</span> <Key>A</Key>
           </button>
           <button
             type="button"
@@ -816,6 +837,14 @@ export function Review({ route }: { route: ReviewRoute }) {
   const voice = card && isVoiceCard(card) ? card : undefined;
   const lineId = line?.id;
   const voiceId = voice?.id;
+  const next = state?.rest[1];
+  const nextLine = next && (isVoiceCard(next) ? next.lines.find((l) => l.hasAudio) : next);
+  const nextMeeting = next?.meetingId;
+  usePrefetchClip(
+    nextLine?.hasAudio ? nextLine : undefined,
+    nextMeeting ? meetingUrl(nextMeeting, 'audio') : undefined,
+    MAX_PLAY_MS,
+  );
   const probablyMixed = line?.reason === 'mixed';
   // A line the voice guard thinks holds two speakers opens with the split already chosen.
   useEffect(() => {

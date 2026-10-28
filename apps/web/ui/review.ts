@@ -359,6 +359,83 @@ export function confidenceLabel(line: Pick<ReviewLineDto, 'speakerConfidence' | 
   return parts.join(', ');
 }
 
+/** Scores closer than this are too close to tell apart. */
+export const CLOSE_MARGIN = 0.1;
+
+export interface VoiceSays {
+  name: string;
+  score: number;
+  /** This is the person the line is labelled as. */
+  labelled: boolean;
+}
+
+export interface CardStory {
+  /** Who the voice points at, best first. Empty when only the labelled person was scored. */
+  voice: VoiceSays[];
+  /** Where the label comes from. */
+  source: 'the call' | 'the speaker check';
+  /** Why the line is asked about, in plain words. */
+  reason: string;
+  /** The best scoring person is not the label and the two are close: maybe two speakers. */
+  splitHint: boolean;
+}
+
+/** "JP Kroon 49%". */
+export const scoreLabel = (who: Pick<VoiceSays, 'name' | 'score'>) =>
+  `${who.name} ${String(Math.round(who.score * 100))}%`;
+
+/**
+ * What a review card says in plain words: the label, what the voice says about everyone scored
+ * (the best first, even when that is not the label), and why the line is asked about.
+ */
+export function cardStory(
+  line: Pick<
+    ReviewLineDto,
+    | 'proposed'
+    | 'proposedScore'
+    | 'considered'
+    | 'speakerConfidence'
+    | 'voiceScore'
+    | 'reason'
+    | 'why'
+  >,
+): CardStory {
+  const own = line.proposedScore ?? line.voiceScore ?? line.speakerConfidence;
+  const voice: VoiceSays[] =
+    line.considered.length === 0 || own === null
+      ? []
+      : [
+          { name: line.proposed.name, score: own, labelled: true },
+          ...line.considered.map((c) => ({ name: c.name, score: c.score, labelled: false })),
+        ].sort((a, b) => b.score - a.score);
+  const [top, next] = voice;
+  const elsewhere = top !== undefined && !top.labelled;
+  const gap = elsewhere && own !== null ? top.score - own : 1;
+  const close = elsewhere
+    ? gap < CLOSE_MARGIN
+    : top !== undefined && next !== undefined && top.score - next.score < CLOSE_MARGIN;
+
+  let reason: string;
+  if (line.reason === 'mixed') reason = 'Probably two speakers';
+  else if (elsewhere) reason = close ? 'Too close to call' : 'The voice disagrees with the label';
+  else if (close) reason = 'Too close to call';
+  else if (line.reason === 'voice')
+    reason = 'New environment: the voice does not fit the profile yet';
+  else if (line.reason === 'elimination')
+    reason = 'By elimination: the voice fits nobody else here';
+  else if (line.reason === 'suggested') reason = 'The speaker check suggests this person';
+  else if (line.reason === 'training' || line.why === 'training') {
+    reason = 'Not enough voice yet: an approval adds to the profile';
+  } else reason = 'Not sure who this is';
+
+  return {
+    voice,
+    source: line.reason === 'suggested' ? 'the speaker check' : 'the call',
+    reason,
+    splitHint: elsewhere && close && line.reason !== 'mixed',
+  };
+}
+
 /** "Dennis: 45 s of 90 s, Dutch", how far the voice profile is from good enough. */
 export const coverageLabel = (
   line: Pick<
@@ -366,7 +443,9 @@ export const coverageLabel = (
     'proposed' | 'profileSeconds' | 'profileTargetSeconds' | 'languageName'
   >,
 ) =>
-  `${line.proposed.name}: ${String(line.profileSeconds)} s of ${String(line.profileTargetSeconds)} s, ${line.languageName}`;
+  line.profileSeconds >= line.profileTargetSeconds
+    ? `${line.proposed.name}: enough voice, ${String(line.profileSeconds)} s, ${line.languageName}`
+    : `${line.proposed.name}: ${String(line.profileSeconds)} s of ${String(line.profileTargetSeconds)} s, ${line.languageName}`;
 
 /** The words of a line split into its parts, before the words at `cuts`. */
 export function splitIntoParts(words: readonly string[], cuts: readonly number[]): string[][] {

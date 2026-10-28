@@ -41,6 +41,8 @@ import {
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { audioResponse } from '../audio.js';
+import { ClipBusyError, createClipService } from '../clip-service.js';
+import { cutOggClip, MAX_CLIP_MS, OggClipError } from '../ogg-clip.js';
 import type {
   AudioDto,
   ChatMessageDto,
@@ -202,6 +204,7 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
 
   const latestDone = (all: SummaryDto[]) => all.find((s) => s.active);
 
+  const clips = createClipService({ concurrent: 3, waiting: 12, cacheBytes: 16 * 1024 * 1024 });
   const audioStorage = () => loadAudioStorage(deps.settings, deps.storage);
 
   async function loadAudio(meeting: typeof meetings.$inferSelect): Promise<AudioDto | null> {
@@ -291,6 +294,37 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
       c.req.header('range'),
       name,
     );
+  });
+
+  routes.get('/:id/audio/clip', async (c) => {
+    const meeting = await findMeeting(c.req.param('id'));
+    if (!meeting) return c.json({ error: 'Audio not found' }, 404);
+    const from = Number(c.req.query('from'));
+    const to = Number(c.req.query('to'));
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to <= from) {
+      return c.json({ error: 'Give a clip as from and to in milliseconds' }, 400);
+    }
+    const path = mergedAudioPath(meeting.id);
+    const storage = await audioStorage();
+    const size = await storage.size(path);
+    if (size === undefined) return c.json({ error: 'Audio not found' }, 404);
+    try {
+      const clip = await clips.get(`${meeting.id}:${String(from)}:${String(to)}`, () =>
+        cutOggClip(storage, path, size, from, Math.min(to, from + MAX_CLIP_MS)),
+      );
+      return c.body(new Uint8Array(clip.body), 200, {
+        'content-type': 'audio/ogg',
+        'content-length': String(clip.body.length),
+        'cache-control': 'private, max-age=3600',
+        'x-clip-offset-ms': String(Math.round(clip.offsetMs)),
+      });
+    } catch (error) {
+      if (error instanceof ClipBusyError) {
+        return c.json({ error: 'Busy, try again' }, 503, { 'retry-after': '1' });
+      }
+      if (error instanceof OggClipError) return c.json({ error: error.message }, 422);
+      throw error;
+    }
   });
 
   routes.get('/:id/transcript.md', async (c) => {

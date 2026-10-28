@@ -225,8 +225,10 @@ export interface ReviewLineDto {
   reason: PersonLineReason;
   /** doubt: not sure who this is. training: sure, but the voice profile still needs samples. */
   why: 'doubt' | 'training';
-  /** The person the system thinks said it. */
+  /** The person the line is labelled as, and who Approve confirms. */
   proposed: PersonChoiceDto;
+  /** How well the labelled person scored among the candidates for this line, 0 to 1. */
+  proposedScore: number | null;
   /** The language of this line. */
   language: string;
   languageName: string;

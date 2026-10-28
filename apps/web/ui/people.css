@@ -180,6 +180,15 @@
   margin-top: 16px;
 }
 
+.review-actions .approve-name {
+  display: inline-block;
+  max-width: 12ch;
+  overflow: hidden;
+  vertical-align: bottom;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .card-foot.review-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -274,6 +283,10 @@
 
   .review-actions .primary {
     order: -1;
+  }
+
+  .review-actions .approve-name {
+    max-width: 24ch;
   }
 
   .review-quote {

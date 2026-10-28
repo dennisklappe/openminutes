@@ -479,6 +479,7 @@ describe('people', () => {
         speakerConfidence: 0.2,
         reason: 'uncertain',
         proposed: { id: person.id, name: person.name },
+        proposedScore: 0.6,
         considered: [{ name: 'Speaker 2', score: 0.4 }],
       });
       expect(Date.parse(body.lines[0]?.meetingDate ?? '')).not.toBeNaN();

@@ -96,8 +96,19 @@
 
 .snippet {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.snippet-error {
+  flex-basis: 100%;
+  color: var(--danger);
+  font-size: 0.9em;
+}
+
+.snippet-error button {
+  min-height: 44px;
 }
 
 .snippet-play {
