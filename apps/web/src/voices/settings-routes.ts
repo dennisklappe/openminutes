@@ -31,14 +31,11 @@ const input = z
 export function voiceSettingsRoutes({ db, settings }: VoiceDeps): Hono {
   const routes = new Hono();
 
-  const tuning = async (): Promise<VoiceTuning> =>
-    parseVoiceTuning(
-      Object.fromEntries(
-        await Promise.all(
-          Object.values(VOICE_TUNING_KEYS).map(async (key) => [key, await settings.get(key)]),
-        ),
-      ),
-    );
+  const tuning = async (): Promise<VoiceTuning> => {
+    const raw: Record<string, string | undefined> = {};
+    for (const key of Object.values(VOICE_TUNING_KEYS)) raw[key] = await settings.get(key);
+    return parseVoiceTuning(raw);
+  };
 
   const read = async (): Promise<VoiceSettingsDto> => ({
     remember: await rememberEnabled(settings),

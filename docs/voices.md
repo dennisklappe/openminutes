@@ -19,9 +19,9 @@ Everyone you name, invite or add by hand is listed under **People**. A person ha
 
 Open a person to see:
 
-- a **voice profile card per language**: one person, one name and one set of emails, but a separate profile for each language they speak, because most people sound different in Dutch than in English. Each card shows the language, the verified seconds against the target of 90 s, the sample count, a **Delete this profile** button and the verified lines in that language. A card appears by itself the first time a line in that language is verified, and up to 5 vectors (ways of sounding) are kept per language
+- a **voice profile card per language**: one person, one name and one set of emails, but a separate profile for each language they speak, because most people sound different in Dutch than in English. Each card shows the language, two [readiness bars](#when-a-voice-profile-is-ready) (**Length** and **Variety**), the sample count, a **Delete this profile** button and the verified lines in that language. A card appears by itself the first time a line in that language is verified. The profile keeps one vector per [way of sounding](#ways-of-sounding)
 - the **People list** shows a small chip per language next to the profile status
-- **Needs review**: how many lines the review queue would ask about for this person, not every unsure line: the doubtful ones plus only as many confident lines as the voice profile still needs to reach its 90 seconds. Lines under 3 seconds, overlapped lines, filler and skipped lines never count. The same number shows in the People list (**To review**) and above the Review button
+- **Needs review**: how many lines the review queue would ask about for this person, not every unsure line: the doubtful ones plus only as many confident lines as the voice profile still needs to become ready. Lines under 3 seconds, overlapped lines, filler and skipped lines never count. The same number shows in the People list (**To review**) and above the Review button
 - **Verified lines**: lines you confirmed as this person
 
 Each line can be played. **Verify** says the line is this person, sets the label as a correction of yours and, when learning is on, adds its voice to the profile. **Not this person** takes the line away and gives it to the next best speaker, and it is not offered to this person again. **Move to...** gives it to someone else. **Remove from profile** keeps the label but forgets the voice sample.
@@ -33,11 +33,43 @@ Each line can be played. **Verify** says the line is this person, sets the label
 A line enters the queue for one of two reasons, and the card says which:
 
 - **Not sure who this is** (real doubt): the labelling is under 70% sure, the voice check disagrees, a close competing candidate scores 50% or more, the speaker review suggests someone else, or the line was labelled by elimination. This does not depend on how good the profile is, so a doubtful line of a well-profiled person is still reviewed.
-- **Needs more samples** (training need): the label looks right, but the profile of that person in that language has less than 90 seconds of verified speech. Confirming the line adds to the profile. Once the profile is good enough these lines disappear, and the queue shrinks a lot.
+- **Needs more samples** (training need): the label looks right, but the profile of that person in that language is not [ready](#when-a-voice-profile-is-ready) yet. Confirming the line adds to the profile. Once the profile is ready these lines disappear, and the queue shrinks a lot. A ready person is still asked about a line their voice disagrees with: a line that scores under their agree score (0.6 by default) is shown as **Not sure who this is** with the reason that the voice does not fit.
 
-Only lines that can teach a voice are asked: at least 3 seconds, nobody talking over them and not mostly filler ("yeah", "okay"). Within the queue, doubtful lines come first, then the people with the least verified speech, and the picks are spread over different meetings, moments far apart and sources instead of near duplicates. A session holds 25 cards. At the end, **Keep going** loads the next 25. The card shows a coverage meter such as "Dennis: 45 s of 90 s, Dutch", and the end screen lists the profiles that are good enough. The order switch (**Newest meetings first** or **Least sure first**) sorts the cards inside the session.
+Only lines that can teach a voice are asked: at least 3 seconds, nobody talking over them and not mostly filler ("yeah", "okay"). Within the queue, [environment cards](#new-environment-cards) come first, then doubtful lines, then the people with the least verified speech, and the picks are spread over different meetings, moments far apart and sources instead of near duplicates. A session holds 25 cards, environment cards included. At the end, **Keep going** loads the next 25. The card shows a coverage meter such as "Dennis: 45 s of 120 s, Dutch", and the end screen lists the profiles that are ready. The order switch (**Newest meetings first** or **Least sure first**) sorts the cards inside the session.
 
 **Skip** is remembered: a skipped line does not come back after a refresh or in another session. It returns when you press **Review N skipped** at the end, or when the line is proposed for someone else. Approve, Disapprove, Skip, Split and Mixed are saved the moment you press them, and **Undo** takes the last one back on the server too (the old label, the voice sample, the skip, the split or the mixed mark).
+
+### When a voice profile is ready
+
+A profile (one person, one language) has two bars on its card:
+
+- **Length**: clean speech in the profile against a target of 120 s. Lines you confirmed count in full, automatic samples at 0.4
+- **Variety**: the weaker of two shares, the meetings the samples come from against 5, and the [ways of sounding](#ways-of-sounding) against 5. Samples without a meeting (imported voices) count together as one meeting
+
+The profile is **ready** when both bars are at 100%. A ready person stops generating review cards for lines their voice agrees with, and is never exempted from lines it disagrees with (see above). The targets are settings (see [Voice settings](#voice-settings)): they are starting values and can be tuned without a release.
+
+### Ways of sounding
+
+A person sounds different on a headset, in a car or in a meeting room. The profile keeps one vector per way of sounding, with no fixed number:
+
+- a new confirmed sample joins the closest vector when their cosine similarity is at least the **merge similarity** (0.6 by default) and moves its running mean (weighted by how many samples it stands for), else it starts a new vector
+- a vector made of one or two samples that no line matched for 120 days, or that only attracted lines you turned down, is **pruned**: its samples stay as lines but leave the profile. Each vector keeps a few counts for this (when it appeared, when a line last matched it, how many lines matched it or were turned down after matching it). A vector from before this feature gets its 120 days from the first rebuild
+- there is a hidden safety ceiling of 30 vectors per person per language: beyond it the two closest vectors are merged
+- a voice is scored by the closest vector (the highest cosine), then goes through the relative and elimination scoring of the [voice check](#the-voice-check)
+
+Removing a sample builds the profile again from the remaining ones, so the result depends only on the samples.
+
+### New environment cards
+
+When the voice labelled as a person in a meeting does not match that person's profile for most of the meeting, the review gets one card for that voice in that meeting, even when the person is ready: "This voice is labelled Jo Parker but does not match their profile. Is it them?". It is created when the meeting is transcribed with the voice check on, for a voice with at least 30 s and 5 lines of speech (lines of 2.5 s or more) of which 60% or more of the speech scored under the agree score of the person. Shared tiles, people marked do not track and lines marked mixed never make a card, and a voice is asked once per meeting, also after an answer.
+
+The card shows a few of the clearest lines to play and the share that did not match. It ranks before every line in the queue and counts towards the 25 of a session.
+
+- **Yes, it is them** (**A**): the whole voice is theirs in this meeting. The lines on the card become verified lines and are learned as a new way of sounding (when Learn voices is on), and the doubts on the other lines of that voice are settled
+- **No, someone else** (**D**): it is someone else on that account. You pick the right person, the lines of the voice move to them as verified lines, and nothing enters the profile of the person it was labelled as
+- **Skip** (**S**) is remembered like a skipped line and comes back under **Review N skipped**, **Undo** (**U**) takes a skip back. A confirmed or moved card cannot be undone from the card, move the lines again from the person page
+
+Every card has its own address, `#/people/review/voice/<id>`.
 
 ### Lines with two speakers
 
@@ -72,12 +104,24 @@ Two options under Settings, Summaries, Voices. Both are off by default because a
 
 Without learning, verifying a line only confirms who said it. Without a saved voice nothing is checked and nothing changes.
 
-| Question            | Answer                                                                                                                                                                                                                                  |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| What is stored      | A list of numbers per verified line (a voice sample), the people and a profile of up to 5 vectors per language built from the samples, and a list of numbers per voice found in a [shared tile](#several-people-in-one-tile). No audio. |
-| Where               | Your own database, tables `people` and `voice_samples`. Never sent to another service, never returned by the API.                                                                                                                       |
-| What it is used for | Suggesting a name next to a voice, and flagging lines that sound like someone else. You always decide.                                                                                                                                  |
-| Matching            | A new voice is compared with every vector of a person and scores as the best of them, not as an average.                                                                                                                                |
+Under **Readiness and matching** on the same page are five numbers. Each has a default and a **Reset to defaults** button:
+
+| Setting                                     | Default | Range       | What it does                                                                                                                                |
+| ------------------------------------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Seconds of clean speech for a ready profile | 120     | 10 to 3600  | Fills the Length bar                                                                                                                        |
+| Meetings for a ready profile                | 5       | 1 to 50     | Fills the Variety bar together with the ways of sounding                                                                                    |
+| Ways of sounding for a ready profile        | 5       | 1 to 30     | Fills the Variety bar together with the meetings                                                                                            |
+| Score at which a voice agrees               | 0.6     | 0.2 to 0.95 | A line scoring at least this against a profile sounds like the person. A person whose automatic samples were rejected needs up to 0.15 more |
+| Similarity at which a sample joins a way    | 0.6     | 0.2 to 0.95 | Below it a sample starts a new way of sounding. Lower: fewer, broader ways. Higher: more, narrower ones                                     |
+
+The 0.6 comes from the measurements in this repo: a clean turn scores 0.6 to 0.9 and a noisy one 0.1 to 0.4 against its speaker, and two halves of one line of one speaker had a median cosine of 0.59. They are starting values that real audio has not tuned: change them in the settings, not in the code, and compare the scores on the review cards (the voice fit of a line) with what you confirm.
+
+| Question            | Answer                                                                                                                                                                                                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What is stored      | A list of numbers per verified line (a voice sample), the people and a profile per language built from the samples (one vector per [way of sounding](#ways-of-sounding)), and a list of numbers per voice found in a [shared tile](#several-people-in-one-tile). No audio. |
+| Where               | Your own database, tables `people` and `voice_samples`. Never sent to another service, never returned by the API.                                                                                                                                                          |
+| What it is used for | Suggesting a name next to a voice, and flagging lines that sound like someone else. You always decide.                                                                                                                                                                     |
+| Matching            | A new voice is compared with every vector of a person and scores as the best of them, not as an average.                                                                                                                                                                   |
 
 ## The voice check
 
@@ -175,16 +219,43 @@ Delete the voice data of one person on their page or in the list under Settings,
 
 ## Automatic samples
 
-With **Learn voices** on, lines that are near certain are added to a profile without a review, with guardrails so a wrong guess cannot run away:
+A voice sample enters a profile only after you reviewed it, or when two independent proofs agree. With **Learn voices** on, a line that two proofs agree on is added to a profile without a review. One proof alone is never learned: the line goes to the review queue instead. There are two ways for two proofs to agree.
 
-- only for tracked people, and only after the person has 30 seconds of speech verified by you in that language (an automatic sample never counts as a seed)
-- the line must be 3 seconds or more with nobody talking over it, its label must come from the call's speaking indicator or diarization with at least 90% confidence, its voice score must be 80% or more and 25 points ahead of every other voice in the meeting. Lines set by you, changed by an AI review, doubted by the voice check or labelled by elimination never qualify
-- automatic samples are stored as `auto`, counted apart on the profile card ("42 s verified, 3 min auto"), weigh 0.4 of a verified sample when the profile is built, may add up to 3 times the verified seconds and at most 60 seconds per person per meeting
+### Call labels
+
+The call's speaking indicator and the voice agree:
+
+- the indicator (`speakerSource` indicator, not diarization) names exactly one person for the line with at least 90% confidence and nobody else showing in it
+- the line is 4 seconds or more, nobody talks over it, and it was not set by you, changed by an AI review, doubted by the voice check or labelled by elimination
+- the voice matches: its score against the person's profile is at least their agree score (0.6 by default, up to 0.15 more after rejections) and 0.1 ahead of every other voice in the meeting
+- the person is tracked and has 30 seconds of speech verified by you in that language (an automatic sample never counts as a seed), because a voice cannot be a proof against a profile that is almost empty
+
+A line with the indicator but a low voice score is not learned, and neither is a line that only the voice likes. Both go to the review queue.
+
+### 1:1 elimination
+
+In a meeting with exactly two people, where one person's profile is ready in the language of the line, a clean line that is clearly not them belongs to the other person:
+
+- the line scores under the ready person's agree score by 0.15 or more
+- its label names the other person: from the indicator, or for an import whose speaker count is 2 from diarization
+- the line is 4 seconds or more, with nobody talking over it and not doubted, as above
+- it is skipped when a third voice appears (the lines that are not the ready person form two or more voices of at least 3 lines and 12 seconds), when a third person is in the meeting, and for any shared tile or voice of a tile. Short and overlapping lines never count
+
+The other person needs no seed: the indicator or the diarization and "not the ready person" are the two proofs.
+
+### Rules for all automatic samples
+
+- never for a shared tile or a voice of a tile, never for a line marked mixed, and a long candidate whose two halves sound unlike each other is marked [probably mixed](#lines-with-two-speakers) instead of being learned
+- automatic samples are stored as `auto`, counted apart on the profile card ("42 s verified, 3 min auto"), weigh 0.4 of a verified sample when the profile is built and are undoable. There are no caps on their number or seconds: the proofs are the limit
 - **Remove auto samples** on a profile card, or **Remove** per meeting in its list, deletes them and builds the profile again from the verified ones
-- a line marked mixed never qualifies, and a long candidate whose two halves sound unlike each other is marked [probably mixed](#lines-with-two-speakers) instead of being learned
-- if you reject such a line it is removed, and that person needs 2 points more margin from then on (up to 15)
+- if you reject such a line it is removed, and that person needs 0.02 more agree score from then on (up to 0.15)
+- every line labelled as a person whose voice agrees with their profile also tells the profile which way of sounding it matched, for [pruning](#ways-of-sounding)
 
 Automatic samples are never offered for review as a training need, and a line you confirm becomes a verified sample.
+
+### Measuring the thresholds
+
+All numbers above are in `packages/core/src/voice-auto.ts` (limits of the proofs) and in the settings (agree score, merge similarity, targets). To tune them on your own data, read the scores the review cards show for lines you confirmed and rejected: the agree score belongs between the two groups. Nothing in the code reads or reports real data for you.
 
 ## Dutch and other languages
 
