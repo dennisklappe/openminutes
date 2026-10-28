@@ -3408,3 +3408,17 @@ th .cell-select {
     transform: rotate(360deg);
   }
 }
+
+.api-secret {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  min-height: 44px;
+}
+
+.api-keys .people-meta {
+  overflow-wrap: anywhere;
+}
+
+.api-keys .people-name button {
+  min-height: 44px;
+}

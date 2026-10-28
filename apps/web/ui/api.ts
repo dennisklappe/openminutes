@@ -1,6 +1,9 @@
 import type { CustomTemplate } from '@openminutes/minutes';
 import type {
   AccountsDto,
+  ApiKeyCreatedDto,
+  ApiKeyDto,
+  ApiKeyInput,
   ImportConfigDto,
   ImportPreviewDto,
   ImportStartInput,
@@ -399,6 +402,10 @@ export const api = {
       method: 'POST',
       body,
     }),
+  apiKeys: () => request<ApiKeyDto[]>('/settings/api-keys'),
+  createApiKey: (body: ApiKeyInput) =>
+    request<ApiKeyCreatedDto>('/settings/api-keys', { method: 'POST', body }),
+  revokeApiKey: (id: string) => request(`/settings/api-keys/${id}`, { method: 'DELETE' }),
   sharedAccounts: () => request<SharedAccountsDto>('/settings/shared-accounts'),
   saveSharedAccounts: (body: SharedAccountsInput) =>
     request<SharedAccountsDto>('/settings/shared-accounts', { method: 'PUT', body }),
