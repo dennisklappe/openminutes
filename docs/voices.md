@@ -160,12 +160,14 @@ Each voice gets a name from these sources, best first:
 - **The calendar.** The attendees of the meeting's own invitation (imports), or of the calendar event around the start of the recording (it starts at most 15 minutes after the recording began and at most 2 hours before). You, people who declined and resource calendars are left out. When exactly one voice and exactly one attendee are left after the matching, they are offered as a **probable** pair. With more left, the attendees are only offered as suggestions for a voice without a match. Calendar events without a meeting link are not stored by OpenMinutes, so this works for events that are
 - **A name the voice already has**, for instance from an import, is shown as probable.
 
-Next to a person the card can say "probably Acme". That company is a guess from the work email domain of the person or the attendee (free mail and your own domains are skipped), else from the company most of your earlier meetings with them had. It is only shown, never saved: People have no company field.
+Each voice shows up to 3 **sample lines** so you can hear who it is: the longest clean lines of that voice (3 to 12 seconds, one speaker, not just filler), spread over the meeting, in meeting order. Each has a play button and the text of the line, and **Show in transcript** jumps the transcript to it. They play from the audio of the meeting like the snippets of [Who is who](#voices-of-this-meeting): one clip at a time, and a clip stops when you start another or leave the card. When the audio was deleted the lines show as text only. A voice with no clear line says so.
+
+A match reads "Matches Jo Parker (probable)" (or "Invited: ..." and "Already called ..." for the other sources). Under it the card can say "Company: probably Acme". That company is a guess from the work email domain of the person or the attendee (free mail and your own domains are skipped), else from the company most of your earlier meetings with them had. It is only shown, never saved: People have no company field.
 
 Actions:
 
 - **Confirm** sets the names shown as confirmed names, as naming a voice does, and creates a person for a new name. With **Learn voices** on, the lines of each confirmed voice (3 seconds or more, one speaker, not just filler, the 20 longest) are queued for learning, the same job that runs after you verify a line, so the profile of that person grows. Nothing is learned from a voice you did not confirm, from a person marked do not track, or with Learn voices off
-- **Change this person** picks someone else: an attendee of the calendar event, anybody in People, or **New person...** with a name and an optional email. A voice without a match shows the attendees as suggestions and a name field
+- **Change this person** picks someone else: an attendee of the calendar event, anybody in People, or **New person...** with a name and an optional email. A voice without a match shows the attendees as **Invited** chips and a name field. Tapping a chip gives that person to the voice
 - **Change number of people** opens the speaker count choices of the meeting (re-process with 2 to 5 speakers). When the voices were split wrongly, change the count first, then check again
 - **Dismiss** hides the card without changing anything
 

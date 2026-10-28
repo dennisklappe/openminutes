@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { CheckMatchDto, CheckVoiceDto } from '../src/dto.js';
+import type { CheckMatchDto, CheckOptionDto, CheckVoiceDto } from '../src/dto.js';
 import {
   canConfirm,
+  optionChoice,
   companyText,
   confirmInput,
   headline,
@@ -51,18 +52,39 @@ describe('headline', () => {
 
 describe('matchText and companyText', () => {
   it('words the certainty and where it came from', () => {
-    expect(matchText(match())).toBe('Sounds like Jo Parker, sure');
+    expect(matchText(match())).toBe('Matches Jo Parker (sure)');
     expect(matchText(match({ source: 'calendar', certainty: 'probable' }))).toBe(
-      'Invited to this meeting: Jo Parker, probable',
+      'Invited: Jo Parker (probable)',
     );
-    expect(matchText(match({ source: 'label' }))).toBe('Already called Jo Parker, sure');
+    expect(matchText(match({ source: 'label' }))).toBe('Already called Jo Parker (sure)');
   });
 
   it('hints a company only as a guess', () => {
     expect(companyText(match({ company: { name: 'Acme', source: 'email' } }))).toBe(
-      'probably Acme',
+      'Company: probably Acme',
     );
     expect(companyText(match())).toBeUndefined();
+  });
+});
+
+describe('optionChoice', () => {
+  it('assigns the invitee or known person to the voice', () => {
+    const option: CheckOptionDto = {
+      name: 'Ann Lee',
+      email: 'ann@acme.example',
+      personId: null,
+      source: 'calendar',
+    };
+    const choice = optionChoice(option);
+    expect(choice).toEqual({
+      kind: 'person',
+      personId: null,
+      name: 'Ann Lee',
+      email: 'ann@acme.example',
+    });
+    expect(confirmInput([voice('a', null)], { a: choice })).toEqual({
+      voices: [{ participantId: 'a', name: 'Ann Lee', email: 'ann@acme.example' }],
+    });
   });
 });
 

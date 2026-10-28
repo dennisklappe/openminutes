@@ -1,4 +1,9 @@
-import type { CheckMatchDto, CheckPeopleConfirmInput, CheckVoiceDto } from '../src/dto.js';
+import type {
+  CheckMatchDto,
+  CheckOptionDto,
+  CheckPeopleConfirmInput,
+  CheckVoiceDto,
+} from '../src/dto.js';
 import { NAME_MAX } from './voices.js';
 
 /** What the owner wants for a voice: the match shown, someone from the pickers, a new name, or nothing yet. */
@@ -20,17 +25,25 @@ export function headline(voices: readonly CheckVoiceDto[]): string {
 }
 
 const sources: Record<CheckMatchDto['source'], string> = {
-  voice: 'Sounds like',
-  calendar: 'Invited to this meeting:',
+  voice: 'Matches',
+  calendar: 'Invited:',
   label: 'Already called',
 };
 
 export const matchText = (match: CheckMatchDto) =>
-  `${sources[match.source]} ${match.name}, ${match.certainty}`;
+  `${sources[match.source]} ${match.name} (${match.certainty})`;
 
 /** Only ever a guess, it is not saved anywhere. */
 export const companyText = (match: CheckMatchDto) =>
-  match.company ? `probably ${match.company.name}` : undefined;
+  match.company ? `Company: probably ${match.company.name}` : undefined;
+
+/** Picking someone from the list or an invitee chip gives that person to the voice. */
+export const optionChoice = (option: CheckOptionDto): Choice => ({
+  kind: 'person',
+  personId: option.personId,
+  name: option.name,
+  email: option.email,
+});
 
 export const initialChoices = (voices: readonly CheckVoiceDto[]): Record<string, Choice> =>
   Object.fromEntries(

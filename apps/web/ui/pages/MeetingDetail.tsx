@@ -156,6 +156,14 @@ export function MeetingDetail({ id }: { id: string }) {
       }
     />
   );
+  const showLine = (segmentId: string) => {
+    setChosenTab('transcript');
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`.transcript [data-segment-id="${segmentId}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  };
   const tab = chosenTab ?? (summaries.length > 0 ? 'summary' : 'transcript');
   const headline = meeting.startedAt ?? meeting.createdAt;
   return (
@@ -302,6 +310,8 @@ export function MeetingDetail({ id }: { id: string }) {
               }
               onChanged={refresh}
               onShown={setChecking}
+              audioUrl={audio ? meetingUrl(id, 'audio') : undefined}
+              onShowLine={showLine}
             />
           )}
           {audio && segments.length > 0 && !checking && !processing && (

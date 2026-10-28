@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { CheckOptionDto, CheckPeopleDto, CheckVoiceDto } from '../src/dto.js';
+import type { CheckOptionDto, CheckPeopleDto, CheckSampleDto, CheckVoiceDto } from '../src/dto.js';
 import { api, errorMessage } from './api.js';
 import {
   canConfirm,
@@ -8,10 +8,12 @@ import {
   headline,
   initialChoices,
   matchText,
+  optionChoice,
   type Choice,
 } from './checkPeople.js';
-import { formatLength } from './format.js';
+import { formatDuration, formatLength } from './format.js';
 import { Menu, type MenuItem } from './Menu.js';
+import { useClip } from './useClip.js';
 import { NAME_MAX } from './voices.js';
 import './voices.css';
 
@@ -24,17 +26,73 @@ interface Props {
   onChanged: () => void;
   /** Tells the page whether the card is up, so it can keep "Who is who?" out of the way. */
   onShown?: (shown: boolean) => void;
+  /** The audio of the meeting, left out when it was deleted: the lines then show as text only. */
+  audioUrl?: string | undefined;
+  /** Jumps the transcript to a line. */
+  onShowLine?: ((segmentId: string) => void) | undefined;
 }
 
 const NEW = 'new';
+
+function Sample(props: {
+  sample: CheckSampleDto;
+  label: string;
+  audioUrl?: string | undefined;
+  onShowLine?: ((segmentId: string) => void) | undefined;
+}) {
+  const { sample, label, audioUrl, onShowLine } = props;
+  const { audio, active, play, stop } = useClip(sample, sample.endMs - sample.startMs);
+  return (
+    <li className="check-sample">
+      {audioUrl && (
+        <>
+          <audio ref={audio} src={audioUrl} preload="none" />
+          <button
+            type="button"
+            className="check-sample-play"
+            aria-pressed={active}
+            aria-label={`${active ? 'Stop' : 'Play'} ${label} at ${formatDuration(sample.startMs)}`}
+            onClick={active ? stop : play}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              {active ? (
+                <rect x="3" y="3" width="10" height="10" rx="1.5" />
+              ) : (
+                <path d="M3.5 1.8v12.4a.6.6 0 0 0 .9.5l10-6.2a.6.6 0 0 0 0-1L4.4 1.3a.6.6 0 0 0-.9.5z" />
+              )}
+            </svg>
+            <span className="mono">{formatDuration(sample.startMs)}</span>
+          </button>
+        </>
+      )}
+      <p>
+        {!audioUrl && <span className="mono muted">{formatDuration(sample.startMs)} </span>}
+        {sample.text}
+      </p>
+      {onShowLine && (
+        <button
+          type="button"
+          className="check-sample-show"
+          onClick={() => {
+            onShowLine(sample.id);
+          }}
+        >
+          Show in transcript
+        </button>
+      )}
+    </li>
+  );
+}
 
 function VoiceChoice(props: {
   voice: CheckVoiceDto;
   options: CheckOptionDto[];
   choice: Choice;
   onChoice: (choice: Choice) => void;
+  audioUrl?: string | undefined;
+  onShowLine?: ((segmentId: string) => void) | undefined;
 }) {
-  const { voice, options, choice, onChoice } = props;
+  const { voice, options, choice, onChoice, audioUrl, onShowLine } = props;
   const [changing, setChanging] = useState(!voice.match);
   const { match } = voice;
   const nameId = `check-name-${voice.id}`;
@@ -52,14 +110,7 @@ function VoiceChoice(props: {
       return;
     }
     const option = options[Number(value)];
-    if (option) {
-      onChoice({
-        kind: 'person',
-        personId: option.personId,
-        name: option.name,
-        email: option.email,
-      });
-    }
+    if (option) onChoice(optionChoice(option));
   };
 
   return (
@@ -69,16 +120,42 @@ function VoiceChoice(props: {
         <span className="muted">{formatLength(voice.durationMs)} speaking</span>
       </header>
       {picked && (
-        <p className="check-pick">
-          <strong>{picked}</strong>
-          {company && <span className="muted">{company}</span>}
-          {choice.kind === 'match' && match && <span className="muted">{matchText(match)}</span>}
-          {match?.onCalendar && choice.kind === 'match' && (
-            <span className="muted">on the invitation</span>
+        <div className="check-pick">
+          {choice.kind === 'match' && match ? (
+            <p>{matchText(match)}</p>
+          ) : (
+            <p>
+              <strong>{picked}</strong>
+            </p>
           )}
-        </p>
+          {match?.onCalendar && choice.kind === 'match' && (
+            <p className="muted">On the invitation</p>
+          )}
+          {company && <p className="muted">{company}</p>}
+        </div>
       )}
       {!picked && choice.kind === 'none' && <p className="muted">Nobody matched this voice.</p>}
+      {voice.samples.length > 0 ? (
+        <>
+          <p className="muted">{audioUrl ? 'Listen to this voice' : 'What this voice said'}</p>
+          <ul className="check-samples">
+            {voice.samples.map((sample) => (
+              <Sample
+                key={sample.id}
+                sample={sample}
+                label={voice.label}
+                audioUrl={audioUrl}
+                onShowLine={onShowLine}
+              />
+            ))}
+          </ul>
+          {!audioUrl && (
+            <p className="muted">The audio was deleted, so these lines cannot be played.</p>
+          )}
+        </>
+      ) : (
+        <p className="muted">No clear line to play for this voice.</p>
+      )}
       {!changing && (
         <p>
           <button
@@ -137,20 +214,16 @@ function VoiceChoice(props: {
         </div>
       )}
       {changing && !match && voice.attendees.length > 0 && (
-        <ul className="chips" aria-label="Invited to this meeting">
+        <ul className="chips" aria-label="Invited to this meeting, tap one to pick them">
           {voice.attendees.map((attendee) => (
             <li key={attendee.email ?? attendee.name}>
               <button
                 type="button"
                 className="chip"
                 aria-pressed={choice.kind !== 'none' && picked === attendee.name}
+                aria-label={`${attendee.name}, invited`}
                 onClick={() => {
-                  onChoice({
-                    kind: 'person',
-                    personId: attendee.personId,
-                    name: attendee.name,
-                    email: attendee.email,
-                  });
+                  onChoice(optionChoice(attendee));
                 }}
               >
                 {attendee.name}
@@ -164,7 +237,15 @@ function VoiceChoice(props: {
   );
 }
 
-export function CheckPeople({ meetingId, transcriptSize, countItems, onChanged, onShown }: Props) {
+export function CheckPeople({
+  meetingId,
+  transcriptSize,
+  countItems,
+  onChanged,
+  onShown,
+  audioUrl,
+  onShowLine,
+}: Props) {
   const [data, setData] = useState<CheckPeopleDto>();
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [busy, setBusy] = useState(false);
@@ -219,6 +300,8 @@ export function CheckPeople({ meetingId, transcriptSize, countItems, onChanged, 
               key={voice.id}
               voice={voice}
               options={data.options}
+              audioUrl={audioUrl}
+              onShowLine={onShowLine}
               choice={choices[voice.id] ?? { kind: 'none' }}
               onChoice={(choice) => {
                 setChoices((current) => ({ ...current, [voice.id]: choice }));
