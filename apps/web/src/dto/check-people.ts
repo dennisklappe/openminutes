@@ -51,7 +51,10 @@ export interface CheckPeopleDto {
   voices: CheckVoiceDto[];
   options: CheckOptionDto[];
   rememberEnabled: boolean;
+  /** The speakers set on the meeting, else the number of people on the invitation. */
   speakerCount: number | null;
+  /** People on the invitation who did not decline, null without an invitation. */
+  expectedPeople: number | null;
 }
 
 export interface CheckPeopleConfirmInput {

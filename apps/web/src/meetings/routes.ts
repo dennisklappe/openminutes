@@ -53,6 +53,7 @@ import type {
   SummaryDto,
   SummaryOptionsDto,
 } from '../dto.js';
+import { expectedPeople } from './link-pick.js';
 import { iso, toMeetingDto } from './meeting-dto.js';
 import { loadRoomNotices } from './room-voices.js';
 import { dismissSpeakersNotice, speakersChangedSinceSummary } from './speakers-notice.js';
@@ -232,6 +233,17 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
     return recorded !== undefined;
   }
 
+  /** A recording or import that no calendar meeting is linked to yet. */
+  async function canLinkEvent(meeting: typeof meetings.$inferSelect): Promise<boolean> {
+    if (meeting.deletedAt || !['recording', 'imported'].includes(meeting.platform)) return false;
+    const [source] = await deps.db
+      .select({ id: meetingSources.id })
+      .from(meetingSources)
+      .where(eq(meetingSources.meetingId, meeting.id))
+      .limit(1);
+    return source === undefined;
+  }
+
   const loadCalendars = (meetingId: string): Promise<MeetingCalendarDto[]> =>
     deps.db
       .selectDistinct({ name: calendars.name, accountEmail: calendarAccounts.accountEmail })
@@ -260,6 +272,8 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
       calendars: await loadCalendars(meeting.id),
       calendarLinks: await loadCalendarLinks(deps.db, meeting.id),
       calendarLinkEnabled: await calendarLinkEnabled(deps),
+      canLinkEvent: await canLinkEvent(meeting),
+      expectedPeople: expectedPeople(meeting.invitees, meeting.dismissedInvitees),
       canTranscribe: await canTranscribe(meeting),
       rerun: await rerunOptions(deps.db, deps.settings, meeting),
       canSkip: meeting.status === 'scheduled',

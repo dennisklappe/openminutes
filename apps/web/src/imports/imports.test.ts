@@ -292,6 +292,53 @@ describe('Fireflies import API', () => {
       expect(await speakerCount()).toBeNull();
     });
 
+    it('links a new meeting to the calendar meeting that was chosen for it', async () => {
+      const upload2 = (await upload(tarGz(syntheticExport()))).id;
+      const [event] = await test.db
+        .insert(meetings)
+        .values({
+          title: 'Budget review',
+          platform: 'meet',
+          joinUrl: 'https://meet.google.com/xyz-wxyz-xyz',
+          status: 'skipped',
+          scheduledStart: new Date('2026-10-01T09:00:00Z'),
+          invitees: [
+            { email: 'jo@acme.example', name: 'Jo Parker', declined: false },
+            { email: 'ann@acme.example', name: 'Ann Lee', declined: false },
+            { email: 'sam@acme.example', name: 'Sam Roe', declined: false },
+          ],
+        })
+        .returning();
+      const key = `fireflies:${KEYS[0] ?? ''}`;
+      await test.db.delete(meetings).where(eq(meetings.externalId, key));
+      const response = await post(`/${upload2}/start`, {
+        keys: [KEYS[0]],
+        events: { [KEYS[0] ?? '']: event?.id },
+      });
+      expect(response.status).toBe(202);
+      const [row] = await test.db.select().from(meetings).where(eq(meetings.externalId, key));
+      expect(row).toMatchObject({ title: 'Budget review', speakerCount: 3, status: 'ended' });
+      expect(row?.invitees?.map((invitee) => invitee.email)).toEqual([
+        'jo@acme.example',
+        'ann@acme.example',
+        'sam@acme.example',
+        'alice@example.com',
+        'bob@example.com',
+      ]);
+      expect(
+        await test.db
+          .select()
+          .from(meetings)
+          .where(eq(meetings.id, event?.id ?? '')),
+      ).toEqual([]);
+    });
+
+    it('refuses a link that is not a meeting id', async () => {
+      expect((await post(`/${id}/start`, { keys: [KEYS[0]], events: { a: 'nope' } })).status).toBe(
+        400,
+      );
+    });
+
     it.each([1, 6, 2.5, '3'])('refuses %s as a number of speakers', async (speakers) => {
       expect((await post(`/${id}/start`, { keys: [KEYS[0]], speakers })).status).toBe(400);
     });

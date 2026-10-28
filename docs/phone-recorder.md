@@ -37,6 +37,8 @@ flowchart LR
 3. Pause and Resume if needed (paused time is not counted). Stop ends the recording, with a confirmation under three seconds.
 4. The app uploads the rest and opens the new meeting, processing until the minutes are ready.
 
+**Link to a calendar meeting** lists the skipped and scheduled meetings around now and preselects the closest. The recording then takes its title, date and invitees, and the number of people on the invitation becomes the speaker count unless you pick another. See [recording a skipped meeting yourself](meeting-lifecycle.md#recording-a-skipped-meeting-yourself). When you record offline, the choice is kept with the recording and linked once it uploads.
+
 "How many people are talking?" takes Auto (default), 2, 3, 4 or 5+. Use 2 for two people at a table: one microphone hears a quiet second voice as part of the loud one. The choice is remembered on the device and saved with the recording. Change it later from Re-run, Re-run speakers with a number of people.
 
 The level meter shows whether the microphone hears anything. Echo cancellation, noise suppression and automatic gain are on.

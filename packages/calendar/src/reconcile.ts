@@ -26,7 +26,8 @@ interface CalendarScope {
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 type MeetingRow = typeof meetings.$inferSelect;
 
-const RECONCILE_LOCK_ID = 7_431_002;
+/** Held while calendar events are placed, so linking a recording to an event waits for it. */
+export const RECONCILE_LOCK_ID = 7_431_002;
 const EDITABLE: readonly MeetingRow['status'][] = ['scheduled', 'cancelled', 'skipped'];
 
 const isEditable = (meeting: MeetingRow) => EDITABLE.includes(meeting.status);

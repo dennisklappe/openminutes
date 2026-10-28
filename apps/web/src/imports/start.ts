@@ -7,6 +7,7 @@ import {
 } from '@openminutes/core';
 import { and, eq, meetings, type Database } from '@openminutes/db';
 import type { ImportStartInput } from '../dto.js';
+import { LinkEventError, linkRecordingToEvent } from '../meetings/link-event.js';
 import { externalId } from './preview.js';
 
 interface StartDeps {
@@ -21,7 +22,8 @@ type StagedKey = { id: string; hasAudio: boolean };
  * Creates the meeting for every chosen export entry with a recording and queues it. A meeting that failed earlier
  * is queued again, one that exists already is left alone. The files of every other entry are
  * removed: they are not needed any more. Its transcript and summary are never read: the normal
- * processing transcribes the recording and writes the summary.
+ * processing transcribes the recording and writes the summary. A chosen calendar meeting is linked
+ * to a new meeting before it is queued, so the transcription knows who is invited.
  */
 export async function startImport(
   deps: StartDeps,
@@ -37,6 +39,7 @@ export async function startImport(
     }
     const meetingId = await claim(deps, uploadId, id, input.speakers ?? null);
     if (meetingId) {
+      await linkQuietly(deps.db, meetingId, input.events?.[id]);
       await deps.queue.send('meeting.import', {
         meetingId,
         uploadId,
@@ -45,6 +48,16 @@ export async function startImport(
     } else if (!(await isRunning(deps.db, id))) {
       await removeStagedMeeting(deps.storage, uploadId, id);
     }
+  }
+}
+
+/** An import is worth more than its link: when the calendar meeting is gone it is kept unlinked. */
+async function linkQuietly(db: Database, meetingId: string, eventId: string | undefined) {
+  if (!eventId) return;
+  try {
+    await linkRecordingToEvent(db, meetingId, eventId);
+  } catch (error) {
+    if (!(error instanceof LinkEventError)) throw error;
   }
 }
 

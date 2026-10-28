@@ -14,6 +14,8 @@ export interface RecordingStartInput {
   mimeType: string;
   startedAt: string;
   speakers?: number | undefined;
+  /** A calendar meeting to link the recording to. A link that no longer fits is left out. */
+  eventId?: string | undefined;
 }
 
 export interface RecordingStatusDto {

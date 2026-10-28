@@ -156,6 +156,16 @@ curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"
   -d '{"url": "https://meet.google.com/abc-defg-hij", "title": "Weekly sync"}' "$OM/api/meetings"
 ```
 
+### Link a recording to a calendar meeting
+
+`GET /api/meetings/linkable-events?from=<iso>&to=<iso>` lists the skipped and scheduled meetings that start in the window (at most 400 days, 50 by default, `limit` up to 200). `POST /api/meetings/:id/link-event` links a recording or import to one of them, see [recording a skipped meeting yourself](meeting-lifecycle.md#recording-a-skipped-meeting-yourself). 404 when either is gone, 409 when the recording is linked already or the calendar meeting was recorded.
+
+```bash
+curl -H "Authorization: Bearer $KEY" "$OM/api/meetings/linkable-events?from=2026-10-20T00:00:00Z&to=2026-10-21T00:00:00Z"
+curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"eventId": "<id from the list>"}' "$OM/api/meetings/$RECORDING/link-event"
+```
+
 ### Start a recording import
 
 An import takes a Fireflies data export. Upload the archive in chunks under an id you choose (a UUID), finish, look at the preview, then start the meetings you want. See [import from Fireflies](import-fireflies.md) for the limits.
@@ -169,6 +179,8 @@ curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"
 curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
   -d '{"keys": ["<fireflies meeting id from the preview>"]}' "$OM/api/imports/$ID/start"
 ```
+
+`POST /api/imports/:id/start` also takes `speakers` (2 to 5) and `events`, an object that links meetings to calendar meetings by Fireflies id, `{"<fireflies id>": "<meeting id from GET /api/meetings/linkable-events>"}`. A link that no longer fits is left out and the meeting is imported unlinked.
 
 To upload a recording from a device instead, see the [phone recorder API](phone-recorder-api.md).
 

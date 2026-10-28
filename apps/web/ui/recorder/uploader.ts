@@ -67,6 +67,7 @@ export async function syncRecording(id: string, deps: UploadDeps): Promise<SyncR
       mimeType: first.mimeType,
       startedAt: first.startedAt,
       ...(first.speakers && { speakers: first.speakers }),
+      ...(first.eventId && { eventId: first.eventId }),
     }),
   );
   if (status.status !== 'uploading') {

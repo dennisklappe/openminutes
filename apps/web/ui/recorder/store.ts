@@ -9,6 +9,8 @@ export interface LocalRecording {
   chunkCount: number;
   uploadedCount: number;
   speakers?: number;
+  /** The calendar meeting the recording is linked to once it is on the server. */
+  eventId?: string;
 }
 
 export interface LocalChunk {

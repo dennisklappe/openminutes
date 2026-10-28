@@ -90,7 +90,7 @@ flowchart TD
 ```
 
 - Audio never goes to a third party for speaker detection. The diarizer runs only with the local provider.
-- "How many people are talking?" on the Record screen takes Auto, 2, 3, 4 or 5+. Use a count only when certain: a count of 2 on a one voice recording invents a second speaker. On a finished recording use Re-run, see [fixing the number of people](#fixing-the-number-of-people). Imports ask the same question before they start, see [import](import-fireflies.md).
+- "How many people are talking?" on the Record screen takes Auto, 2, 3, 4 or 5+. Use a count only when certain: a count of 2 on a one voice recording invents a second speaker. On a finished recording use Re-run, see [fixing the number of people](#fixing-the-number-of-people). Imports ask the same question before they start, see [import](import-fireflies.md). A recording linked to a calendar meeting, see [recording a skipped meeting yourself](meeting-lifecycle.md#recording-a-skipped-meeting-yourself), starts with the number of people on the invitation (2 to 5, more than 5 is 5+) when you pick Auto.
 - Names are only ever suggested, never applied. A suggestion comes from voice memory (with learning on, up to 3 matches) or from names spoken in the call ("Thanks, Anna", text only). See [Voices](voices.md).
 - The **Talk time** panel and the People card have an **Edit** button per speaker for the name and the bound emails, see [Edit a speaker](participants.md#edit-a-speaker).
 - After transcription, a **Check the people** card on the meeting says how many people were found and who they probably are, from voice memory, the calendar and earlier meetings. Nothing is applied until you confirm. See [Check the people](voices.md#check-the-people).

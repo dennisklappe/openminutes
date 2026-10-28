@@ -41,4 +41,6 @@ export interface ImportStartInput {
   keys: string[];
   /** How many people speak, for the diarization of every chosen meeting. Left out: Auto. */
   speakers?: number | undefined;
+  /** Calendar meetings to link imported meetings to, by Fireflies id. */
+  events?: Record<string, string> | undefined;
 }

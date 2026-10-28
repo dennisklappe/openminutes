@@ -1,7 +1,8 @@
-import type { ImportMeetingDto } from '../../src/dto.js';
+import type { ImportMeetingDto, LinkableEventDto } from '../../src/dto.js';
+import { EventPicker } from '../EventPicker.js';
 import { formatLength, formatWhen } from '../format.js';
 import { ClockIcon, UsersIcon } from '../icons.js';
-import { isSelectable, selectableKeys } from './choices.js';
+import { eventsNear, isSelectable, selectableKeys } from './choices.js';
 
 function Badges({ meeting }: { meeting: ImportMeetingDto }) {
   const failed = meeting.meeting?.status === 'failed';
@@ -18,8 +19,12 @@ export function ImportList(props: {
   meetings: readonly ImportMeetingDto[];
   picked: ReadonlySet<string>;
   onChange: (picked: Set<string>) => void;
+  /** Calendar meetings a meeting can be linked to, and the one each is linked to now. */
+  events: readonly LinkableEventDto[];
+  links: Readonly<Record<string, string>>;
+  onLink: (key: string, eventId: string | undefined) => void;
 }) {
-  const { meetings, picked, onChange } = props;
+  const { meetings, picked, onChange, events, links, onLink } = props;
   const available = selectableKeys(meetings);
   const all = available.length > 0 && available.every((key) => picked.has(key));
 
@@ -77,6 +82,18 @@ export function ImportList(props: {
                 </span>
                 <Badges meeting={meeting} />
               </label>
+              {selectable && meeting.meeting === null && (
+                <div className="import-link">
+                  <EventPicker
+                    compact
+                    events={eventsNear(events, meeting)}
+                    value={links[meeting.key]}
+                    onChange={(id) => {
+                      onLink(meeting.key, id);
+                    }}
+                  />
+                </div>
+              )}
             </li>
           );
         })}

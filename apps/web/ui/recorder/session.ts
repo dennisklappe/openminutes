@@ -104,7 +104,7 @@ class RecorderSession {
     }
   }
 
-  async start(speakers?: number): Promise<void> {
+  async start(speakers?: number, eventId?: string): Promise<void> {
     if (
       this.snapshot.phase !== 'idle' &&
       this.snapshot.phase !== 'done' &&
@@ -146,6 +146,7 @@ class RecorderSession {
         chunkCount: 0,
         uploadedCount: 0,
         ...(speakers && { speakers }),
+        ...(eventId && { eventId }),
       });
       this.attachAudio(stream);
       this.capture = capture;
