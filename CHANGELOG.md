@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/dennisklappe/openminutes/compare/v0.2.0...v0.2.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* QA findings, delete-all-voices also clears stored participant voices ([#25](https://github.com/dennisklappe/openminutes/issues/25)) ([85e5da9](https://github.com/dennisklappe/openminutes/commit/85e5da964de1e80a03f81e7d7d5bb3948ca50f5a))
+
 ## [0.2.0](https://github.com/dennisklappe/openminutes/compare/v0.1.0...v0.2.0) (2026-10-28)
 
 
