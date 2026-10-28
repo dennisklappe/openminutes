@@ -408,7 +408,7 @@ describe('web API', () => {
     expect((await cancel()).status).toBe(200);
     const after = (await detailOf(meeting.id)).meeting;
     expect(after).toMatchObject({ status: 'failed', progress: null });
-    expect(after.error).toMatch(/Re-process/);
+    expect(after.error).toMatch(/Re-run/);
     expect((await cancel()).status).toBe(409);
   });
 

@@ -348,7 +348,7 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
   routes.post('/:id/cancel', async (c) => {
     const cancelled = await deps.db
       .update(meetings)
-      .set({ status: 'failed', error: 'Cancelled. Press Re-process to try again.' })
+      .set({ status: 'failed', error: 'Cancelled. Use Re-run to try again.' })
       .where(and(eq(meetings.id, c.req.param('id')), eq(meetings.status, 'processing')))
       .returning({ id: meetings.id });
     if (cancelled.length === 0)

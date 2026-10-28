@@ -40,5 +40,5 @@ export interface ImportStartInput {
   /** Fireflies ids of meetings with a recording. */
   keys: string[];
   /** How many people speak, for the diarization of every chosen meeting. Left out: Auto. */
-  speakers?: number;
+  speakers?: number | undefined;
 }

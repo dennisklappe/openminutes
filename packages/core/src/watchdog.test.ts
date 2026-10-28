@@ -124,7 +124,7 @@ describe('failStuckMeetings', () => {
     const failed = await failStuckMeetings(test.db, limits, at(PROCESSING_STALE_MS + 1000));
 
     expect(failed.map((f) => f.id).toSorted()).toEqual([dead, queued].toSorted());
-    expect((await row(dead))?.error).toMatch(/Press Re-process/);
+    expect((await row(dead))?.error).toMatch(/Use Re-run/);
     expect((await row(alive))?.status).toBe('processing');
     expect((await row(queued))?.status).toBe('failed');
   });

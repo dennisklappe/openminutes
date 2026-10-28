@@ -323,6 +323,9 @@ export const api = {
   forgetVoice: (id: string) =>
     request<VoiceSettingsDto>(`/settings/voices/${id}`, { method: 'DELETE' }),
   forgetAllVoices: () => request<VoiceSettingsDto>('/settings/voices', { method: 'DELETE' }),
+  rerunSpeakers: (id: string, speakers: number) =>
+    request(`/meetings/${id}/rerun-speakers`, { method: 'POST', body: { speakers } }),
+  rerunVoices: (id: string) => request(`/meetings/${id}/rerun-voices`, { method: 'POST' }),
   cancelProcessing: (id: string) => request(`/meetings/${id}/cancel`, { method: 'POST' }),
   reprocess: (id: string, options: ReprocessOptions = {}) =>
     request(`/meetings/${id}/reprocess`, { method: 'POST', body: options }),

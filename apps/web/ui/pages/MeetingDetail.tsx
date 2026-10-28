@@ -4,7 +4,9 @@ import { CalendarLinkPanel } from '../CalendarLinkPanel.js';
 import { JoinChoice } from '../JoinChoice.js';
 import { formatDate, formatDuration, platformLabels, progressLabel } from '../format.js';
 import { languageName } from '../languages.js';
-import { RerunDialog } from '../RerunDialog.js';
+import { RerunDialog, type RerunChoice } from '../RerunDialog.js';
+import { rerunItems, type RerunKind } from '../rerun.js';
+import { Menu } from '../Menu.js';
 import { ChevronIcon, ClockIcon, ExternalIcon, PlatformIcon } from '../icons.js';
 import { Panel } from '../Panel.js';
 import { talkTime } from '../speakers.js';
@@ -29,7 +31,7 @@ export function MeetingDetail({ id }: { id: string }) {
   const [actionError, setActionError] = useState<string>();
   const [showChat, setShowChat] = useShowChat();
   const [chosenTab, setChosenTab] = useState<'transcript' | 'summary'>();
-  const [rerun, setRerun] = useState(false);
+  const [rerunKind, setRerunKind] = useState<RerunKind>();
   const player = useRef<PlayerHandle>(null);
   const bulk = useBulk(() => {
     refresh();
@@ -50,6 +52,7 @@ export function MeetingDetail({ id }: { id: string }) {
     speakerCheck,
     chat,
     canTranscribe,
+    rerun,
     series,
     canSkip,
     canRejoin,
@@ -70,6 +73,21 @@ export function MeetingDetail({ id }: { id: string }) {
         setActionError(errorMessage(failure));
       },
     );
+  };
+
+  const runChoice = (kind: RerunKind, choice: RerunChoice) => {
+    setRerunKind(undefined);
+    if (kind === 'transcribe') {
+      const askSpeakers = meeting.platform === 'recording' || meeting.platform === 'imported';
+      reprocess({
+        ...(choice.language && { language: choice.language }),
+        ...(askSpeakers && { speakers: choice.speakers ?? null }),
+      });
+    } else if (kind === 'speakers' && choice.speakers !== undefined) {
+      change(() => api.rerunSpeakers(id, choice.speakers ?? 0));
+    } else if (kind === 'voices') {
+      change(() => api.rerunVoices(id));
+    }
   };
 
   const cancel = () => {
@@ -100,34 +118,38 @@ export function MeetingDetail({ id }: { id: string }) {
     hasAudio: Boolean(audio),
   });
   const more = moreItems({
-    canTranscribe,
     canDelete,
     archived: Boolean(meeting.archivedAt),
     hasTranscript: segments.length > 0,
-    speakerCount: meeting.speakerCount,
-    isRecording: meeting.platform === 'recording',
-    reprocess,
     reviewHref: `#/meetings/${id}/review`,
-    chooseLanguage: () => {
-      setRerun(true);
-    },
     toggleArchive: () => void bulk.run(meeting.archivedAt ? 'unarchive' : 'archive', item),
     remove: () => void remove(),
   });
 
+  const rerunMenu = rerunItems(
+    { canTranscribe, hasTranscript: segments.length > 0, rerun },
+    setRerunKind,
+  );
   const tab = chosenTab ?? (summaries.length > 0 ? 'summary' : 'transcript');
   const headline = meeting.startedAt ?? meeting.createdAt;
   return (
     <>
-      {rerun && (
+      {rerunKind && (
         <RerunDialog
+          kind={rerunKind}
           detected={meeting.language}
-          onRun={(language) => {
-            setRerun(false);
-            reprocess(language ? { language } : undefined);
+          speakerCount={meeting.speakerCount}
+          askSpeakers={
+            rerunKind === 'speakers' ||
+            (rerunKind === 'transcribe' &&
+              (meeting.platform === 'recording' || meeting.platform === 'imported'))
+          }
+          voiceCheckOn={rerun.voiceCheckOn}
+          onRun={(choice) => {
+            runChoice(rerunKind, choice);
           }}
           onClose={() => {
-            setRerun(false);
+            setRerunKind(undefined);
           }}
         />
       )}
@@ -167,6 +189,11 @@ export function MeetingDetail({ id }: { id: string }) {
               )}
             </p>
           </div>
+          {rerunMenu.length > 0 && meeting.status !== 'processing' && (
+            <div className="actions">
+              <Menu trigger="Re-run" label="Re-run" items={rerunMenu} />
+            </div>
+          )}
           {(meeting.status === 'transcribed' || company.name) && (
             <MeetingCompany meetingId={id} company={company} onChanged={refresh} />
           )}
@@ -290,7 +317,7 @@ export function MeetingDetail({ id }: { id: string }) {
             meeting.status !== 'processing' && (
               <p className="empty">
                 {meeting.status === 'transcribed'
-                  ? 'No speech was detected in this recording. Pick the language from the menu and re-run it.'
+                  ? 'No speech was detected in this recording. Pick the language from the Re-run menu and transcribe it again.'
                   : 'No transcript yet.'}
               </p>
             )}

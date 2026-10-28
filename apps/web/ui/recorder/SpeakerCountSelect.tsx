@@ -10,6 +10,8 @@ export function SpeakerCountSelect(props: {
   value: number | undefined;
   disabled: boolean;
   label?: string;
+  /** Offer Auto next to the numbers. Default true. */
+  auto?: boolean;
   onChange: (value: number | undefined) => void;
 }) {
   return (
@@ -22,7 +24,7 @@ export function SpeakerCountSelect(props: {
           props.onChange(event.target.value ? Number(event.target.value) : undefined);
         }}
       >
-        <option value="">Auto</option>
+        {props.auto !== false && <option value="">Auto</option>}
         {options.map((count) => (
           <option key={count} value={count}>
             {count === MAX_SPEAKERS ? `${String(count)}+` : count}
