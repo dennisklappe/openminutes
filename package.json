@@ -45,7 +45,7 @@
     "mermaid": "11",
     "prettier": "^3.9.0",
     "typescript": "^5.9.0",
-    "typescript-eslint": "^8.0.0",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.5"
   },
   "pnpm": {
