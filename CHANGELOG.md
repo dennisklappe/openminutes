@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/dennisklappe/openminutes/compare/v0.2.4...v0.3.0) (2026-11-04)
+
+
+### Features
+
+* change or remove the calendar meeting a recording is linked to ([#37](https://github.com/dennisklappe/openminutes/issues/37)) ([b74712b](https://github.com/dennisklappe/openminutes/commit/b74712b95c9e57584b22b082dd4c2bc5f092c73c))
+* GitHub folder name variables and resync on edits ([#40](https://github.com/dennisklappe/openminutes/issues/40)) ([0a5669e](https://github.com/dennisklappe/openminutes/commit/0a5669ece58605a26f3333bbf55183251f3cbff2))
+* send minutes and transcript to a GitHub repository ([#39](https://github.com/dennisklappe/openminutes/issues/39)) ([0d419e9](https://github.com/dennisklappe/openminutes/commit/0d419e954ff5612149316109e0f9757fbd8afa35))
+
 ## [0.2.4](https://github.com/dennisklappe/openminutes/compare/v0.2.3...v0.2.4) (2026-10-28)
 
 
