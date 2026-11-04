@@ -112,6 +112,11 @@ export interface GithubSettingsDto {
   branch: string;
   folder: string;
   includeTranscript: boolean;
+  folderTemplate: string;
+  minutesFile: string;
+  transcriptFile: string;
+  /** Variables the folder template may use, without braces. */
+  variables: string[];
   tokenSet: boolean;
 }
 
@@ -120,6 +125,9 @@ export interface GithubSettingsInput {
   branch: string;
   folder: string;
   includeTranscript: boolean;
+  folderTemplate: string;
+  minutesFile: string;
+  transcriptFile: string;
   /** Left out or empty keeps the saved token. */
   token?: string;
 }

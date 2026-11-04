@@ -9,6 +9,9 @@ interface GithubDraft {
   branch: string;
   folder: string;
   includeTranscript: boolean;
+  folderTemplate: string;
+  minutesFile: string;
+  transcriptFile: string;
   /** Typed, never read back. Empty keeps the saved token. */
   token: string;
 }
@@ -18,6 +21,9 @@ const toForm = (state: GithubSettingsDto): GithubDraft => ({
   branch: state.branch,
   folder: state.folder,
   includeTranscript: state.includeTranscript,
+  folderTemplate: state.folderTemplate,
+  minutesFile: state.minutesFile,
+  transcriptFile: state.transcriptFile,
   token: '',
 });
 
@@ -34,6 +40,9 @@ function GithubForm({
       branch: draft.branch.trim(),
       folder: draft.folder.trim(),
       includeTranscript: draft.includeTranscript,
+      folderTemplate: draft.folderTemplate.trim(),
+      minutesFile: draft.minutesFile.trim(),
+      transcriptFile: draft.transcriptFile.trim(),
       token: draft.token.trim(),
     });
     onSaved(saved);
@@ -47,7 +56,7 @@ function GithubForm({
       description={
         <>
           Commit the minutes to a folder in a GitHub repository, for example as context for agents.
-          Each meeting gets its own folder named like <code>202603120930 Product sync</code> with{' '}
+          Each meeting gets its own folder, by default <code>202603120930 Product sync</code> with{' '}
           <code>MINUTES.md</code> and <code>TRANSCRIPT.md</code>. Pick GitHub as the export target
           above to send it automatically.
         </>
@@ -106,6 +115,45 @@ function GithubForm({
           }}
         />
         <small>A folder inside the repository. Leave empty for the top level.</small>
+      </label>
+      <label className="field">
+        <span>Meeting folder name</span>
+        <input
+          value={draft.folderTemplate}
+          onChange={(e) => {
+            form.patch({ folderTemplate: e.target.value });
+          }}
+        />
+        <small>
+          Made per meeting from variables:{' '}
+          {state.variables.map((name) => (
+            <code key={name}>{`{${name}}`} </code>
+          ))}
+          (year, month as number or name, day, hour, minute, meeting title, company, short id). A
+          slash makes subfolders, for example <code>{'{yyyy}/{MM}/{title}'}</code>.
+        </small>
+      </label>
+      <label className="field">
+        <span>Minutes file name</span>
+        <input
+          value={draft.minutesFile}
+          onChange={(e) => {
+            form.patch({ minutesFile: e.target.value });
+          }}
+        />
+      </label>
+      <label className="field">
+        <span>Transcript file name</span>
+        <input
+          value={draft.transcriptFile}
+          onChange={(e) => {
+            form.patch({ transcriptFile: e.target.value });
+          }}
+        />
+        <small>
+          Updating a meeting writes into the same folder. After you rename files or the folder
+          template, older meetings keep their old names.
+        </small>
       </label>
       <label className="field">
         <span>Access token</span>

@@ -24,7 +24,14 @@ export type {
 } from './exporters/google-docs.js';
 export { createOneDriveExporter } from './exporters/onedrive.js';
 export type { OneDriveContext, OneDriveDeps } from './exporters/onedrive.js';
-export { createGithubExporter, githubFolderName } from './exporters/github.js';
+export {
+  createGithubExporter,
+  fileNameProblem,
+  folderTemplateProblem,
+  GITHUB_DEFAULTS,
+  GITHUB_VARIABLES,
+  githubFolderName,
+} from './exporters/github.js';
 export type { GithubContext, GithubDeps } from './exporters/github.js';
 export { createBuiltinExporters } from './exporters/index.js';
 export { escapeHtml } from './html.js';

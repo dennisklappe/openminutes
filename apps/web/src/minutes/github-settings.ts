@@ -1,5 +1,5 @@
 import type { SettingsStore } from '@openminutes/core';
-import type { GithubContext } from '@openminutes/minutes';
+import { GITHUB_DEFAULTS, type GithubContext } from '@openminutes/minutes';
 
 const KEY = 'export.github';
 
@@ -9,6 +9,9 @@ export interface GithubConfig {
   branch: string;
   folder: string;
   includeTranscript: boolean;
+  folderTemplate: string;
+  minutesFile: string;
+  transcriptFile: string;
 }
 
 export async function readGithubConfig(settings: SettingsStore): Promise<GithubConfig | undefined> {
@@ -22,6 +25,9 @@ export async function readGithubConfig(settings: SettingsStore): Promise<GithubC
       branch: value.branch ?? '',
       folder: value.folder ?? '',
       includeTranscript: value.includeTranscript !== false,
+      folderTemplate: value.folderTemplate || GITHUB_DEFAULTS.folderTemplate,
+      minutesFile: value.minutesFile || GITHUB_DEFAULTS.minutesFile,
+      transcriptFile: value.transcriptFile || GITHUB_DEFAULTS.transcriptFile,
     };
   } catch {
     return undefined;
@@ -40,6 +46,9 @@ export async function loadGithubConfig(
     branch: config.branch || undefined,
     folder: config.folder,
     includeTranscript: config.includeTranscript,
+    folderTemplate: config.folderTemplate,
+    minutesFile: config.minutesFile,
+    transcriptFile: config.transcriptFile,
   };
 }
 

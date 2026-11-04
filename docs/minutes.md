@@ -160,8 +160,11 @@ Settings, Minutes, GitHub commits the minutes to a repository, for example as co
 
 - Fill in the repository (`owner/name`), an optional branch (default branch if empty, it must exist) and an optional folder inside the repository.
 - The access token is a fine-grained personal access token limited to that repository with Contents: read and write. It is stored encrypted and never shown again.
+- The folder name is a template, default `{yyyy}{MM}{dd}{HH}{mm} {title}`. Variables: `{yyyy}` `{yy}` `{MM}` (number) `{MMM}` `{MMMM}` (month name) `{dd}` `{HH}` `{mm}` (instance timezone), `{title}`, `{company}` and `{id}` (short meeting id). A slash makes subfolders, for example `{company}/{yyyy}/{MM}/{title}`. The template needs `{title}` or `{id}` so meetings never overwrite each other. The two file names are settings too.
+- Changing the template or file names only affects new folders. A meeting keeps writing to the folder it first got.
 - Turn off "Also commit the transcript" to commit only `MINUTES.md`.
 - Update commits to the same folder again, even if the meeting was renamed. Create new copy writes to a folder with the current title.
+- With automatic export on, an edit to the title, the summary (by hand, by AI or restoring a version) or the speakers commits the meeting again about 15 seconds later, to the same folder. Nothing is committed when the files did not change. It commits straight to the branch, there is no pull request.
 - Pick GitHub as the export target and tick "Send them to the export target above" to commit after every meeting.
 
 Developers: see "Writing an exporter" in `docs/maintainers.md` in the repository.
