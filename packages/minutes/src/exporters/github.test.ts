@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { demoMinutes } from '../demo.js';
 import { ExportError } from '../exporter.js';
-import { createGithubExporter, githubFolderName, type GithubContext } from './github.js';
+import {
+  createGithubExporter,
+  fileNameProblem,
+  folderTemplateProblem,
+  GITHUB_DEFAULTS,
+  githubFolderName,
+  type GithubContext,
+} from './github.js';
 
 const options = {
   template: 'classic',
@@ -116,11 +123,71 @@ describe('github exporter', () => {
     ).rejects.toBeInstanceOf(ExportError);
   });
 
-  it('names the folder in the given zone and keeps path characters out of the title', () => {
-    expect(githubFolderName('Q1/Q2: plan?', '2026-03-12T23:30:00.000Z', 'Europe/Amsterdam')).toBe(
-      '202603130030 Q1 Q2 plan',
+  it('names the folder from a template with date, title and company variables', () => {
+    const meeting: Parameters<typeof githubFolderName>[1] = {
+      title: 'Q1/Q2: plan?',
+      startedAt: '2026-03-12T23:30:00.000Z',
+      id: 'abcdef1234',
+      company: 'Acme',
+    };
+    const name = (template: string, m = meeting) =>
+      githubFolderName(template, m, 'Europe/Amsterdam');
+    expect(name(GITHUB_DEFAULTS.folderTemplate)).toBe('202603130030 Q1 Q2 plan');
+    expect(name('{company}/{yyyy}/{MMMM}/{dd} {title} {id}')).toBe(
+      'Acme/2026/March/13 Q1 Q2 plan abcdef12',
     );
-    expect(githubFolderName('', null, undefined)).toBe('Meeting');
+    expect(name('{yy}-{MMM}-{dd} {HH}.{mm} {title}')).toBe('26-Mar-13 00.30 Q1 Q2 plan');
+    expect(name('{company}/{title}', { ...meeting, company: null })).toBe('Q1 Q2 plan');
+    expect(name('../{title}')).toBe('Q1 Q2 plan');
+    expect(name('{title}', { ...meeting, title: '' })).toBe('Meeting');
+    expect(name('{yyyy} {title}', { ...meeting, startedAt: null })).toBe('Q1 Q2 plan abcdef12');
+  });
+
+  it('checks templates and file names', () => {
+    expect(folderTemplateProblem(GITHUB_DEFAULTS.folderTemplate)).toBeUndefined();
+    expect(folderTemplateProblem('{yyyy} {nope}')).toMatch(/Unknown variable/);
+    expect(folderTemplateProblem('{yyyy}')).toMatch(/title/);
+    expect(folderTemplateProblem('{title')).toMatch(/Unbalanced/);
+    expect(fileNameProblem('README.md')).toBeUndefined();
+    expect(fileNameProblem('a/b.md')).toBeDefined();
+    expect(fileNameProblem('.hidden')).toBeDefined();
+  });
+
+  it('does not commit when nothing changed', async () => {
+    const calls: { method: string; url: string }[] = [];
+    // The fake tree has the same sha as the current one.
+    const same = createGithubExporter({
+      api: 'https://api.test',
+      fetch: (input, init) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        calls.push({ method: init?.method ?? 'GET', url });
+        const reply = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body)));
+        if (url.includes('/git/ref/')) return reply({ object: { sha: 'c0' } });
+        if (url.endsWith('/git/commits/c0')) return reply({ tree: { sha: 't0' } });
+        return reply({ sha: 't0' });
+      },
+      resolve: () =>
+        Promise.resolve({
+          token: 't',
+          repo: 'acme/kb',
+          branch: 'main',
+          folder: '',
+          includeTranscript: true,
+        }),
+    });
+    await same.export({ meetingId: 'm1', minutes: demoMinutes, options });
+    expect(calls.some((c) => c.url.endsWith('/git/commits'))).toBe(false);
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+  });
+
+  it('uses custom file names', async () => {
+    const { calls, exporter } = harness({ minutesFile: 'summary.md', transcriptFile: 'full.md' });
+    await exporter.export({ meetingId: 'm1', minutes: demoMinutes, options });
+    const tree = calls.find((c) => c.url.endsWith('/git/trees'));
+    expect(
+      (tree?.body as { tree: { path: string }[] }).tree.map((e) => e.path.split('/').pop()),
+    ).toEqual(['summary.md', 'full.md']);
   });
 });
 

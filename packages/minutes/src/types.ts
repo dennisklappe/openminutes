@@ -29,6 +29,8 @@ export interface Minutes {
   platform: 'meet' | 'teams' | 'recording' | 'imported';
   joinUrl: string;
   location: string | null;
+  /** The company of the meeting, when known. */
+  company?: string | null;
   attendees: MinutesPerson[];
   absent: MinutesAbsentee[];
   summary: string | null;

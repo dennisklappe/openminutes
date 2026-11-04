@@ -30,6 +30,7 @@ import { linkEventRoutes } from './meetings/link-routes.js';
 import { calendarLinkActionRoutes } from './minutes/calendar-link-routes.js';
 import { exportSettingsRoutes } from './minutes/export-settings-routes.js';
 import { createWebExporters } from './minutes/exporters.js';
+import { queueGithubResync } from './minutes/github-resync.js';
 import { githubSettingsRoutes } from './minutes/github-settings-routes.js';
 import { publicShareRoutes, SHARE_PREFIX } from './minutes/public-routes.js';
 import { emailSettingsRoutes } from './email/settings-routes.js';
@@ -96,6 +97,17 @@ const limitApiBody = createMiddleware((c, next) =>
 
 const NOT_FOUND = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Page not found</title><meta name="color-scheme" content="light dark"><style>body{font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:20vh auto;padding:0 1rem;color:#1c1f24;background:#fff}h1{font-size:1.25rem;margin:0 0 .5rem}p{margin:0 0 1rem;color:#5d6572}a{color:#2760ab;display:inline-block;padding:.6rem 0}@media(prefers-color-scheme:dark){body{color:#e6e8ec;background:#14171c}p{color:#9aa3b0}a{color:#74a8ef}}</style></head><body><h1>Page not found</h1><p>Nothing lives at this address.</p><a href="/">Back to OpenMinutes</a></body></html>`;
 
+function resyncAfter(deps: AppDeps, methods: string[]) {
+  return createMiddleware(async (c, next) => {
+    await next();
+    const id = c.req.param('id');
+    if (!id || !methods.includes(c.req.method) || c.res.status >= 300) return;
+    await queueGithubResync(deps, id).catch((error: unknown) => {
+      console.error('GitHub resync not queued', error);
+    });
+  });
+}
+
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
   const api = new Hono();
@@ -134,6 +146,12 @@ export function createApp(deps: AppDeps): Hono {
   api.get('/version', (c) => c.json({ version: deps.version }));
   api.route('/', authRoutes(deps));
   api.use('/meetings/*', requireSession(deps));
+  // Edits that change the minutes commit them to GitHub again, see queueGithubResync.
+  api.use('/meetings/:id', resyncAfter(deps, ['PATCH']));
+  api.use('/meetings/:id/summaries/edit', resyncAfter(deps, ['POST']));
+  api.use('/meetings/:id/summaries/:summaryId/restore', resyncAfter(deps, ['POST']));
+  api.use('/meetings/:id/summary/ai-edit', resyncAfter(deps, ['POST']));
+  api.use('/meetings/:id/speaker-edits', resyncAfter(deps, ['POST']));
   api.route('/meetings', linkEventRoutes(deps));
   api.route('/meetings', meetingRoutes(deps));
   api.route('/meetings', binRoutes(deps));

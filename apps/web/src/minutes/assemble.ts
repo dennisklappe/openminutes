@@ -48,7 +48,7 @@ export async function assembleMinutes(
     sharedTilesNamed(db, meetingId),
   ]);
   const known = await knownEmails(db, people, hidden);
-  return buildMinutes({
+  const minutes = buildMinutes({
     meeting,
     participants: people.map((seat) => ({
       ...seat,
@@ -60,6 +60,7 @@ export async function assembleMinutes(
     segments,
     chat: chat.map(({ sender, text, links, offsetMs }) => ({ sender, text, links, offsetMs })),
   });
+  return { ...minutes, company: meeting.company ?? null };
 }
 
 /**

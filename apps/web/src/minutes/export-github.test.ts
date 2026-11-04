@@ -23,12 +23,18 @@ describe('exporting to a GitHub repository', () => {
   let session = '';
   let meetingId = '';
   const calls: { method: string; url: string; body: unknown }[] = [];
+  const sent: string[] = [];
 
   beforeAll(async () => {
     test = await createTestDatabase();
     settings = new SettingsStore(test.db, secret);
     storage = new LocalStorage(await mkdtemp(join(tmpdir(), 'openminutes-gh-')));
-    const queue = { send: () => Promise.resolve() };
+    const queue = {
+      send: (name: string) => {
+        sent.push(name);
+        return Promise.resolve();
+      },
+    };
     const providers = createProviders({});
     const reply = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body)));
     const exporters = createWebExporters({
@@ -115,6 +121,9 @@ describe('exporting to a GitHub repository', () => {
     branch: '',
     folder: 'meetings',
     includeTranscript: true,
+    folderTemplate: '{yyyy}-{MM}-{dd} {title}',
+    minutesFile: 'MINUTES.md',
+    transcriptFile: 'TRANSCRIPT.md',
     token: 'github_pat_secret',
   };
 
@@ -135,6 +144,18 @@ describe('exporting to a GitHub repository', () => {
     ).toBe(400);
   });
 
+  it('rejects a bad folder template or file name', async () => {
+    for (const bad of [
+      { folderTemplate: '{nope} {title}' },
+      { minutesFile: 'a/b.md' },
+      { transcriptFile: 'MINUTES.md' },
+    ]) {
+      expect(
+        (await send('PUT', '/api/settings/minutes/github', { ...github, ...bad })).status,
+      ).toBe(400);
+    }
+  });
+
   it('saves the settings without ever returning the token', async () => {
     const saved = await send('PUT', '/api/settings/minutes/github', github);
     const text = await saved.text();
@@ -151,7 +172,7 @@ describe('exporting to a GitHub repository', () => {
     expect(response.status).toBe(200);
     const outcome = await read<{ kind: string; url: string; ref: string }>(response);
     expect(outcome.kind).toBe('link');
-    expect(outcome.ref).toMatch(/^meetings\/\d{12} Roadmap review$/);
+    expect(outcome.ref).toMatch(/^meetings\/2026-03-12 Roadmap review$/);
     const tree = calls.find((c) => c.url.endsWith('/git/trees'));
     const paths = (tree?.body as { tree: { path: string; content: string }[] }).tree;
     expect(paths.map((p) => p.path.split('/').pop())).toEqual(['MINUTES.md', 'TRANSCRIPT.md']);
@@ -213,5 +234,28 @@ describe('exporting to a GitHub repository', () => {
       await send('GET', `/api/meetings/${meetingId}/exports`),
     );
     expect(after?.ref).toBe(first?.ref);
+  });
+
+  it('queues a new commit when the title or summary is edited, only with automatic GitHub export', async () => {
+    sent.length = 0;
+    expect((await send('PATCH', `/api/meetings/${meetingId}`, { title: 'Renamed' })).status).toBe(
+      200,
+    );
+    expect(sent).toEqual(['meeting.export']);
+    // A failed edit queues nothing.
+    sent.length = 0;
+    await send('PATCH', `/api/meetings/${meetingId}`, { title: '' });
+    expect(sent).toEqual([]);
+    // Nothing is queued once the automatic export is off.
+    await send('PUT', '/api/settings/minutes/export', {
+      target: 'github',
+      googleAccountId: null,
+      microsoftAccountId: null,
+      ownerEmail: '',
+      auto: false,
+      calendarLink: false,
+    });
+    await send('PATCH', `/api/meetings/${meetingId}`, { title: 'Renamed again' });
+    expect(sent).toEqual([]);
   });
 });
