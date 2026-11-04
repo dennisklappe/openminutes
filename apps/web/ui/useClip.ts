@@ -16,6 +16,8 @@ export function clipRequest(audioUrl: string, clip: Clip, maxMs: number): ClipRe
 }
 
 let element: HTMLAudioElement | undefined;
+/** How many mounted components stand for each clip address. */
+const mounted = new Map<string, number>();
 
 const env: ClipEnv = {
   audio: () => {
@@ -34,6 +36,9 @@ const env: ClipEnv = {
   objectUrl: (blob) => URL.createObjectURL(blob),
   revokeUrl: (url) => {
     URL.revokeObjectURL(url);
+  },
+  log: (message) => {
+    console.warn(message);
   },
   setTimer: (run, ms) => setTimeout(run, ms),
   clearTimer: (timer) => {
@@ -59,7 +64,21 @@ export function useClip(clip: Clip | undefined, audioUrl: string | undefined, ma
     if (clipPlayer.getState().url === url) clipPlayer.stop();
   }, [url]);
 
-  useEffect(() => stop, [stop]);
+  // The page can draw a card twice in a row. The first copy leaving must not stop a clip that the
+  // second copy, with the same address, was just asked to play.
+  useEffect(() => {
+    if (!url) return undefined;
+    mounted.set(url, (mounted.get(url) ?? 0) + 1);
+    return () => {
+      mounted.set(url, (mounted.get(url) ?? 1) - 1);
+      setTimeout(() => {
+        if (!mounted.get(url)) {
+          mounted.delete(url);
+          stop();
+        }
+      }, 0);
+    };
+  }, [url, stop]);
 
   const duration = request?.durationMs;
   const play = () => {
