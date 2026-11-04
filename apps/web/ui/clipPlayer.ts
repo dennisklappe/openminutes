@@ -39,6 +39,8 @@ export interface ClipEnv {
   revokeUrl: (url: string) => void;
   setTimer: (run: () => void, ms: number) => unknown;
   clearTimer: (timer: unknown) => void;
+  /** Says why a clip failed, so a report from a browser can name the cause. */
+  log?: (message: string) => void;
 }
 
 /** A clip that has not started after this long is given up on, with a way to retry. */
@@ -70,6 +72,8 @@ export function createClipPlayer(env: ClipEnv) {
   let timer: unknown;
   let objectUrl: string | undefined;
   let detach: (() => void) | undefined;
+  /** Counts the plays, so a late answer of an older play cannot fail a newer one. */
+  let generation = 0;
 
   const set = (next: ClipState) => {
     state = next;
@@ -119,13 +123,14 @@ export function createClipPlayer(env: ClipEnv) {
     if (state.status !== 'idle') set({ status: 'idle' });
   };
 
-  const fail = (url: string, message: string) => {
+  const fail = (url: string, message: string, why = message) => {
+    env.log?.(`clip ${url}: ${why}`);
     abortCurrent();
     release();
     set({ status: 'error', url, message });
   };
 
-  const start = (clip: ClipRequest, data: ClipData) => {
+  const start = (clip: ClipRequest, data: ClipData, mine: number, retry = true) => {
     const audio = env.audio();
     objectUrl = env.objectUrl(data.blob);
     const offset = data.offsetMs / 1000;
@@ -143,7 +148,14 @@ export function createClipPlayer(env: ClipEnv) {
       },
       ended: stop,
       error: () => {
-        fail(clip.url, FAILED);
+        if (mine !== generation) return;
+        // A clip that fails before it plays gets one more try from the same bytes.
+        if (retry && state.status === 'loading') {
+          release();
+          start(clip, data, mine, false);
+          return;
+        }
+        fail(clip.url, FAILED, 'the browser could not decode the audio');
       },
     };
     for (const [type, listener] of Object.entries(listeners))
@@ -155,15 +167,14 @@ export function createClipPlayer(env: ClipEnv) {
     };
     audio.src = objectUrl;
     audio.play().catch((failure: unknown) => {
-      if (state.url !== clip.url || state.status !== 'loading') return;
-      fail(
-        clip.url,
-        failure instanceof Error && failure.name === 'NotAllowedError' ? BLOCKED : FAILED,
-      );
+      if (mine !== generation || state.url !== clip.url || state.status !== 'loading') return;
+      const name = failure instanceof Error ? failure.name : 'unknown';
+      fail(clip.url, name === 'NotAllowedError' ? BLOCKED : FAILED, `play was refused (${name})`);
     });
   };
 
   const play = (clip: ClipRequest) => {
+    const mineGeneration = ++generation;
     abortCurrent();
     release();
     set({ status: 'loading', url: clip.url });
@@ -172,7 +183,7 @@ export function createClipPlayer(env: ClipEnv) {
     }, START_TIMEOUT_MS);
     const cached = cache.get(clip.url);
     if (cached) {
-      start(clip, cached);
+      start(clip, cached, mineGeneration);
       return;
     }
     if (ahead?.url === clip.url) {
@@ -183,15 +194,27 @@ export function createClipPlayer(env: ClipEnv) {
       ahead = undefined;
       current = request(clip.url);
     }
+    load(clip, mineGeneration, true);
+  };
+
+  /** Waits for the clip being fetched, and fetches it once more when that fails. */
+  const load = (clip: ClipRequest, mineGeneration: number, retry: boolean) => {
     const mine = current;
+    if (!mine) return;
     mine.done.then(
       (data) => {
         if (current !== mine) return;
         current = undefined;
-        start(clip, data);
+        start(clip, data, mineGeneration);
       },
-      () => {
-        if (current === mine && !mine.controller.signal.aborted) fail(clip.url, FAILED);
+      (failure: unknown) => {
+        if (current !== mine || mine.controller.signal.aborted) return;
+        if (retry) {
+          current = request(clip.url);
+          load(clip, mineGeneration, false);
+          return;
+        }
+        fail(clip.url, FAILED, `the clip could not be fetched (${String(failure)})`);
       },
     );
   };

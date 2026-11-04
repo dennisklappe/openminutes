@@ -128,13 +128,56 @@ describe('clip player', () => {
     player.play(clip(1));
     pending[0]?.reject(new Error('503'));
     await settle();
+    expect(pending).toHaveLength(2);
+    pending[1]?.reject(new Error('503'));
+    await settle();
     expect(player.getState()).toMatchObject({ status: 'error', message: FAILED });
     audio.playResult = () =>
       Promise.reject(Object.assign(new Error('no'), { name: 'NotAllowedError' }));
     player.play(clip(2));
-    pending[1]?.resolve(data());
+    pending[2]?.resolve(data());
     await settle();
     expect(player.getState()).toMatchObject({ status: 'error', message: BLOCKED });
+  });
+
+  it('fetches a clip once more when the first request fails, and then plays it', async () => {
+    const { audio, pending, player, data, settle } = setup();
+    player.play(clip(1));
+    pending[0]?.reject(new Error('503'));
+    await settle();
+    expect(player.getState()).toEqual({ status: 'loading', url: '/clip/1' });
+    pending[1]?.resolve(data());
+    await settle();
+    audio.emit('playing');
+    expect(player.getState().status).toBe('playing');
+  });
+
+  it('tries a clip the browser cannot start once more before it reports an error', async () => {
+    const { audio, pending, player, data, settle } = setup();
+    player.play(clip(1));
+    pending[0]?.resolve(data());
+    await settle();
+    audio.emit('error');
+    expect(player.getState().status).toBe('loading');
+    audio.emit('error');
+    expect(player.getState()).toMatchObject({ status: 'error', message: FAILED });
+  });
+
+  it('ignores the late refusal of an earlier play of the same clip', async () => {
+    const { audio, pending, player, data, settle } = setup();
+    let refuse: (error: Error) => void = () => undefined;
+    audio.playResult = () =>
+      new Promise<void>((_, reject) => {
+        refuse = reject;
+      });
+    player.play(clip(1));
+    pending[0]?.resolve(data());
+    await settle();
+    audio.playResult = () => Promise.resolve();
+    player.play(clip(1));
+    refuse(Object.assign(new Error('interrupted'), { name: 'AbortError' }));
+    await settle();
+    expect(player.getState()).toEqual({ status: 'loading', url: '/clip/1' });
   });
 
   it('plays a clip that was fetched ahead at once, without a second request', async () => {
