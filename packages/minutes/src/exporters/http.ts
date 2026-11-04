@@ -17,8 +17,9 @@ export interface ApiClient {
 function failure(service: string, status: number, text: string): ExportError {
   let detail = `HTTP ${status}`;
   try {
-    const error = (JSON.parse(text) as { error?: { message?: string } | string }).error;
-    const message = typeof error === 'string' ? error : error?.message;
+    const body = JSON.parse(text) as { error?: { message?: string } | string; message?: string };
+    const error = body.error;
+    const message = typeof error === 'string' ? error : (error?.message ?? body.message);
     if (message) detail = message;
   } catch {
     // keep the status line

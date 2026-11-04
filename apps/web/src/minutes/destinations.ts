@@ -3,6 +3,7 @@ import type { SettingsStore } from '@openminutes/core';
 import { calendarAccounts, type Database } from '@openminutes/db';
 import type { ExporterRegistry } from '@openminutes/minutes';
 import type { DestinationDto } from '../dto.js';
+import { loadGithubConfig } from './github-settings.js';
 
 const KEY = 'minutes.destinations';
 const DEFAULT_DESTINATIONS = ['share-link'];
@@ -31,14 +32,27 @@ export async function destinationList(deps: {
   secret: string;
   exporters: ExporterRegistry;
 }): Promise<DestinationDto[]> {
-  const [enabled, accounts] = await Promise.all([
+  const [enabled, accounts, github] = await Promise.all([
     loadDestinations(deps.settings),
     deps.db.select().from(calendarAccounts),
+    loadGithubConfig(deps.settings),
   ]);
   return deps.exporters
     .list()
     .filter((exporter) => exporter.destination)
     .map((exporter) => {
+      if (exporter.id === 'github') {
+        const available = github !== undefined;
+        return {
+          id: exporter.id,
+          label: exporter.label,
+          enabled: enabled.includes(exporter.id),
+          available,
+          ...(!available && {
+            unavailableReason: 'Add a repository and access token under GitHub below first.',
+          }),
+        };
+      }
       const provider = ACCOUNT_PROVIDER[exporter.id];
       const available =
         provider === undefined ||

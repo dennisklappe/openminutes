@@ -7,6 +7,7 @@ import { SettingsCard } from '../SettingsCard.js';
 import { useSettingsForm } from '../useSettingsForm.js';
 import { CustomTemplateBuilder } from './CustomTemplateBuilder.js';
 import { ExportSettings } from './ExportSettings.js';
+import { GithubSettings } from './GithubSettings.js';
 
 interface TemplateDraft {
   template: string;
@@ -238,6 +239,7 @@ export function MinutesSettings() {
         </label>
       </Panel>
       <ExportSettings />
+      <GithubSettings />
     </>
   );
 }

@@ -112,3 +112,14 @@ export function renderMinutesMarkdown(
   );
   return lines.join('\n');
 }
+
+/** The transcript (and chat, when asked for) alone, for exports that keep it apart from the minutes. */
+export function renderTranscriptMarkdown(
+  minutes: Minutes,
+  options: Pick<RenderOptions, 'includeChat'>,
+): string {
+  const lines = [`# Transcript: ${minutes.title}`, '', ...transcriptLines(minutes)];
+  if (showsChat(minutes, options))
+    lines.push('---', '', `## ${CHAT_TITLE}`, '', ...chatLines(minutes));
+  return lines.join('\n');
+}

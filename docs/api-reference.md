@@ -215,6 +215,9 @@ Generated from the route table by `apps/web/src/api-reference.test.ts`. Run `UPD
 | `POST` | `/api/settings/minutes/custom/check` | Full key |
 | `GET` | `/api/settings/minutes/export` | Read or full key |
 | `PUT` | `/api/settings/minutes/export` | Full key |
+| `GET` | `/api/settings/minutes/github` | Read or full key |
+| `PUT` | `/api/settings/minutes/github` | Full key |
+| `DELETE` | `/api/settings/minutes/github` | Full key |
 | `PUT` | `/api/settings/minutes/logo` | Full key |
 | `DELETE` | `/api/settings/minutes/logo` | Full key |
 | `GET` | `/api/settings/minutes/logo` | Read or full key |

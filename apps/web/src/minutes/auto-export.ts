@@ -2,7 +2,7 @@ import type { RunExportDeps } from './run-export.js';
 import { runExport } from './run-export.js';
 import { loadExportConfig } from './export-settings.js';
 
-export const AUTO_EXPORT_TARGETS = ['google-docs', 'onedrive', 'share-link'] as const;
+export const AUTO_EXPORT_TARGETS = ['google-docs', 'onedrive', 'share-link', 'github'] as const;
 
 export async function runAutoExport(
   deps: RunExportDeps & { publicUrl: string | undefined },
