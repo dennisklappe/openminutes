@@ -268,15 +268,15 @@ describe('linking a recording to a calendar meeting', () => {
     expect((await row(big.id))?.speakerCount).toBe(5);
   });
 
-  it('refuses a recording that is linked already, and a meeting that is gone or was recorded', async () => {
+  it('refuses a meeting that is gone or was recorded', async () => {
     const event = await skipped();
     const second = await skipped({ joinKey: 'k2' });
     const made = await recording();
     expect((await link(made.id, event.id)).status).toBe(200);
-    expect((await link(made.id, second.id)).status).toBe(409);
 
     const other = await recording();
     expect((await link(other.id, event.id)).status).toBe(404);
+    expect((await link(made.id, event.id)).status).toBe(404);
     const joined = await skipped({ joinKey: 'k3', status: 'transcribed' });
     expect((await link(other.id, joined.id)).status).toBe(409);
     const phone = await recording({ title: 'Another recording' });
@@ -298,5 +298,67 @@ describe('linking a recording to a calendar meeting', () => {
       { name: 'Work', accountEmail: 'me@acme.example' },
     ]);
     expect((await detail((await skipped({ joinKey: 'k2' })).id)).canLinkEvent).toBe(false);
+  });
+
+  it('links an event that is over, which the calendar counts as cancelled', async () => {
+    const over = await skipped({ status: 'cancelled', title: 'Innovation talk' });
+    const made = await recording();
+    const listed = (await (
+      await call(
+        'GET',
+        `/meetings/linkable-events?from=${encodeURIComponent('2026-10-01T00:00:00Z')}&to=${encodeURIComponent('2026-12-01T00:00:00Z')}`,
+      )
+    ).json()) as LinkableEventsDto;
+    expect(listed.items.map((item) => [item.title, item.status])).toEqual([
+      ['Innovation talk', 'cancelled'],
+    ]);
+    expect((await link(made.id, over.id)).status).toBe(200);
+    expect((await row(made.id))?.title).toBe('Innovation talk');
+  });
+
+  it('moves a linked recording to another meeting, replacing the title, date and invitees', async () => {
+    const wrong = await skipped({ title: 'Buddy check-in' });
+    const right = await skipped({
+      title: 'Innovation talk',
+      joinKey: 'k2',
+      scheduledStart: new Date('2026-10-20T11:00:00Z'),
+      invitees: [{ name: 'Sam', email: 'sam@acme.example', declined: false }],
+    });
+    const made = await recording();
+    await link(made.id, wrong.id);
+    expect((await link(made.id, right.id)).status).toBe(200);
+
+    expect(await row(made.id)).toMatchObject({
+      title: 'Innovation talk',
+      scheduledStart: new Date('2026-10-20T11:00:00Z'),
+      invitees: [{ name: 'Sam', email: 'sam@acme.example', declined: false }],
+    });
+    expect(await row(right.id)).toBeUndefined();
+    const sources = await test.db
+      .select()
+      .from(meetingSources)
+      .where(eq(meetingSources.meetingId, made.id));
+    expect(sources.map((source) => source.calendarEventId)).toEqual([`event-${right.id}`]);
+    const detail = (await (await call('GET', `/meetings/${made.id}`)).json()) as MeetingDetailDto;
+    expect(detail).toMatchObject({ canLinkEvent: false, canChangeEvent: true });
+  });
+
+  it('lets a recording go of its calendar meeting, which it can then be linked again', async () => {
+    const event = await skipped();
+    const made = await recording();
+    const detail = async () =>
+      (await (await call('GET', `/meetings/${made.id}`)).json()) as MeetingDetailDto;
+    expect((await call('DELETE', `/meetings/${made.id}/link-event`)).status).toBe(409);
+    await link(made.id, event.id);
+    expect(await detail()).toMatchObject({ canLinkEvent: false, canChangeEvent: true });
+
+    expect((await call('DELETE', `/meetings/${made.id}/link-event`)).status).toBe(200);
+    expect((await row(made.id))?.title).toBe('Budget review');
+    expect(await detail()).toMatchObject({ canLinkEvent: true, canChangeEvent: false });
+    expect((await call('DELETE', `/meetings/${made.id}/link-event`)).status).toBe(409);
+    expect((await call('DELETE', `/meetings/${event.id}/link-event`)).status).toBe(404);
+    expect((await call('DELETE', '/meetings/nope/link-event')).status).toBe(400);
+    const again = await skipped({ joinKey: 'k2' });
+    expect((await link(made.id, again.id)).status).toBe(200);
   });
 });

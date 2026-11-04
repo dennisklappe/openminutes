@@ -58,6 +58,7 @@ export function MeetingDetail({ id }: { id: string }) {
     calendarLinks,
     calendarLinkEnabled,
     canLinkEvent,
+    canChangeEvent,
     expectedPeople,
     segments,
     speakerChoices,
@@ -196,6 +197,7 @@ export function MeetingDetail({ id }: { id: string }) {
       {linking && (
         <LinkEventDialog
           meetingId={id}
+          linked={canChangeEvent}
           at={meeting.startedAt ?? meeting.createdAt}
           onClose={() => {
             setLinking(false);
@@ -463,6 +465,22 @@ export function MeetingDetail({ id }: { id: string }) {
                       }}
                     >
                       Link to calendar meeting
+                    </button>
+                  </dd>
+                </>
+              )}
+              {canChangeEvent && (
+                <>
+                  <dt>Calendar meeting</dt>
+                  <dd>
+                    <button
+                      type="button"
+                      className="link"
+                      onClick={() => {
+                        setLinking(true);
+                      }}
+                    >
+                      Change calendar meeting
                     </button>
                   </dd>
                 </>

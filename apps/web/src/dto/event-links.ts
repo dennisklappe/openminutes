@@ -3,7 +3,7 @@ export interface LinkableEventDto {
   id: string;
   title: string;
   scheduledStart: string;
-  status: 'scheduled' | 'skipped';
+  status: 'scheduled' | 'skipped' | 'cancelled';
   location: string | null;
   /** The people on the invitation who did not decline. */
   people: number;

@@ -38,6 +38,8 @@ export interface MeetingDetailDto {
   calendarLinkEnabled: boolean;
   /** A recording or import with no calendar meeting yet can be linked to one. */
   canLinkEvent: boolean;
+  /** A recording or import linked to a calendar meeting can be moved to another or let go. */
+  canChangeEvent: boolean;
   /** People on the invitation who did not decline, null without an invitation. */
   expectedPeople: number | null;
   series: MeetingSeriesDto | null;

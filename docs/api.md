@@ -158,7 +158,7 @@ curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"
 
 ### Link a recording to a calendar meeting
 
-`GET /api/meetings/linkable-events?from=<iso>&to=<iso>` lists the skipped and scheduled meetings that start in the window (at most 400 days, 50 by default, `limit` up to 200). `POST /api/meetings/:id/link-event` links a recording or import to one of them, see [recording a skipped meeting yourself](meeting-lifecycle.md#recording-a-skipped-meeting-yourself). 404 when either is gone, 409 when the recording is linked already or the calendar meeting was recorded.
+`GET /api/meetings/linkable-events?from=<iso>&to=<iso>` lists the skipped, scheduled and past (cancelled) meetings that start in the window (at most 400 days, 50 by default, `limit` up to 200). `POST /api/meetings/:id/link-event` links a recording or import to one of them, see [recording a skipped meeting yourself](meeting-lifecycle.md#recording-a-skipped-meeting-yourself). 404 when either is gone, 409 when the calendar meeting was recorded. A recording that is linked already is moved to the new meeting, which replaces its title, date and invitees. `DELETE /api/meetings/:id/link-event` lets a recording go of its calendar meeting and keeps what it took from it (409 when it is not linked).
 
 ```bash
 curl -H "Authorization: Bearer $KEY" "$OM/api/meetings/linkable-events?from=2026-10-20T00:00:00Z&to=2026-10-21T00:00:00Z"

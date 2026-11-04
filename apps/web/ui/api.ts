@@ -526,6 +526,7 @@ export const api = {
     ),
   linkEvent: (id: string, eventId: string) =>
     request(`/meetings/${id}/link-event`, { method: 'POST', body: { eventId } }),
+  unlinkEvent: (id: string) => request(`/meetings/${id}/link-event`, { method: 'DELETE' }),
   addCalendarLink: (id: string) => request(`/meetings/${id}/calendar-link`, { method: 'POST' }),
   exportSettings: () => request<ExportSettingsDto>('/settings/minutes/export'),
   saveExportSettings: (body: ExportSettingsInput) =>
