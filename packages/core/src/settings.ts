@@ -69,6 +69,8 @@ const definitions = {
   'minutes.custom_template': { secret: false, default: undefined },
   'export.owner_email': { secret: false, default: undefined },
   'export.auto': { secret: false, default: undefined },
+  /** JSON: token, repo (owner/name), branch, folder, transcript. */
+  'export.github': { secret: true, default: undefined },
   'email.provider': { secret: false, default: 'smtp' },
   'email.configs': { secret: true, default: '{}' },
   'email.from_name': { secret: false, default: undefined },

@@ -191,7 +191,7 @@ function ExportForm({
         <span>
           Send them to the export target above
           {!automaticTarget && (
-            <span className="muted"> (pick Google Doc, OneDrive or Share link)</span>
+            <span className="muted"> (pick Google Doc, OneDrive, GitHub or Share link)</span>
           )}
         </span>
       </label>

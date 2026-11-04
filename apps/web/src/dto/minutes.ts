@@ -107,6 +107,23 @@ export interface ExportSettingsDto {
   }[];
 }
 
+export interface GithubSettingsDto {
+  repo: string;
+  branch: string;
+  folder: string;
+  includeTranscript: boolean;
+  tokenSet: boolean;
+}
+
+export interface GithubSettingsInput {
+  repo: string;
+  branch: string;
+  folder: string;
+  includeTranscript: boolean;
+  /** Left out or empty keeps the saved token. */
+  token?: string;
+}
+
 export interface ExportSettingsInput {
   target: string | null;
   googleAccountId: string | null;

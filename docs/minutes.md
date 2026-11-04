@@ -106,6 +106,7 @@ The Minutes card has **Share**, a **Download** menu and **Preview**. Each enable
 | Share link       | Read-only page                                       |
 | Google Doc       | A living copy                                        |
 | Word on OneDrive | The `.docx` uploaded to OneDrive                     |
+| GitHub           | `MINUTES.md` and `TRANSCRIPT.md` in a repository     |
 
 ### Google Docs and OneDrive
 
@@ -152,5 +153,15 @@ flowchart LR
 - A meeting in several calendars gets the link in each, see [duplicate meetings](duplicate-meetings.md).
 - Press Allow calendar links to grant `calendar.events` (Google) or `Calendars.ReadWrite` (Microsoft). Google sends no update mail. Microsoft cannot suppress it, see [azure-app](azure-app.md).
 - The meeting page shows the status per calendar. **Add link to calendar now** reruns it. Temporary failures retry 5 times.
+
+## GitHub repository
+
+Settings, Minutes, GitHub commits the minutes to a repository, for example as context for agents. Each meeting gets a folder named `YYYYMMDDHHMM Title` (instance timezone) with `MINUTES.md` and a separate `TRANSCRIPT.md`, so an agent can read the minutes without the transcript filling its context. Both go in one commit.
+
+- Fill in the repository (`owner/name`), an optional branch (default branch if empty, it must exist) and an optional folder inside the repository.
+- The access token is a fine-grained personal access token limited to that repository with Contents: read and write. It is stored encrypted and never shown again.
+- Turn off "Also commit the transcript" to commit only `MINUTES.md`.
+- Update commits to the same folder again, even if the meeting was renamed. Create new copy writes to a folder with the current title.
+- Pick GitHub as the export target and tick "Send them to the export target above" to commit after every meeting.
 
 Developers: see "Writing an exporter" in `docs/maintainers.md` in the repository.

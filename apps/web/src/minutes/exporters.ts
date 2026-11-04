@@ -2,6 +2,7 @@ import { loadExportAccess, type CalendarContext, type Endpoints } from '@openmin
 import type { Database } from '@openminutes/db';
 import {
   createBuiltinExporters,
+  createGithubExporter,
   createGoogleDocsExporter,
   createOneDriveExporter,
   ExportError,
@@ -9,6 +10,7 @@ import {
   type ExporterRegistry,
 } from '@openminutes/minutes';
 import { loadExportConfig } from './export-settings.js';
+import { loadGithubConfig } from './github-settings.js';
 import { latestLiveShare } from './links.js';
 import { createShareLink, partsOf } from './share-routes.js';
 
@@ -17,6 +19,8 @@ export interface WebExporterDeps {
   endpoints: Endpoints;
   publicUrl: string | undefined;
   fetch?: typeof fetch;
+  /** Overridden in tests. */
+  githubApi?: string;
 }
 
 export function shareLinkExporter(db: Database, publicUrl: string | undefined): Exporter {
@@ -62,6 +66,18 @@ export function createWebExporters(deps: WebExporterDeps): ExporterRegistry {
           const config = await loadExportConfig(calendar.settings);
           const access = await loadExportAccess(calendar, 'google', config.googleAccountId);
           return { ...access, ownerEmail: config.ownerEmail };
+        },
+      }),
+    )
+    .register(
+      createGithubExporter({
+        fetch: fetchImpl,
+        api: deps.githubApi ?? 'https://api.github.com',
+        async resolve() {
+          const config = await loadGithubConfig(calendar.settings);
+          if (!config)
+            throw new ExportError('Add a repository and access token under GitHub first');
+          return config;
         },
       }),
     )

@@ -17,6 +17,8 @@ import type {
   ExporterDto,
   ExportSettingsDto,
   ExportSettingsInput,
+  GithubSettingsDto,
+  GithubSettingsInput,
   BulkResultDto,
   MeetingExportDto,
   MinutesParts,
@@ -530,6 +532,11 @@ export const api = {
   exportSettings: () => request<ExportSettingsDto>('/settings/minutes/export'),
   saveExportSettings: (body: ExportSettingsInput) =>
     request<ExportSettingsDto>('/settings/minutes/export', { method: 'PUT', body }),
+  githubSettings: () => request<GithubSettingsDto>('/settings/minutes/github'),
+  saveGithubSettings: (body: GithubSettingsInput) =>
+    request<GithubSettingsDto>('/settings/minutes/github', { method: 'PUT', body }),
+  removeGithubSettings: () =>
+    request<GithubSettingsDto>('/settings/minutes/github', { method: 'DELETE' }),
   version: () => request<{ version: string }>('/version'),
   updates: () => request<UpdateStatusDto>('/settings/updates'),
   setUpdateNotices: (enabled: boolean) =>

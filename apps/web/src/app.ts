@@ -30,6 +30,7 @@ import { linkEventRoutes } from './meetings/link-routes.js';
 import { calendarLinkActionRoutes } from './minutes/calendar-link-routes.js';
 import { exportSettingsRoutes } from './minutes/export-settings-routes.js';
 import { createWebExporters } from './minutes/exporters.js';
+import { githubSettingsRoutes } from './minutes/github-settings-routes.js';
 import { publicShareRoutes, SHARE_PREFIX } from './minutes/public-routes.js';
 import { emailSettingsRoutes } from './email/settings-routes.js';
 import { googleMailDeps } from './email/mailer.js';
@@ -185,6 +186,7 @@ export function createApp(deps: AppDeps): Hono {
   api.route('/settings/participant-aliases', participantAliasRoutes(deps));
   api.route('/settings/wizard', wizardRoutes(deps));
   api.route('/settings/minutes/export', exportSettingsRoutes({ ...deps, exporters }));
+  api.route('/settings/minutes/github', githubSettingsRoutes(deps));
   api.route('/settings/minutes', minutesSettingsRoutes({ ...deps, exporters }));
   api.route('/settings/email/provider', providerSettingsRoutes('email', { ...deps, mailDeps }));
   api.route('/settings/email', emailSettingsRoutes({ ...deps, calendar, mailDeps }));

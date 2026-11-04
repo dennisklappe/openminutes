@@ -24,6 +24,8 @@ export type {
 } from './exporters/google-docs.js';
 export { createOneDriveExporter } from './exporters/onedrive.js';
 export type { OneDriveContext, OneDriveDeps } from './exporters/onedrive.js';
+export { createGithubExporter, githubFolderName } from './exporters/github.js';
+export type { GithubContext, GithubDeps } from './exporters/github.js';
 export { createBuiltinExporters } from './exporters/index.js';
 export { escapeHtml } from './html.js';
 export { minutesFilename } from './filename.js';
@@ -61,7 +63,7 @@ export {
   type CustomTimeFormat,
 } from './custom-template.js';
 export { renderMinutesHtml } from './render-html.js';
-export { renderMinutesMarkdown } from './render-markdown.js';
+export { renderMinutesMarkdown, renderTranscriptMarkdown } from './render-markdown.js';
 export {
   DEFAULT_TEMPLATE,
   findTemplate,
