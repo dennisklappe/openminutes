@@ -6,6 +6,7 @@ import {
   DEFAULT_LINKABLE,
   LinkEventError,
   linkRecordingToEvent,
+  unlinkRecordingFromEvent,
   listLinkableEvents,
   MAX_LINKABLE,
 } from './link-event.js';
@@ -48,6 +49,18 @@ export function linkEventRoutes(deps: { db: Database }): Hono {
     if (!id.success || !body.success) return c.json({ error: 'Invalid calendar meeting' }, 400);
     try {
       await linkRecordingToEvent(deps.db, id.data, body.data.eventId);
+    } catch (error) {
+      if (error instanceof LinkEventError) return c.json({ error: error.message }, error.status);
+      throw error;
+    }
+    return c.json({ ok: true });
+  });
+
+  routes.delete('/:id/link-event', async (c) => {
+    const id = uuid.safeParse(c.req.param('id'));
+    if (!id.success) return c.json({ error: 'Invalid recording' }, 400);
+    try {
+      await unlinkRecordingFromEvent(deps.db, id.data);
     } catch (error) {
       if (error instanceof LinkEventError) return c.json({ error: error.message }, error.status);
       throw error;

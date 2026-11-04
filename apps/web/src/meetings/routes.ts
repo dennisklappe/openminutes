@@ -233,15 +233,15 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
     return recorded !== undefined;
   }
 
-  /** A recording or import that no calendar meeting is linked to yet. */
-  async function canLinkEvent(meeting: typeof meetings.$inferSelect): Promise<boolean> {
-    if (meeting.deletedAt || !['recording', 'imported'].includes(meeting.platform)) return false;
+  /** Whether a recording or import has a calendar meeting linked: null when it cannot have one. */
+  async function hasLinkedEvent(meeting: typeof meetings.$inferSelect): Promise<boolean | null> {
+    if (meeting.deletedAt || !['recording', 'imported'].includes(meeting.platform)) return null;
     const [source] = await deps.db
       .select({ id: meetingSources.id })
       .from(meetingSources)
       .where(eq(meetingSources.meetingId, meeting.id))
       .limit(1);
-    return source === undefined;
+    return source !== undefined;
   }
 
   const loadCalendars = (meetingId: string): Promise<MeetingCalendarDto[]> =>
@@ -258,6 +258,7 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
     if (!meeting) return c.json({ error: 'Meeting not found' }, 404);
     const summaries = await loadSummaries(meeting.id);
     const activeSummary = summaries.find((s) => s.active);
+    const linkedEvent = await hasLinkedEvent(meeting);
     return c.json<MeetingDetailDto>({
       meeting: toMeetingDto(meeting),
       company: {
@@ -272,7 +273,8 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
       calendars: await loadCalendars(meeting.id),
       calendarLinks: await loadCalendarLinks(deps.db, meeting.id),
       calendarLinkEnabled: await calendarLinkEnabled(deps),
-      canLinkEvent: await canLinkEvent(meeting),
+      canLinkEvent: linkedEvent === false,
+      canChangeEvent: linkedEvent === true,
       expectedPeople: expectedPeople(meeting.invitees, meeting.dismissedInvitees),
       canTranscribe: await canTranscribe(meeting),
       rerun: await rerunOptions(deps.db, deps.settings, meeting),

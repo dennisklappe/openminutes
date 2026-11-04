@@ -63,12 +63,13 @@ By the recurring event id (`recurringEventId` for Google, `seriesMasterId` for M
 
 A physical meeting is often skipped and then recorded on your phone or imported. Link that recording to the calendar meeting and it gets the title, date, room, company and invitees of the event, and the invitees become its people, as for a meeting the bot joined.
 
-- Record and Import show **Link to a calendar meeting**, a list of skipped and scheduled meetings near the recording, the closest one first and preselected when it starts at most 3 hours before or 30 minutes after the recording. Choose **Not linked** to skip it.
+- Record and Import show **Link to a calendar meeting**, a list of skipped, scheduled and past meetings near the recording, the closest one first and preselected when it starts at most 3 hours before or 30 minutes after the recording. Choose **Not linked** to skip it.
 - On a recording or import without a calendar meeting, **Link to calendar meeting** in the Details of the meeting page does the same afterwards.
 - The recording takes the place of the calendar meeting: the event moves over to the recording and the skipped or scheduled row is removed, so it no longer shows under Upcoming and the bot cannot join it. A sync that sees the event again finds a finished meeting and leaves it alone. The minutes link can be added to that event like for any meeting.
 - The title of the event is kept: a linked recording is not retitled from its summary. A title you edited, a company you set and a folder stay yours. Invitees from the event come first, the ones the recording already had are kept.
-- Only meetings OpenMinutes stores can be linked: events with a meeting link on a calendar whose join rule lets them in. A meeting the bot joined cannot be linked to a recording, and a recording takes one calendar meeting.
-- Linking cannot be undone from the page. If the meeting was deleted by a sync before you chose it, the recording is saved without the link.
+- Only meetings OpenMinutes stores can be linked: events with a meeting link on a calendar whose join rule lets them in. A meeting the bot joined cannot be linked to a recording, and a recording takes one calendar meeting at a time.
+- **Change calendar meeting** on a linked recording moves it to another meeting from the list, which replaces its title, date and invitees (the ones it had are not kept), or lets it go with **Unlink**, which keeps the title, date and invitees. The old event is not put back by the page: a sync places it again if it is still ahead.
+- If the meeting was deleted by a sync before you chose it, the recording is saved without the link.
 
 ## When the bot cannot get in
 

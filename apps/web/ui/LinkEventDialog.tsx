@@ -6,15 +6,20 @@ import { EventPicker, useLinkableEvents, windowAround } from './EventPicker.js';
 
 const DAY_HOURS = 36;
 
-/** Links a recording that has no calendar meeting to one, which gives it the invitees. */
+/**
+ * Links a recording to a calendar meeting, which gives it the invitees, or moves one that is
+ * linked already to another meeting or lets it go.
+ */
 export function LinkEventDialog(props: {
   meetingId: string;
+  /** The recording is linked to a calendar meeting already. */
+  linked?: boolean;
   /** When the recording was made, as an ISO time. */
   at: string;
   onClose: () => void;
   onLinked: () => void;
 }) {
-  const { meetingId, at, onClose, onLinked } = props;
+  const { meetingId, linked = false, at, onClose, onLinked } = props;
   const time = useMemo(() => new Date(at), [at]);
   const range = useMemo(() => windowAround(time, DAY_HOURS, DAY_HOURS), [time]);
   const found = useLinkableEvents(range.from, range.to);
@@ -34,11 +39,23 @@ export function LinkEventDialog(props: {
     });
   };
 
+  const unlink = () => {
+    setBusy(true);
+    api.unlinkEvent(meetingId).then(onLinked, (failure: unknown) => {
+      setError(errorMessage(failure));
+      setBusy(false);
+    });
+  };
+
   return (
-    <Dialog title="Link to calendar meeting" onClose={onClose}>
+    <Dialog
+      title={linked ? 'Change calendar meeting' : 'Link to calendar meeting'}
+      onClose={onClose}
+    >
       <p className="muted">
-        The recording takes the title, date and invitees of the meeting, and the meeting no longer
-        shows as skipped or upcoming.
+        {linked
+          ? 'The recording lets go of its calendar meeting and takes the title, date and invitees of the one you pick.'
+          : 'The recording takes the title, date and invitees of the meeting, and the meeting no longer shows as skipped or upcoming.'}
       </p>
       {events.length === 0 ? (
         <p>No calendar meetings found around the time of this recording.</p>
@@ -55,11 +72,16 @@ export function LinkEventDialog(props: {
       )}
       {error && <p className="banner banner-error">{error}</p>}
       <div className="confirm-actions">
+        {linked && (
+          <button type="button" disabled={busy} onClick={unlink}>
+            Unlink
+          </button>
+        )}
         <button type="button" onClick={onClose}>
           Cancel
         </button>
         <button type="button" className="primary" disabled={busy || !value} onClick={link}>
-          Link
+          {linked ? 'Change' : 'Link'}
         </button>
       </div>
     </Dialog>

@@ -39,7 +39,7 @@ export const windowAround = (at: Date, beforeHours: number, afterHours: number) 
 export const eventLabel = (event: LinkableEventDto) =>
   `${event.title}, ${formatWhen(event.scheduledStart)}${
     event.people > 0 ? `, ${String(event.people)} invited` : ''
-  }${event.status === 'skipped' ? ' (skipped)' : ''}`;
+  }${event.status === 'skipped' ? ' (skipped)' : ''}${event.status === 'cancelled' ? ' (past)' : ''}`;
 
 /** Chooses the calendar meeting a recording belongs to, or none. */
 export function EventPicker(props: {
