@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/dennisklappe/openminutes/compare/v0.3.0...v0.3.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* keep the first voice sample playing when the card is drawn twice, and retry a failed clip once ([#41](https://github.com/dennisklappe/openminutes/issues/41)) ([3e36ada](https://github.com/dennisklappe/openminutes/commit/3e36ada6d9c99ca98e18686d1dac14ac34a4425e))
+
 ## [0.3.0](https://github.com/dennisklappe/openminutes/compare/v0.2.4...v0.3.0) (2026-11-04)
 
 
