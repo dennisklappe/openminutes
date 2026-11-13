@@ -27,7 +27,7 @@
     "@astrojs/sitemap": "^3.7.4",
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/geist-mono": "^5.2.7",
-    "astro": "^7.4.4",
+    "astro": "^7.4.7",
     "cookie": "^2.0.1",
     "playwright": "~1.64.1",
     "rehype-external-links": "^3.0.0",
