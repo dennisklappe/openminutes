@@ -33,7 +33,7 @@
     "@openminutes/mail": "workspace:^",
     "@openminutes/minutes": "workspace:^",
     "@openminutes/providers": "workspace:^",
-    "hono": "^4.13.14",
+    "hono": "^4.13.16",
     "zod": "^4.6.7"
   },
   "devDependencies": {
