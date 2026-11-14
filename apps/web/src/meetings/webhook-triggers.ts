@@ -38,12 +38,20 @@ export function emitForPersonMeetings(db: Database, methods: readonly string[]) 
   return createMiddleware(async (c, next) => {
     const id = uuid.safeParse(c.req.param('id'));
     if (!id.success || !methods.includes(c.req.method)) return next();
-    const before = await meetingsOf(db, id.data);
+    // A webhook problem must never break or slow down the edit itself.
+    const before = await meetingsOf(db, id.data).catch((error: unknown) => {
+      console.error('webhook: meetings of person not read', error);
+      return [] as string[];
+    });
     await next();
     if (!succeeded(c, methods)) return;
-    const after = await meetingsOf(db, id.data);
-    await emitWebhookEvents(db, 'meeting.participants_updated', [
-      ...new Set([...before, ...after]),
-    ]);
+    void (async () => {
+      const after = await meetingsOf(db, id.data);
+      await emitWebhookEvents(db, 'meeting.participants_updated', [
+        ...new Set([...before, ...after]),
+      ]);
+    })().catch((error: unknown) => {
+      console.error('webhook: participants_updated not queued', error);
+    });
   });
 }

@@ -13,7 +13,7 @@ import {
 } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import type { Hono } from 'hono';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.js';
 import type { DeliveryDto, WebhookCreatedDto, WebhookDto, WebhookEventsDto } from '../dto.js';
 
@@ -329,11 +329,14 @@ describe('webhook settings', () => {
       body: JSON.stringify({ name: 'Bea Smith' }),
     });
     expect(response.status).toBe(200);
-    const rows = await test.db
-      .select()
-      .from(webhookDeliveries)
-      .where(eq(webhookDeliveries.meetingId, m.id));
-    expect(rows.map((row) => row.event)).toEqual(['meeting.participants_updated']);
+    // The emit runs after the response, so wait for it.
+    await vi.waitFor(async () => {
+      const rows = await test.db
+        .select()
+        .from(webhookDeliveries)
+        .where(eq(webhookDeliveries.meetingId, m.id));
+      expect(rows.map((row) => row.event)).toEqual(['meeting.participants_updated']);
+    });
   });
 
   it('fires meeting.deleted when a meeting is binned', async () => {
