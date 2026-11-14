@@ -11,8 +11,9 @@ const LAST_USED_INTERVAL_MS = 60_000;
 const RATE_WINDOW_MS = 60_000;
 const DISPLAY_PREFIX_LENGTH = API_KEY_PREFIX.length + 4;
 
-/** Paths no key may use: key management, connected accounts and the sign-in routes. */
-const KEY_FORBIDDEN = /^\/api\/(settings\/api-keys|accounts|oauth|setup|login|logout)(\/|$)/;
+/** Paths no key may use: key and webhook management, connected accounts and the sign-in routes. */
+const KEY_FORBIDDEN =
+  /^\/api\/(settings\/api-keys|settings\/webhooks|accounts|oauth|setup|login|logout)(\/|$)/;
 export const keyForbidden = (path: string): boolean => KEY_FORBIDDEN.test(path);
 
 export const hashApiKey = (secret: string): string =>

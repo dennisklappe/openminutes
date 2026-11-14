@@ -1,4 +1,5 @@
 import { and, eq, meetings, type Database } from '@openminutes/db';
+import { emitWebhookEvent } from '@openminutes/core';
 import type { SummaryProvider } from '@openminutes/providers';
 
 const MAX_TITLE_WORDS = 10;
@@ -42,8 +43,8 @@ export async function titleRecording(
       TITLE_INSTRUCTIONS,
     );
     const title = cleanTitle(reply);
-    if (!title) return;
-    await db
+    if (!title || title === meeting.title) return;
+    const renamed = await db
       .update(meetings)
       .set({ title })
       .where(
@@ -52,7 +53,9 @@ export async function titleRecording(
           eq(meetings.titleEdited, false),
           eq(meetings.platform, 'recording'),
         ),
-      );
+      )
+      .returning({ id: meetings.id });
+    if (renamed.length > 0) await emitWebhookEvent(db, 'meeting.updated', meetingId);
   } catch (error) {
     console.error(`title of meeting ${meetingId} could not be generated, keeping it`, error);
   }

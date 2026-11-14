@@ -1,4 +1,5 @@
 import {
+  deleteOldWebhookDeliveries,
   loadAudioStorage,
   removeAudio,
   type LocalStorage,
@@ -43,4 +44,9 @@ export async function deleteExpiredAudio(deps: RetentionDeps): Promise<number> {
     await deps.db.update(meetings).set({ audioDeletedAt: now }).where(eq(meetings.id, id));
   }
   return expired.length;
+}
+
+/** Webhook deliveries are a log, kept for WEBHOOK_RETENTION_DAYS. */
+export function deleteExpiredWebhookDeliveries(deps: Pick<RetentionDeps, 'db' | 'now'>) {
+  return deleteOldWebhookDeliveries(deps.db, (deps.now ?? (() => new Date()))());
 }

@@ -3,6 +3,7 @@ import {
   CALENDAR_LINK_RETRY,
   cleanSummaryText,
   describeMeetingDate,
+  emitWebhookEvent,
   type DateContext,
   findPrompt,
   GUESSED_SPEAKER_RULE,
@@ -144,6 +145,7 @@ export async function runSummary(deps: SummaryDeps, summaryId: string): Promise<
     });
     await titleRecording(deps.db, provider, summary.meetingId, content);
     await detectCompany(deps, provider, summary.meetingId, content);
+    await emitWebhookEvent(deps.db, 'meeting.summarized', summary.meetingId);
     if (deps.queue && (await deps.settings.get('export.auto')) === 'true') {
       await deps.queue.send('meeting.export', { meetingId: summary.meetingId });
     }

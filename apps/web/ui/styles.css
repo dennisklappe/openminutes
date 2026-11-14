@@ -3422,3 +3422,195 @@ th .cell-select {
 .api-keys .people-name button {
   min-height: 44px;
 }
+
+/* ---------- Webhooks ---------- */
+
+.webhooks {
+  gap: 22px;
+}
+
+.webhooks .people-name .pill {
+  flex: none;
+}
+
+.webhook-meta {
+  overflow-wrap: anywhere;
+}
+
+.webhook-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.webhook-actions button {
+  min-height: 44px;
+}
+
+.webhook-log {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m, 10px);
+  background: var(--sunken);
+}
+
+.webhook-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.webhook-log-head h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.webhook-log-filter select {
+  min-height: 36px;
+}
+
+.webhook-deliveries {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.webhook-delivery {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.webhook-delivery:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.webhook-delivery-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.webhook-delivery-time {
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.webhook-error {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.webhook-delivery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.webhook-payload {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.webhook-payload summary {
+  cursor: pointer;
+  min-height: 32px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.webhook-payload pre {
+  max-height: 260px;
+  margin: 6px 0 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface, var(--paper));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.webhook-form {
+  display: grid;
+  gap: 4px;
+}
+
+.webhook-dialog-wide {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.webhook-fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m, 10px);
+  min-width: 0;
+}
+
+.webhook-fieldset legend {
+  padding: 0 6px;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.webhook-fieldset .field {
+  margin-top: 0;
+}
+
+.webhook-check {
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.webhook-check small {
+  display: block;
+  font-weight: 400;
+}
+
+.webhook-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.webhook-platforms-label {
+  width: 100%;
+  font-weight: 500;
+  font-size: 13.5px;
+}
+
+.webhook-problem {
+  margin: 6px 0 0;
+  text-align: right;
+}
+
+.webhook-log,
+.webhook-deliveries {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.webhooks > li {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.webhook-delivery {
+  grid-template-columns: minmax(0, 1fr);
+}

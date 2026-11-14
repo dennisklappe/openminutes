@@ -1,5 +1,6 @@
 import {
   applyRoomVoices,
+  emitWebhookEvent,
   mergedAudioPath,
   rememberCount,
   resetRoomVoices,
@@ -162,6 +163,7 @@ export async function splitRoom(
         .set({ speakersChangedAt: new Date() })
         .where(eq(meetings.id, meetingId));
     }
+    await emitWebhookEvent(deps.db, 'meeting.participants_updated', meetingId);
   } catch (error) {
     console.error(`splitting ${participantId} of meeting ${meetingId} failed`, error);
     await close();

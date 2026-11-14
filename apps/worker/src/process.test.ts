@@ -21,6 +21,7 @@ import {
   roomVoices,
   speakerEvents,
   transcriptSegments,
+  webhookEndpoints,
 } from '@openminutes/db';
 import { startFakeS3 } from '@openminutes/core/testing';
 import { createTestDatabase } from '@openminutes/db/testing';
@@ -31,6 +32,7 @@ import type {
   TranscriptionProvider,
 } from '@openminutes/providers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { listen, webhookEvents } from './webhook-test-helpers.js';
 import { processMeeting, type ProcessDeps } from './process.js';
 
 const exists = (path: string) =>
@@ -196,6 +198,20 @@ describe('processMeeting', () => {
     summaryError = new Error('queue down');
     await processMeeting(deps(), id);
     expect((await load(id)).meeting.status).toBe('transcribed');
+  });
+
+  it('queues meeting.transcribed for webhooks, not for a failed run', async () => {
+    await listen(test.db);
+    reset([{ startMs: 0, endMs: 1000, text: 'Hello.' }]);
+    const id = await insertMeeting('ended', ['000.opus']);
+    await processMeeting(deps(), id);
+    expect(await webhookEvents(test.db, id)).toEqual(['meeting.transcribed']);
+
+    reset(new Error('provider down'));
+    const failed = await insertMeeting('ended', ['000.opus']);
+    await processMeeting(deps(), failed);
+    expect(await webhookEvents(test.db, failed)).toEqual([]);
+    await test.db.delete(webhookEndpoints);
   });
 
   it('does not summarise an empty transcript or a failed run', async () => {

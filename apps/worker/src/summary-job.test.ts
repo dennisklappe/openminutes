@@ -7,6 +7,7 @@ import {
   roomVoices,
   summaries,
   transcriptSegments,
+  webhookEndpoints,
 } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import type { SummaryProvider } from '@openminutes/providers';
@@ -14,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TITLE_INSTRUCTIONS } from './auto-title.js';
 import { COMPANY_INSTRUCTIONS } from './company.js';
 import { runSummary } from './summary-job.js';
+import { listen, webhookEvents } from './webhook-test-helpers.js';
 
 describe('runSummary', () => {
   let test: Awaited<ReturnType<typeof createTestDatabase>>;
@@ -211,6 +213,23 @@ describe('runSummary', () => {
     );
     await runSummary(deps(), await insertSummary(true, 'p1'));
     expect(received[0]?.prompt).toMatch(/^One line only\.\n\nThe meeting took place on /);
+  });
+
+  it('queues meeting.summarized for webhooks when the AI summary is done, not when it failed', async () => {
+    received = [];
+    failure = undefined;
+    await listen(test.db);
+    const id = await insertSummary(true);
+    await runSummary(deps(), id);
+    const meetingId = (await load(id))?.meetingId ?? '';
+    expect(await webhookEvents(test.db, meetingId)).toEqual(['meeting.summarized']);
+
+    failure = new Error('model down');
+    const failed = await insertSummary(true);
+    await runSummary(deps(), failed);
+    expect(await webhookEvents(test.db, (await load(failed))?.meetingId ?? '')).toEqual([]);
+    failure = undefined;
+    await test.db.delete(webhookEndpoints);
   });
 
   it('queues an export after a finished summary only when automatic export is on', async () => {

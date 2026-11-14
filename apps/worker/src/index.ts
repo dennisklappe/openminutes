@@ -12,7 +12,9 @@ import {
   removeStaleImports,
   requestSummary,
   SettingsStore,
+  setWebhookNudge,
   SummaryNotConfiguredError,
+  WebhookDispatcher,
 } from '@openminutes/core';
 import { createDatabase, migrateOnStartup } from '@openminutes/db';
 import { createLocalDiarizer } from '@openminutes/providers';
@@ -27,7 +29,7 @@ import { probeDuration } from './probe-duration.js';
 import { splitRoom } from './split-room.js';
 import { learnVoice } from './learn-voice.js';
 import { createRecordingDeps } from './recording-deps.js';
-import { deleteExpiredAudio } from './retention.js';
+import { deleteExpiredAudio, deleteExpiredWebhookDeliveries } from './retention.js';
 import { scheduleMeeting } from './schedule.js';
 import { checkMeetingVoices, rerunSpeakers } from './rerun.js';
 import { reviewMeetingSpeakers } from './speaker-review/job.js';
@@ -138,6 +140,8 @@ await queue.work('audio.retention', async () => {
   if (deleted > 0) console.log(`retention deleted the audio of ${deleted} meetings`);
   const abandoned = await removeStaleImports(local, STALE_IMPORT_MS, new Date());
   if (abandoned > 0) console.log(`removed ${abandoned} unfinished imports`);
+  const deliveries = await deleteExpiredWebhookDeliveries({ db });
+  if (deliveries > 0) console.log(`removed ${deliveries} old webhook deliveries`);
 });
 await queue.schedule('audio.retention', RETENTION_CRON, {});
 await queue.work('bin.purge', async () => {
@@ -156,10 +160,20 @@ const watchdog = async () => {
 await queue.work('meeting.watchdog', watchdog);
 await queue.schedule('meeting.watchdog', WATCHDOG_CRON, {});
 await watchdog();
+const webhooks = new WebhookDispatcher({
+  db,
+  secret: env.OPENMINUTES_SECRET,
+  version: process.env['OPENMINUTES_VERSION'] ?? 'dev',
+});
+setWebhookNudge(() => {
+  webhooks.nudge();
+});
+webhooks.start();
 console.log('worker ready');
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
-    void queue.stop().then(() => pool.end());
+    setWebhookNudge(undefined);
+    void Promise.all([queue.stop(), webhooks.stop()]).then(() => pool.end());
   });
 }

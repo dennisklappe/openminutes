@@ -6,6 +6,7 @@ import {
   dropMadeUpLines,
   linkMeetingPeople,
   dropSilentSpeech,
+  emitWebhookEvent,
   looksInvented,
   mergedAudioPath,
   originalAudioPath,
@@ -312,6 +313,7 @@ export async function processMeeting(
       .where(eq(meetings.id, meetingId));
     await run.finish();
     await setStatus('transcribed');
+    await emitWebhookEvent(deps.db, 'meeting.transcribed', meetingId);
     await linkPeople(deps.db, meetingId);
     await autoLearn(
       deps.db,

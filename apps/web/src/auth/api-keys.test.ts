@@ -135,13 +135,20 @@ describe('API keys', () => {
     }
   });
 
-  it('keeps key management, accounts and auth away from every key', async () => {
+  it('keeps key and webhook management, accounts and auth away from every key', async () => {
     const full = await create();
     const read = await create({ scope: 'read' });
     const blocked: [string, string][] = [
       ['GET', '/api/settings/api-keys'],
       ['POST', '/api/settings/api-keys'],
       ['DELETE', `/api/settings/api-keys/${full.key.id}`],
+      ['GET', '/api/settings/webhooks'],
+      ['GET', '/api/settings/webhooks/events'],
+      ['POST', '/api/settings/webhooks'],
+      ['PATCH', '/api/settings/webhooks/00000000-0000-4000-8000-000000000000'],
+      ['POST', '/api/settings/webhooks/00000000-0000-4000-8000-000000000000/rotate-secret'],
+      ['POST', '/api/settings/webhooks/00000000-0000-4000-8000-000000000000/test'],
+      ['GET', '/api/settings/webhooks/00000000-0000-4000-8000-000000000000/deliveries'],
       ['GET', '/api/accounts'],
       ['POST', '/api/oauth/google/start'],
       ['POST', '/api/setup'],

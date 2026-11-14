@@ -15,6 +15,7 @@ import {
 } from '@openminutes/db';
 import { removeAudio } from './audio-files.js';
 import type { AudioStorage } from './audio-storage.js';
+import { emitWebhookEvents } from './webhooks/emit.js';
 
 export const BIN_DAYS = 30;
 
@@ -74,13 +75,16 @@ export const archiveMeetings = (db: Database, ids: readonly string[], now: Date)
 export const unarchiveMeetings = (db: Database, ids: readonly string[]) =>
   setFlag(db, ids, { archivedAt: null }, isNotNull(meetings.archivedAt));
 
-/** Moves meetings to the bin and revokes their share links right away. */
+/**
+ * Moves meetings to the bin and revokes their share links right away. Sends `meeting.deleted`
+ * for each binned meeting. A purge removes only binned meetings, so it never sends it again.
+ */
 export async function binMeetings(
   db: Database,
   ids: readonly string[],
   now: Date,
 ): Promise<string[]> {
-  return db.transaction(async (tx) => {
+  const moved = await db.transaction(async (tx) => {
     const binned = await setFlag(
       tx,
       ids,
@@ -99,6 +103,8 @@ export async function binMeetings(
       );
     return binned;
   });
+  await emitWebhookEvents(db, 'meeting.deleted', moved, { now });
+  return moved;
 }
 
 export const restoreMeetings = (db: Database, ids: readonly string[]) =>

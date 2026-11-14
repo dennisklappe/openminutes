@@ -215,6 +215,14 @@ OpenMinutes is early: v0.1.0 is the first release. Expect breaking changes befor
 
 Details in [Voices and speaker names](docs/voices.md). A voice can identify a person, see the [consent and legal notes](docs/consent-and-legal.md).
 
+## Webhooks
+
+- OpenMinutes can send a signed message to another service when a meeting is transcribed, summarized, renamed, deleted or its participants change.
+- Add one under Settings, API, Webhooks. Filter by title, participant, company or platform, send a test, and replay a failed delivery from the log.
+- Failed deliveries are retried up to six times. Private addresses are blocked unless you allow them per webhook.
+
+Details, signature checks in Node, Python and bash, and recipes in [Webhooks](docs/webhooks.md).
+
 ## Hosted option
 
 Would rather not run it yourself? [openminut.es](https://openminut.es) is the hosted version.

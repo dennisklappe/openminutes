@@ -1,8 +1,14 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 /** A modal dialog with a title. Escape and a click on the backdrop close it. */
-export function Dialog(props: { title: string; onClose: () => void; children: ReactNode }) {
-  const { title, onClose, children } = props;
+export function Dialog(props: {
+  title: string;
+  onClose: () => void;
+  /** A wider dialog for forms with many fields. */
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  const { title, onClose, wide, children } = props;
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -13,7 +19,7 @@ export function Dialog(props: { title: string; onClose: () => void; children: Re
   return (
     <dialog
       ref={dialog}
-      className="confirm-dialog form-dialog"
+      className={`confirm-dialog form-dialog${wide ? ' webhook-dialog-wide' : ''}`}
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();

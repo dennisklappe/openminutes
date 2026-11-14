@@ -1,4 +1,5 @@
 import {
+  emitWebhookEvent,
   linkMeetingPeople,
   mergedAudioPath,
   scoreSpeaker,
@@ -185,7 +186,7 @@ export async function checkMeetingVoices(
       await suggestForMeeting(deps.db, deps.recording, meetingId);
     }
     await run.finish();
-    await deps.db
+    const finished = await deps.db
       .update(meetings)
       .set({
         status: 'transcribed',
@@ -194,7 +195,10 @@ export async function checkMeetingVoices(
         speakerCheckRequestedAt: new Date(),
         speakerCheckError: null,
       })
-      .where(and(eq(meetings.id, meetingId), eq(meetings.status, 'processing')));
+      .where(and(eq(meetings.id, meetingId), eq(meetings.status, 'processing')))
+      .returning({ id: meetings.id });
+    // Transcribed again with other speakers: receivers dedupe on the event id, not the meeting.
+    if (finished.length > 0) await emitWebhookEvent(deps.db, 'meeting.transcribed', meetingId);
     await deps.queue.send('meeting.review-speakers', { meetingId });
   } catch (error) {
     await fail(deps.db, meetingId, run, error, 'The voice check');

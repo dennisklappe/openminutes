@@ -332,3 +332,4 @@ export {
 export { findSuspects, SUSPECT_CONFIDENCE_CAP } from './speaker-suspects.js';
 export type { TurnLine } from './turn-patterns.js';
 export * from './fireflies/index.js';
+export * from './webhooks/index.js';

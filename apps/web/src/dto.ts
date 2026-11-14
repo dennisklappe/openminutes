@@ -10,3 +10,4 @@ export type * from './dto/people.js';
 export type * from './dto/rooms.js';
 export type * from './dto/check-people.js';
 export type * from './dto/event-links.js';
+export type * from './dto/webhooks.js';

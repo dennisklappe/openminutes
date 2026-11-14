@@ -39,6 +39,7 @@ curl -H "Authorization: Bearer $KEY" "$OM/api/meetings"
 No key, whatever its scope, can use:
 
 - API key management (`/api/settings/api-keys`): keys cannot create or revoke keys.
+- Webhook management (`/api/settings/webhooks`): these routes are for a signed-in session only. To get events pushed to your service, set up a [webhook](webhooks.md) in the app.
 - Connected accounts and sign-in (`/api/accounts`, `/api/oauth`, `/api/setup`, `/api/login`, `/api/logout`). There is no endpoint to change the admin password.
 
 These answer `403 {"error":"An API key cannot use this endpoint"}`. Secret values such as provider keys are masked in every settings response, for sessions and keys alike.

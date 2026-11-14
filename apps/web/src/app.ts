@@ -1,5 +1,5 @@
 import { endpointsFor, type CalendarProviders, type Endpoints } from '@openminutes/calendar';
-import type { JobSender, LocalStorage, SettingsStore } from '@openminutes/core';
+import type { JobSender, LocalStorage, Resolver, SettingsStore } from '@openminutes/core';
 import type { Deps } from '@openminutes/providers';
 import type { Database } from '@openminutes/db';
 import type { ExporterRegistry } from '@openminutes/minutes';
@@ -45,6 +45,8 @@ import { summaryEditRoutes } from './minutes/summary-edit-routes.js';
 import { promptRoutes } from './settings/prompts.js';
 import { providerSettingsRoutes } from './settings/providers.js';
 import { apiKeySettingsRoutes } from './settings/api-keys.js';
+import { webhookSettingsRoutes } from './settings/webhooks.js';
+import { emitAfter, emitForPersonMeetings } from './meetings/webhook-triggers.js';
 import { botRoutes } from './settings/bot.js';
 import { googleSessionRoutes } from './settings/google-session.js';
 import { limitsRoutes } from './settings/limits.js';
@@ -81,6 +83,8 @@ export interface AppDeps {
   importMaxBytes?: number;
   /** Requests per minute per API key, see DEFAULT_API_RATE_LIMIT. */
   apiRateLimit?: number;
+  /** DNS for the webhook URL check, the system resolver by default. */
+  webhookResolver?: Resolver;
 }
 
 /** Every JSON body is far smaller than this. Uploads that need more set their own limit. */
@@ -152,6 +156,19 @@ export function createApp(deps: AppDeps): Hono {
   api.use('/meetings/:id/summaries/:summaryId/restore', resyncAfter(deps, ['POST']));
   api.use('/meetings/:id/summary/ai-edit', resyncAfter(deps, ['POST']));
   api.use('/meetings/:id/speaker-edits', resyncAfter(deps, ['POST']));
+  // Webhooks for edits after the transcript, see emitAfter.
+  api.use('/meetings/:id', emitAfter(deps.db, 'meeting.updated', ['PATCH']));
+  for (const path of [
+    '/meetings/:id/participants/*',
+    '/meetings/:id/people/*',
+    '/meetings/:id/voices/*',
+    '/meetings/:id/speaker-edits',
+    '/meetings/:id/check-people/*',
+    '/meetings/:id/room-voices/*',
+    '/meetings/:id/room/*',
+  ]) {
+    api.use(path, emitAfter(deps.db, 'meeting.participants_updated', ['POST', 'PUT']));
+  }
   api.route('/meetings', linkEventRoutes(deps));
   api.route('/meetings', meetingRoutes(deps));
   api.route('/meetings', binRoutes(deps));
@@ -162,6 +179,9 @@ export function createApp(deps: AppDeps): Hono {
   api.route('/meetings', roomRoutes(deps));
   api.route('/meetings', checkPeopleRoutes(deps));
   api.use('/people/*', requireSession(deps));
+  api.use('/people/:id', emitForPersonMeetings(deps.db, ['PATCH', 'DELETE']));
+  api.use('/people/:id/merge', emitForPersonMeetings(deps.db, ['POST']));
+  api.use('/people/:id/name-voice', emitForPersonMeetings(deps.db, ['POST']));
   api.route('/people', peopleRoutes(deps));
   api.use('/series/*', requireSession(deps));
   api.route('/series', seriesRoutes(deps));
@@ -190,6 +210,7 @@ export function createApp(deps: AppDeps): Hono {
   api.use('/oauth/:provider/start', requireSession(deps));
   api.route('/oauth', oauthRoutes({ ...accountDeps, secret: deps.secret }));
   api.route('/settings/api-keys', apiKeySettingsRoutes(deps));
+  api.route('/settings/webhooks', webhookSettingsRoutes(deps));
   api.route('/settings/transcription', providerSettingsRoutes('transcription', deps));
   api.route('/settings/summary', providerSettingsRoutes('summary', deps));
   api.route('/settings/prompts', promptRoutes(deps));

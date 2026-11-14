@@ -257,6 +257,17 @@ Generated from the route table by `apps/web/src/api-reference.test.ts`. Run `UPD
 | `PUT` | `/api/settings/voices` | Full key |
 | `DELETE` | `/api/settings/voices` | Full key |
 | `DELETE` | `/api/settings/voices/:id` | Full key |
+| `GET` | `/api/settings/webhooks` | Browser session only |
+| `POST` | `/api/settings/webhooks` | Browser session only |
+| `GET` | `/api/settings/webhooks/:id` | Browser session only |
+| `PATCH` | `/api/settings/webhooks/:id` | Browser session only |
+| `DELETE` | `/api/settings/webhooks/:id` | Browser session only |
+| `GET` | `/api/settings/webhooks/:id/deliveries` | Browser session only |
+| `POST` | `/api/settings/webhooks/:id/deliveries/:deliveryId/replay` | Browser session only |
+| `POST` | `/api/settings/webhooks/:id/rotate-secret` | Browser session only |
+| `POST` | `/api/settings/webhooks/:id/test` | Browser session only |
+| `POST` | `/api/settings/webhooks/:id/test-event` | Browser session only |
+| `GET` | `/api/settings/webhooks/events` | Browser session only |
 | `GET` | `/api/settings/wizard` | Read or full key |
 | `PUT` | `/api/settings/wizard` | Full key |
 

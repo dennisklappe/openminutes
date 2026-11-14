@@ -10,11 +10,19 @@ import {
   type JobName,
   type JobPayloads,
 } from '@openminutes/core';
-import { and, eq, meetings, participants, transcriptSegments } from '@openminutes/db';
+import {
+  and,
+  eq,
+  meetings,
+  participants,
+  transcriptSegments,
+  webhookEndpoints,
+} from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import type { DiarizationResult, DiarizeOptions, Diarizer } from '@openminutes/providers';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkMeetingVoices, rerunSpeakers, type RerunDeps } from './rerun.js';
+import { listen, webhookEvents } from './webhook-test-helpers.js';
 
 const DIARIZATION: DiarizationResult = {
   speakers: [
@@ -270,6 +278,19 @@ describe('re-running the speakers of a finished recording', () => {
       await checkMeetingVoices(deps(), { meetingId: meeting.id });
       expect(embedEach).not.toHaveBeenCalled();
     });
+  });
+
+  it('queues meeting.transcribed again once the meeting is transcribed after a re-run', async () => {
+    await listen(test.db);
+    const { meeting } = await setup();
+    await rerunSpeakers(deps(), { meetingId: meeting.id, speakers: 2 });
+    expect(await webhookEvents(test.db, meeting.id)).toEqual([]);
+    await checkMeetingVoices(deps(), { meetingId: meeting.id });
+    expect(await webhookEvents(test.db, meeting.id)).toEqual(['meeting.transcribed']);
+    // A check that finds the meeting no longer processing sends nothing.
+    await checkMeetingVoices(deps(), { meetingId: meeting.id });
+    expect(await webhookEvents(test.db, meeting.id)).toEqual(['meeting.transcribed']);
+    await test.db.delete(webhookEndpoints);
   });
 
   it('chains: a speaker re-run queues the voice check, which queues the review', async () => {

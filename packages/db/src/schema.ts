@@ -710,3 +710,83 @@ export const apiKeys = pgTable(
   },
   (t) => [uniqueIndex('api_keys_key_hash_idx').on(t.keyHash)],
 );
+
+export const webhookEvents = [
+  'meeting.transcribed',
+  'meeting.summarized',
+  'meeting.updated',
+  'meeting.participants_updated',
+  'meeting.deleted',
+] as const;
+export const webhookDeliveryStatuses = [
+  'pending',
+  'delivering',
+  'succeeded',
+  'failed',
+  'dead',
+] as const;
+export const webhookDeliveryKinds = ['event', 'test', 'replay'] as const;
+export type WebhookEventName = (typeof webhookEvents)[number];
+export type WebhookDeliveryStatus = (typeof webhookDeliveryStatuses)[number];
+export type WebhookDeliveryKind = (typeof webhookDeliveryKinds)[number];
+
+/** Which meetings an endpoint hears about. Every given criterion must hold, an absent one is no limit. */
+export interface WebhookFilter {
+  titleContains?: string[];
+  titleNotContains?: string[];
+  participantContains?: string[];
+  companies?: string[];
+  platforms?: MeetingPlatform[];
+}
+
+/** An outgoing webhook. The secret is encrypted with the app secret, `secretPrefix` is for display. */
+export const webhookEndpoints = pgTable('webhook_endpoints', {
+  id: id(),
+  name: text('name').notNull(),
+  url: text('url').notNull(),
+  secretEncrypted: text('secret_encrypted').notNull(),
+  secretPrefix: text('secret_prefix').notNull(),
+  events: text('events').array().$type<WebhookEventName[]>().notNull(),
+  active: boolean('active').notNull().default(true),
+  filter: jsonb('filter').$type<WebhookFilter>().notNull().default({}),
+  allowPrivate: boolean('allow_private').notNull().default(false),
+  createdAt: timestamptz('created_at').notNull().defaultNow(),
+  updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  disabledReason: text('disabled_reason'),
+  consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+  lastSuccessAt: timestamptz('last_success_at'),
+  lastFailureAt: timestamptz('last_failure_at'),
+});
+
+/**
+ * The outbox and the log in one: a row is written when an event is emitted and the worker's
+ * dispatcher claims, sends and retries it. `payload` is the exact body object that is sent.
+ */
+export const webhookDeliveries = pgTable(
+  'webhook_deliveries',
+  {
+    id: id(),
+    endpointId: uuid('endpoint_id')
+      .notNull()
+      .references(() => webhookEndpoints.id, { onDelete: 'cascade' }),
+    event: text('event').notNull(),
+    eventId: uuid('event_id').notNull(),
+    /** No foreign key: the delivery log outlives a purged meeting. */
+    meetingId: uuid('meeting_id'),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    status: text('status', { enum: webhookDeliveryStatuses }).notNull().default('pending'),
+    kind: text('kind', { enum: webhookDeliveryKinds }).notNull().default('event'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamptz('next_attempt_at').notNull().defaultNow(),
+    lastAttemptAt: timestamptz('last_attempt_at'),
+    lastStatusCode: integer('last_status_code'),
+    lastError: text('last_error'),
+    lastDurationMs: integer('last_duration_ms'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    completedAt: timestamptz('completed_at'),
+  },
+  (t) => [
+    index('webhook_deliveries_status_next_idx').on(t.status, t.nextAttemptAt),
+    index('webhook_deliveries_endpoint_created_idx').on(t.endpointId, t.createdAt),
+  ],
+);

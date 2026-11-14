@@ -1,4 +1,5 @@
 import type { CustomTemplate } from '@openminutes/minutes';
+import type { DeliveryDto, WebhookDto, WebhookEventName, WebhookInput } from '../src/dto.js';
 import type {
   AccountsDto,
   ApiKeyCreatedDto,
@@ -425,6 +426,32 @@ export const api = {
   createApiKey: (body: ApiKeyInput) =>
     request<ApiKeyCreatedDto>('/settings/api-keys', { method: 'POST', body }),
   revokeApiKey: (id: string) => request(`/settings/api-keys/${id}`, { method: 'DELETE' }),
+  webhooks: () => request<WebhookDto[]>('/settings/webhooks'),
+  createWebhook: (body: WebhookInput) =>
+    request<{ webhook: WebhookDto; secret: string }>('/settings/webhooks', {
+      method: 'POST',
+      body,
+    }),
+  updateWebhook: (id: string, body: WebhookInput) =>
+    request<WebhookDto>(`/settings/webhooks/${id}`, { method: 'PATCH', body }),
+  deleteWebhook: (id: string) => request(`/settings/webhooks/${id}`, { method: 'DELETE' }),
+  rotateWebhookSecret: (id: string) =>
+    request<{ secret: string }>(`/settings/webhooks/${id}/rotate-secret`, { method: 'POST' }),
+  testWebhook: (id: string) =>
+    request<{ delivery: DeliveryDto }>(`/settings/webhooks/${id}/test`, { method: 'POST' }),
+  testWebhookEvent: (id: string, body: { event: WebhookEventName; meetingId?: string }) =>
+    request<{ delivery: DeliveryDto }>(`/settings/webhooks/${id}/test-event`, {
+      method: 'POST',
+      body,
+    }),
+  webhookDeliveries: (id: string, status = '', limit = 50) =>
+    request<DeliveryDto[]>(
+      `/settings/webhooks/${id}/deliveries?limit=${limit}${status && `&status=${status}`}`,
+    ),
+  replayWebhookDelivery: (id: string, deliveryId: string) =>
+    request<{ delivery: DeliveryDto }>(`/settings/webhooks/${id}/deliveries/${deliveryId}/replay`, {
+      method: 'POST',
+    }),
   sharedAccounts: () => request<SharedAccountsDto>('/settings/shared-accounts'),
   saveSharedAccounts: (body: SharedAccountsInput) =>
     request<SharedAccountsDto>('/settings/shared-accounts', { method: 'PUT', body }),
