@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/dennisklappe/openminutes/compare/v0.3.1...v0.4.0) (2026-11-16)
+
+
+### Features
+
+* join Whereby meetings ([#48](https://github.com/dennisklappe/openminutes/issues/48)) ([9d64ff7](https://github.com/dennisklappe/openminutes/commit/9d64ff78ca8e9dc061aa69bab3f9f9eb92bd1c2f))
+* outgoing webhooks ([#46](https://github.com/dennisklappe/openminutes/issues/46)) ([9894ae8](https://github.com/dennisklappe/openminutes/commit/9894ae8122f6c3d9bdce320cc526dc452a5c65b7))
+
 ## [0.3.1](https://github.com/dennisklappe/openminutes/compare/v0.3.0...v0.3.1) (2026-11-04)
 
 
