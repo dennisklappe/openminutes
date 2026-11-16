@@ -39,7 +39,7 @@ export function JoinBox({ onJoined }: { onJoined: (meeting: MeetingDto) => void 
         <input
           type="url"
           required
-          placeholder="Paste a Meet or Teams link"
+          placeholder="Paste a Meet, Teams or Whereby link"
           aria-label="Meeting link"
           value={url}
           onChange={(e) => {

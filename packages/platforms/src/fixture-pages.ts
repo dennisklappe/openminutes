@@ -16,6 +16,7 @@ const teamsPages = [
 
 export function fixturePage(url: URL): Buffer | undefined {
   if (url.hostname === 'meet.google.com') return read('meet/index.html');
+  if (url.hostname === 'whereby.com') return read('whereby/index.html');
   if (!teamsHosts.has(url.hostname)) return undefined;
   const page = /^\/fixture\/(\w+)$/.exec(url.pathname)?.[1];
   if (page === undefined) return read('teams/launcher.html');

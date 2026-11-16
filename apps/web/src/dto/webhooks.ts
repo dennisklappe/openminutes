@@ -4,7 +4,7 @@ export type WebhookEventName =
   | 'meeting.updated'
   | 'meeting.participants_updated'
   | 'meeting.deleted';
-export type WebhookPlatform = 'meet' | 'teams' | 'recording' | 'imported';
+export type WebhookPlatform = 'meet' | 'teams' | 'whereby' | 'recording' | 'imported';
 
 /** Every given criterion must hold, an absent or empty one is no limit. */
 export interface WebhookFilter {

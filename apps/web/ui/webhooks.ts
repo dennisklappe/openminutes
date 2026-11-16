@@ -41,6 +41,7 @@ export const EVENT_CHOICES: { id: WebhookEventName; label: string; hint: string 
 export const PLATFORM_CHOICES: { id: WebhookPlatform; label: string }[] = [
   { id: 'meet', label: 'Google Meet' },
   { id: 'teams', label: 'Microsoft Teams' },
+  { id: 'whereby', label: 'Whereby' },
   { id: 'recording', label: 'Phone recording' },
   { id: 'imported', label: 'Imported' },
 ];

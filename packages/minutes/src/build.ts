@@ -17,7 +17,7 @@ export interface MinutesInvitee {
 export interface MinutesSource {
   meeting: {
     title: string;
-    platform: 'meet' | 'teams' | 'recording' | 'imported';
+    platform: 'meet' | 'teams' | 'whereby' | 'recording' | 'imported';
     joinUrl: string;
     scheduledStart: Date | null;
     startedAt: Date | null;

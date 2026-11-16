@@ -1,6 +1,6 @@
 # Meeting chat
 
-The bot reads the chat of Google Meet and Teams meetings and keeps it next to the transcript, so "I will send the link in the chat" is not lost.
+The bot reads the chat of Google Meet, Teams and Whereby meetings and keeps it next to the transcript, so "I will send the link in the chat" is not lost.
 
 ## What is captured
 

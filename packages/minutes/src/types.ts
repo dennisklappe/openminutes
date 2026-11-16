@@ -26,7 +26,7 @@ export interface Minutes {
   title: string;
   startedAt: string | null;
   endedAt: string | null;
-  platform: 'meet' | 'teams' | 'recording' | 'imported';
+  platform: 'meet' | 'teams' | 'whereby' | 'recording' | 'imported';
   joinUrl: string;
   location: string | null;
   /** The company of the meeting, when known. */

@@ -17,6 +17,7 @@ export const statusLabels: Record<MeetingStatus, string> = {
 export const platformLabels: Record<MeetingDto['platform'], string> = {
   meet: 'Google Meet',
   teams: 'Microsoft Teams',
+  whereby: 'Whereby',
   recording: 'Phone recording',
   imported: 'Imported',
 };

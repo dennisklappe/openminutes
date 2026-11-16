@@ -199,7 +199,7 @@ Examples:
 
 - Only client calls: Title contains `client`, Title does not contain `internal`.
 - Everything with people from one customer: A participant contains `@acme.com`.
-- Only meetings in Google Meet or Teams: tick those two platforms.
+- Only meetings in one platform: tick that platform.
 - Only for one company: Company is `Acme`.
 
 Filters apply to `meeting.deleted` too, and to every other event.

@@ -5,6 +5,7 @@ const PLATFORMS = [
   { value: '', label: 'All' },
   { value: 'meet', label: 'Meet' },
   { value: 'teams', label: 'Teams' },
+  { value: 'whereby', label: 'Whereby' },
   { value: 'recording', label: 'Phone' },
   { value: 'imported', label: 'Imported' },
 ];

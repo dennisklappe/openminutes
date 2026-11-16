@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>/room - Whereby</title>
+    <style>
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      // Stand-in for the Whereby room page, built from the structure captured on 2026-11-16. It is a
+      // single page like the real one. Query parameters: nameStep, noDevices, locked=0 (join button
+      // instead of knock), lobby (ms), deny, others (comma names), speakers (Name:fromMs-toMs),
+      // leaveAfter (ms until the host ends the meeting), chat (Name|delayMs|text; ...).
+      const params = new URLSearchParams(location.search);
+      const app = document.getElementById('app');
+      let me = localStorage.getItem('nickname') || 'Guest';
+      const t0 = Date.now();
+      let micOn = true;
+      let camOn = true;
+      const send = (event) =>
+        fetch('/__event', {
+          method: 'POST',
+          body: JSON.stringify({ at: Date.now() - t0, ...event }),
+        });
+
+      function show(html) {
+        app.innerHTML = html;
+      }
+
+      function nameStep() {
+        show(`<div class="jstest-nameprompt"><input name="nickname" placeholder="Enter your name" />
+          <button class="jstest-nameprompt-continue">Continue</button></div>`);
+        document.querySelector('.jstest-nameprompt-continue').onclick = () => {
+          me = document.querySelector('input[name=nickname]').value;
+          localStorage.setItem('nickname', me);
+          send({ type: 'name', value: localStorage.getItem('nickname') });
+          devices();
+        };
+      }
+
+      function devices() {
+        if (!params.has('noDevices')) return preJoin();
+        show(`<p class="jstest-avpermissions-nodevices-paragraph">No camera or microphone found</p>
+          <button class="jstest-avpermissions-nodevices-button">Continue without cam and mic</button>`);
+        document.querySelector('.jstest-avpermissions-nodevices-button').onclick = preJoin;
+      }
+
+      function preJoin() {
+        const locked = params.get('locked') !== '0';
+        show(`<form><button type="button" class="jstest-toggle-video" aria-pressed="true">Cam</button>
+          <button type="button" class="jstest-mute-button" aria-pressed="true">Mic</button>
+          ${
+            locked
+              ? '<p>This room is locked. Knock to notify the host.</p><button type="button" class="jstest-knock-button">Knock</button>'
+              : '<button type="submit">Join meeting</button>'
+          }</form>`);
+        const mic = document.querySelector('.jstest-mute-button');
+        const cam = document.querySelector('.jstest-toggle-video');
+        mic.onclick = () => {
+          micOn = !micOn;
+          mic.setAttribute('aria-pressed', String(micOn));
+        };
+        cam.onclick = () => {
+          camOn = !camOn;
+          cam.setAttribute('aria-pressed', String(camOn));
+        };
+        const go = (event) => {
+          event.preventDefault();
+          send({ type: 'join', mic: micOn, camera: camOn });
+          locked ? lobby() : room();
+        };
+        document.querySelector('.jstest-knock-button')?.addEventListener('click', go);
+        document.querySelector('form').onsubmit = go;
+      }
+
+      function lobby() {
+        show(`<div class="jstest-knocker-waiting-footer"><span class="jstest-waiting-for-reply-text">
+          The host has been notified. Please wait to be let in...</span><button>Cancel</button></div>`);
+        setTimeout(
+          () => (params.has('deny') ? denied() : room()),
+          params.has('lobby') ? Number(params.get('lobby')) : 1000,
+        );
+      }
+
+      function denied() {
+        show(
+          `<div class="jstest-knocker-rejected-notification"><h1>The host did not grant you access</h1></div>`,
+        );
+      }
+
+      const names = () => (params.get('others') ?? 'Alice,Bob').split(',').filter(Boolean);
+      const speakers = () =>
+        (params.get('speakers') ?? '')
+          .split(',')
+          .filter(Boolean)
+          .map((entry) => {
+            const [name, range] = entry.split(':');
+            const [from, to] = range.split('-').map(Number);
+            return { name, from, to };
+          });
+
+      function renderRoom(chat) {
+        const now = Date.now() - t0;
+        const active = speakers()
+          .filter((s) => now >= s.from && now < s.to)
+          .map((s) => s.name);
+        const tile = (
+          name,
+          id,
+        ) => `<div class="WebRtcVideo jstest-client-video" data-clientid="${id}"
+          data-testid="WebRtcVideo-${id}"><div class="jstest-displayname">${name}</div>
+          <div class="_AudioIndicator_x1 ${active.includes(name) ? '' : '_isMuted_x2'}"
+            style="${active.includes(name) ? 'opacity: 0.74; box-shadow: 0 0 0 3px' : ''}"></div></div>`;
+        const group = (
+          m,
+        ) => `<div class="_ChatMessageGroup_x1 ${m.name === me ? '_fromSelf_x3' : ''}">
+          <span class="_timestamp_x1">12:00</span><div class="_displayName_x1">${m.name}</div>
+          <div class="_content_x1"><div class="_ChatMessage_x1"><div class="_wrapper_x1"><span>${m.name}</span>
+          <div class="_content_x2"><span>${m.text}</span></div></div></div></div></div>`;
+        show(`<div data-testid="RoomLayout">${names()
+          .map((n, i) => tile(n, 'c' + i))
+          .join('')}
+          ${tile(me, 'self')}
+          <button class="jstest-open-chat-button" id="chat-button">Chat</button>
+          <div id="chat" hidden><div data-testid="chat-scroll-area">${chat.map(group).join('')}</div>
+            <form><textarea data-testid="chatmessage-input-field"></textarea>
+            <button type="submit" data-testid="chatmessage-send-button">Send</button></form></div>
+          <button class="jstest-mute-button" aria-pressed="${micOn}">Mic</button>
+          <button class="jstest-leave-room-button">Leave</button></div>`);
+      }
+
+      function room() {
+        send({ type: 'in-room', mic: micOn, camera: camOn });
+        const chat = (params.get('chat') ?? '')
+          .split(';')
+          .filter(Boolean)
+          .map((entry) => {
+            const [name, delay, text] = entry.split('|');
+            return { name, delay: Number(delay), text };
+          });
+        const shown = [];
+        let open = false;
+        const draw = () => {
+          renderRoom(shown);
+          const chatPanel = document.getElementById('chat');
+          chatPanel.hidden = !open;
+          document.getElementById('chat-button').onclick = () => {
+            open = true;
+            draw();
+          };
+          chatPanel.querySelector('form').onsubmit = (event) => {
+            event.preventDefault();
+            const input = chatPanel.querySelector('textarea');
+            send({ type: 'chat', text: input.value });
+            shown.push({ name: me, text: input.value });
+            input.value = '';
+            draw();
+          };
+          const mic = document.querySelector('.jstest-mute-button');
+          mic.onclick = () => {
+            micOn = !micOn;
+            send({ type: 'mic', mic: micOn });
+            draw();
+          };
+          document.querySelector('.jstest-leave-room-button').onclick = left;
+        };
+        const timer = setInterval(() => {
+          if (params.has('speakers') && document.querySelector('.jstest-leave-room-button')) draw();
+        }, 300);
+        chat.forEach((m) =>
+          setTimeout(() => {
+            shown.push(m);
+            draw();
+          }, m.delay),
+        );
+        if (params.has('leaveAfter')) {
+          setTimeout(
+            () => {
+              clearInterval(timer);
+              ended();
+            },
+            Number(params.get('leaveAfter')),
+          );
+        }
+        draw();
+        window.__stop = () => clearInterval(timer);
+      }
+
+      function left() {
+        window.__stop?.();
+        show(`<main><h1>You’ve left the room</h1></main>`);
+      }
+
+      function ended() {
+        show(`<main><h1>Meeting ended</h1><p>The host ended the meeting.</p></main>`);
+      }
+
+      params.has('nameStep') ? nameStep() : devices();
+    </script>
+  </body>
+</html>

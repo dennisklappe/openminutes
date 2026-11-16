@@ -5,7 +5,7 @@ Who said what comes from the call itself. The transcription provider changes the
 ```mermaid
 flowchart TD
     A(["Recording"]) --> B{"Where from?"}
-    B -->|"Meet or Teams call"| C["Bot reads the speaking indicator<br/>about 4 times a second"]
+    B -->|"Meet, Teams or Whereby call"| C["Bot reads the speaking indicator<br/>about 4 times a second"]
     B -->|"Phone recording"| D["Voices are told apart<br/>from the audio"]
     D --> E["Speaker 1 to Speaker N"]
     C --> F["Words are lined up<br/>with the speaking intervals"]
@@ -16,7 +16,7 @@ flowchart TD
     H --> I
 ```
 
-## In a Meet or Teams call
+## In a Meet, Teams or Whereby call
 
 The bot reads the page about four times a second: who is in the call and who has the speaking indicator lit. After transcription the words are lined up with those intervals:
 
@@ -59,7 +59,7 @@ Without a summary provider, a plain heuristic runs instead and sends nothing. It
 
 | Source         | Where it comes from                                                          |
 | -------------- | ---------------------------------------------------------------------------- |
-| `indicator`    | Meet and Teams speaking indicator                                            |
+| `indicator`    | Meet, Teams and Whereby speaking indicator                                   |
 | `diarization`  | Voices found in a phone recording                                            |
 | `ai` / `guess` | Older lines the second pass or a heuristic changed. New reviews only suggest |
 | `user`         | A person changed the line. Never overwritten                                 |
@@ -96,7 +96,7 @@ flowchart TD
 - After transcription, a **Check the people** card on the meeting says how many people were found and who they probably are, from voice memory, the calendar and earlier meetings. Nothing is applied until you confirm. See [Check the people](voices.md#check-the-people).
 - A phone recording gets a short title (6 words at most) from its summary. Calendar and link meetings are never retitled.
 - Re-transcribing rebuilds speakers, keeps corrected lines and matches new voices to names you gave before.
-- Meet and Teams calls are not diarized: the speaking indicator decides, so the number of people does not apply to them.
+- Meet, Teams and Whereby calls are not diarized: the speaking indicator decides, so the number of people does not apply to them.
 
 <details>
 <summary>Models and accuracy</summary>

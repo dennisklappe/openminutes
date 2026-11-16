@@ -52,7 +52,7 @@ flowchart LR
     A["Discover"] --> B["Schedule"] --> C["Join"] --> D["Record"] --> E["Leave"] --> F["Process"]
 ```
 
-1. **Discover**: the calendar is polled every 2 minutes (next 14 days) for Meet or Teams links, see [Google](google-oauth.md#how-sync-works). Or paste a link in the UI.
+1. **Discover**: the calendar is polled every 2 minutes (next 14 days) for Meet, Teams or Whereby links, see [Google](google-oauth.md#how-sync-works). Or paste a link in the UI.
 2. **Schedule**: a `join` job is created for the start time minus 1 minute. Per-calendar rules: all, only meetings I organise, only with external guests, or never.
 3. **Join**: the bot opens the link as a guest named "OpenMinutes" (configurable), mutes mic and camera and waits in the lobby (default timeout 10 minutes). Meet can use a signed-in Google account, see [Signing the Meet bot in](meet-sign-in.md).
 4. **Record**: browser audio via a virtual PulseAudio sink, written as Opus segments. Participants and active speaker are read from the page about 4 times a second.

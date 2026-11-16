@@ -21,7 +21,7 @@ export interface ProgressDto {
 export interface MeetingDto {
   id: string;
   title: string;
-  platform: 'meet' | 'teams' | 'recording' | 'imported';
+  platform: 'meet' | 'teams' | 'whereby' | 'recording' | 'imported';
   joinUrl: string;
   status: MeetingStatus;
   error: string | null;

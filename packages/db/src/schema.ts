@@ -15,7 +15,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-export const meetingPlatforms = ['meet', 'teams', 'recording', 'imported'] as const;
+export const meetingPlatforms = ['meet', 'teams', 'whereby', 'recording', 'imported'] as const;
 export const meetingStatuses = [
   'scheduled',
   'uploading',

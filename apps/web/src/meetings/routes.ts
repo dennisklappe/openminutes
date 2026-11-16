@@ -128,7 +128,10 @@ export function meetingRoutes(deps: MeetingDeps): Hono {
         return c.json({ error: error.message, duplicateOf: error.existing.id }, 409);
       }
       if (error instanceof UnsupportedMeetingUrlError) {
-        return c.json({ error: 'Only Google Meet and Microsoft Teams links are supported' }, 400);
+        return c.json(
+          { error: 'Only Google Meet, Microsoft Teams and Whereby links are supported' },
+          400,
+        );
       }
       throw error;
     }

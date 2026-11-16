@@ -35,7 +35,7 @@
 
 | Feature              | Details                                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Joins for you        | Reads Google Calendar and Outlook invites, or paste a Meet or Teams link to join now.                         |
+| Joins for you        | Reads Google Calendar and Outlook invites, or paste a Meet, Teams or Whereby link to join now.                |
 | Records audio        | Opus segments plus the participant list and active speaker, logged with timestamps.                           |
 | Knows who spoke      | Transcript words are aligned to who was speaking, so segments carry names.                                    |
 | Transcribes anywhere | Local faster-whisper with no key, or OpenAI, Groq, Deepgram or AssemblyAI with yours.                         |
@@ -64,7 +64,7 @@ Then:
 
 1. Open the web UI on port 3000 and set an admin password.
 2. Follow the setup wizard: pick a transcription provider (local needs no key) and connect a calendar, or skip the calendar and paste links.
-3. Paste a Meet or Teams link under Meetings and press Join meeting. The bot appears in the participant list.
+3. Paste a Meet, Teams or Whereby link under Meetings and press Join meeting. The bot appears in the participant list.
 4. Admit the bot if the meeting has a lobby. When the meeting ends, the transcript shows up within minutes.
 5. Open the meeting, name the speakers if needed, then Share the minutes or download them.
 

@@ -140,6 +140,23 @@ function TeamsIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+/** Whereby: a rounded tile with a w. */
+function WherebyIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" aria-hidden="true" className="icon">
+      <rect x="1.5" y="2.5" width="15" height="13" rx="3.2" fill="#1f5c4d" />
+      <path
+        d="M4.6 6.8l1.9 4.6 2.5-4.6 2.5 4.6 1.9-4.6"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /** A phone recording: a microphone. */
 export function PhoneIcon({ size = 18 }: { size?: number }) {
   return (
@@ -159,10 +176,11 @@ export function PhoneIcon({ size = 18 }: { size?: number }) {
 export function PlatformIcon({
   platform,
 }: {
-  platform: 'meet' | 'teams' | 'recording' | 'imported';
+  platform: 'meet' | 'teams' | 'whereby' | 'recording' | 'imported';
 }) {
   if (platform === 'recording') return <PhoneIcon />;
   if (platform === 'imported') return <ImportIcon />;
+  if (platform === 'whereby') return <WherebyIcon />;
   return platform === 'meet' ? <MeetIcon /> : <TeamsIcon />;
 }
 export const DocumentIcon = () => (

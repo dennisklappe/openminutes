@@ -51,7 +51,7 @@ The wizard remembers your place. Skip setup leaves it, Settings, General, Open t
 
 ## 4. Record a meeting
 
-Paste a Google Meet or Teams link into the Join meeting box. The bot joins as OpenMinutes Notetaker and waits in the lobby: admit it. When the meeting ends it transcribes the audio and shows the transcript on the meeting page.
+Paste a Google Meet, Teams or Whereby link into the Join meeting box. The bot joins as OpenMinutes Notetaker and waits in the lobby: admit it. When the meeting ends it transcribes the audio and shows the transcript on the meeting page.
 
 - Google Meet usually refuses server guests: set up [the Meet bot account](meet-sign-in.md) first.
 - Teams guests work unless the organiser's tenant blocks them, see [Teams](teams.md).

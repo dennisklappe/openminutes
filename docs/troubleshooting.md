@@ -46,7 +46,7 @@ Check the calendar's join rule: it may be set to only meetings you organise, or 
 
 ## Speakers are wrong or missing
 
-Speakers are read from the Meet and Teams pages, which change often. Transcripts still work, without names. Update to the newest version and open an issue with the platform and date.
+Speakers are read from the Meet, Teams and Whereby pages, which change often. Transcripts still work, without names. Update to the newest version and open an issue with the platform and date.
 
 ## Sign-in to Google or Microsoft fails
 

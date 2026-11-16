@@ -146,7 +146,7 @@ const sections: Section[] = [
     label: 'Calendar accounts',
     title: 'Calendar accounts',
     description:
-      'Connect a calendar and OpenMinutes joins the Meet and Teams meetings in it. New calendars start on Never, so nothing is joined until you pick a rule.',
+      'Connect a calendar and OpenMinutes joins the Meet, Teams and Whereby meetings in it. New calendars start on Never, so nothing is joined until you pick a rule.',
     render: ({ route }) => <CalendarSection route={route} />,
   },
   {

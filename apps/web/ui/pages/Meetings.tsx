@@ -33,6 +33,7 @@ const PLATFORMS = [
   { value: '', label: 'All' },
   { value: 'meet', label: 'Meet' },
   { value: 'teams', label: 'Teams' },
+  { value: 'whereby', label: 'Whereby' },
   { value: 'recording', label: 'Phone' },
   { value: 'imported', label: 'Imported' },
 ];
@@ -390,8 +391,8 @@ export function Meetings() {
               <>
                 <h3>No meetings yet</h3>
                 <p>
-                  Paste a Meet or Teams link above and the bot joins. Connect a calendar and it
-                  joins your meetings by itself.
+                  Paste a Meet, Teams or Whereby link above and the bot joins. Connect a calendar
+                  and it joins your meetings by itself.
                 </p>
                 <a className="button" href="#/settings/calendars">
                   Connect a calendar

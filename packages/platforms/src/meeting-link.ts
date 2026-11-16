@@ -80,6 +80,48 @@ function parseTeams(url: URL, host: string): MeetingLink | undefined {
   return undefined;
 }
 
+// Whereby rooms live at whereby.com/<room> or <subdomain>.whereby.com/<room> (paid plans).
+const WHEREBY_HOST = /^(?:([a-z0-9-]+)\.)?whereby\.com$/;
+const WHEREBY_ROOM = /^[\w.-]+$/;
+const WHEREBY_RESERVED = new Set([
+  'information',
+  'user',
+  'blog',
+  'embedded',
+  'meetings',
+  'api',
+  'app',
+  'www',
+  'login',
+  'signup',
+  'dashboard',
+  'pricing',
+  'about',
+  'static',
+  'docs',
+  'support',
+  'status',
+  'careers',
+]);
+
+function parseWhereby(url: URL, host: string): MeetingLink | undefined {
+  const sub = WHEREBY_HOST.exec(host)?.[1];
+  if (sub && WHEREBY_RESERVED.has(sub)) return undefined;
+  const parts = pathSegments(url.pathname).map((part) => decodeURIComponent(part));
+  const [room] = parts;
+  if (parts.length !== 1 || !room || !WHEREBY_ROOM.test(room)) return undefined;
+  const lower = room.toLowerCase();
+  if (!sub && WHEREBY_RESERVED.has(lower)) return undefined;
+  const roomKey = url.searchParams.get('roomKey');
+  const base = sub ? `https://${sub}.whereby.com` : 'https://whereby.com';
+  return {
+    platform: 'whereby',
+    code: lower,
+    canonicalUrl: `${base}/${room}${roomKey ? `?roomKey=${encodeURIComponent(roomKey)}` : ''}`,
+    key: `whereby:${sub ? `${sub}.` : ''}${lower}`,
+  };
+}
+
 export function parseMeetingLink(raw: string): MeetingLink | undefined {
   const url = unwrapLink(raw.trim());
   if (!url) return undefined;
@@ -87,6 +129,7 @@ export function parseMeetingLink(raw: string): MeetingLink | undefined {
   try {
     if (host === MEET_HOST) return parseMeet(url);
     if (teamsHosts.has(host)) return parseTeams(url, host);
+    if (WHEREBY_HOST.test(host)) return parseWhereby(url, host);
   } catch {
     return undefined;
   }

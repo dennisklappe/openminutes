@@ -141,3 +141,36 @@ describe('defaultMeetingTitle', () => {
     expect(link && defaultMeetingTitle('Microsoft Teams', link)).toBe('Microsoft Teams');
   });
 });
+
+describe('parseMeetingLink for Whereby', () => {
+  it.each([
+    ['https://whereby.com/my-room', 'my-room', 'https://whereby.com/my-room', 'whereby:my-room'],
+    ['whereby.com/My-Room/', 'my-room', 'https://whereby.com/My-Room', 'whereby:my-room'],
+    [
+      'https://acme.whereby.com/standup?utm=x',
+      'standup',
+      'https://acme.whereby.com/standup',
+      'whereby:acme.standup',
+    ],
+    [
+      'https://whereby.com/locked?roomKey=abc123',
+      'locked',
+      'https://whereby.com/locked?roomKey=abc123',
+      'whereby:locked',
+    ],
+  ])('reads %s', (raw, code, canonicalUrl, key) => {
+    expect(parseMeetingLink(raw)).toEqual({ platform: 'whereby', code, canonicalUrl, key });
+  });
+
+  it.each([
+    'https://whereby.com/',
+    'https://whereby.com/information/pricing',
+    'https://whereby.com/user/login',
+    'https://whereby.com/blog',
+    'https://docs.whereby.com/room',
+    'https://www.whereby.com/information',
+    'https://notwhereby.com/room',
+  ])('ignores %s', (raw) => {
+    expect(parseMeetingLink(raw)).toBeUndefined();
+  });
+});

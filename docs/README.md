@@ -14,14 +14,14 @@ Open source, self-hosted notetaker. A bot joins your Google Meet and Microsoft T
 
 ## What you get
 
-| Feature         | Details                                                                    |
-| --------------- | -------------------------------------------------------------------------- |
-| Joins for you   | Reads Google Calendar and Outlook invites, or paste a Meet or Teams link.  |
-| Knows who spoke | Transcript words are aligned to who was speaking, so segments carry names. |
-| Transcribes     | Local faster-whisper (no key), or OpenAI, Groq, Deepgram, AssemblyAI.      |
-| Summarises      | Off by default. OpenAI-compatible endpoints (incl. Ollama) or Anthropic.   |
-| Shares minutes  | Email attendees or share a link. Never without a click.                    |
-| Stays yours     | One Postgres, one volume. Secrets encrypted at rest.                       |
+| Feature         | Details                                                                            |
+| --------------- | ---------------------------------------------------------------------------------- |
+| Joins for you   | Reads Google Calendar and Outlook invites, or paste a Meet, Teams or Whereby link. |
+| Knows who spoke | Transcript words are aligned to who was speaking, so segments carry names.         |
+| Transcribes     | Local faster-whisper (no key), or OpenAI, Groq, Deepgram, AssemblyAI.              |
+| Summarises      | Off by default. OpenAI-compatible endpoints (incl. Ollama) or Anthropic.           |
+| Shares minutes  | Email attendees or share a link. Never without a click.                            |
+| Stays yours     | One Postgres, one volume. Secrets encrypted at rest.                               |
 
 ## How it works
 

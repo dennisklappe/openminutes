@@ -1,5 +1,6 @@
 import { meet } from './meet.js';
 import { teams } from './teams.js';
+import { whereby } from './whereby.js';
 import type { Platform } from './types.js';
 
 export {
@@ -13,11 +14,12 @@ export {
 export type { Platform } from './types.js';
 export { meet } from './meet.js';
 export { teams } from './teams.js';
+export { whereby } from './whereby.js';
 export { defaultMeetingTitle, parseMeetingLink, type MeetingLink } from './meeting-link.js';
 export { teamsHosts, unwrapLink } from './unwrap-link.js';
 export { fixturePage } from './fixture-pages.js';
 
-const platforms: readonly Platform[] = [meet, teams];
+const platforms: readonly Platform[] = [meet, teams, whereby];
 
 export function detectPlatform(url: string): Platform | undefined {
   return platforms.find((p) => p.detect(url));

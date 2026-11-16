@@ -5,7 +5,7 @@ Settings, Bot identity. Everything is free to set.
 | Setting           | Details                                                                                                                                                                                 |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Display name      | Typed when joining as a guest (a Meet [Google account](meet-sign-in.md) shows its own name instead). Up to 64 characters, one line. Default `OpenMinutes Notetaker`; empty restores it. |
-| Join chat message | Posted in the chat on admission, on Meet and Teams. Up to 500 characters, one line. `{{name}}` becomes the display name. Switch off to send nothing.                                    |
+| Join chat message | Posted in the chat on admission, on Meet, Teams and Whereby. Up to 500 characters, one line. `{{name}}` becomes the display name. Switch off to send nothing.                           |
 | Camera image      | Optional PNG or JPEG, up to 2 MB, 16:9 best (other shapes get black bars). Without it the camera stays off.                                                                             |
 
 Default join message:
