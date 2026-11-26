@@ -202,6 +202,10 @@ Generated from the route table by `apps/web/src/api-reference.test.ts`. Run `UPD
 | `GET` | `/api/settings/bot/google-session` | Read or full key |
 | `PUT` | `/api/settings/bot/google-session` | Full key |
 | `DELETE` | `/api/settings/bot/google-session` | Full key |
+| `PUT` | `/api/settings/bot/microsoft-notifications` | Full key |
+| `GET` | `/api/settings/bot/microsoft-session` | Read or full key |
+| `PUT` | `/api/settings/bot/microsoft-session` | Full key |
+| `DELETE` | `/api/settings/bot/microsoft-session` | Full key |
 | `GET` | `/api/settings/email` | Read or full key |
 | `PUT` | `/api/settings/email` | Full key |
 | `GET` | `/api/settings/email/provider` | Read or full key |

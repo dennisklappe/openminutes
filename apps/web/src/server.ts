@@ -80,8 +80,8 @@ await queue.work('meeting.calendar-link', ({ meetingId, force }) =>
   runCalendarLink({ calendar, publicUrl }, meetingId, force),
 );
 
-await queue.work('bot.session-alert', async ({ reason }) => {
-  await sendSessionAlert({ settings, mailDeps: googleMailDeps(calendar) }, reason);
+await queue.work('bot.session-alert', async ({ reason, provider }) => {
+  await sendSessionAlert({ settings, mailDeps: googleMailDeps(calendar) }, reason, provider);
 });
 
 const app = createApp({

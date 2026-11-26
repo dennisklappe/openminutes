@@ -42,7 +42,12 @@ describe('Microsoft session API', () => {
     });
 
   it('starts without a session', async () => {
-    expect(await (await send('GET')).json()).toEqual({ status: 'missing', expiresAt: null });
+    expect(await (await send('GET')).json()).toEqual({
+      status: 'missing',
+      expiresAt: null,
+      keepAlive: null,
+      notify: true,
+    });
   });
 
   it('imports a storage state, reports it valid and stores it encrypted', async () => {
@@ -63,7 +68,7 @@ describe('Microsoft session API', () => {
 
   it('accepts a session with only the browser session cookie', async () => {
     const dto = (await (await send('PUT', microsoft(-1))).json()) as MicrosoftSessionDto;
-    expect(dto).toEqual({ status: 'valid', expiresAt: null });
+    expect(dto).toMatchObject({ status: 'valid', expiresAt: null });
   });
 
   it('reports a session whose cookies ran out as expired', async () => {
@@ -81,6 +86,20 @@ describe('Microsoft session API', () => {
 
   it('removes the session', async () => {
     const dto = (await (await send('DELETE')).json()) as MicrosoftSessionDto;
-    expect(dto).toEqual({ status: 'missing', expiresAt: null });
+    expect(dto).toMatchObject({ status: 'missing', expiresAt: null });
+  });
+
+  it('turns the Microsoft alert mail off without touching the Google one', async () => {
+    const put = (body: string) =>
+      app.request('/bot/microsoft-notifications', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body,
+      });
+    expect((await put('{"notify":"no"}')).status).toBe(400);
+    const dto = (await (await put('{"notify":false}')).json()) as MicrosoftSessionDto;
+    expect(dto.notify).toBe(false);
+    const google = await app.request('/bot/google-session');
+    expect(((await google.json()) as { notify: boolean }).notify).toBe(true);
   });
 });

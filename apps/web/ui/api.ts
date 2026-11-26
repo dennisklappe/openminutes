@@ -504,6 +504,11 @@ export const api = {
     }),
   removeMicrosoftSession: () =>
     request<MicrosoftSessionDto>('/settings/bot/microsoft-session', { method: 'DELETE' }),
+  setMicrosoftNotifications: (notify: boolean) =>
+    request<MicrosoftSessionDto>('/settings/bot/microsoft-notifications', {
+      method: 'PUT',
+      body: { notify },
+    }),
   storageSettings: () => request<StorageSettingsDto>('/settings/storage'),
   saveStorageSettings: (body: StorageSettingsInput) =>
     request<StorageSettingsDto>('/settings/storage', { method: 'PUT', body }),

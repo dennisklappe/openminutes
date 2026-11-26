@@ -44,10 +44,18 @@ The offline check is weaker than for Google: a tenant can end sessions early (si
 - It mutes the microphone, and the camera unless you set a camera image, then waits in the lobby when the meeting has one.
 - After a successful join it stores the refreshed session, so regular use keeps it alive.
 
+## Keep-alive and alerts
+
+- Once a day (04:53 server time) the bot opens Teams headless with the session. Still signed in, it stores the refreshed session; the result shows under the session status in Settings.
+- Sent to the sign-in page, it marks the session Signed out and mails the owner address: "The OpenMinutes bot needs to sign in to Microsoft again". Import a new session file, or remove the session so the bot joins as a guest.
+- It also mails when the persistent sign-in cookie ends within 72 hours, and when a join finds the bot signed out.
+- At most one mail a day, counted apart from the Google alerts. Needs a mail provider and an owner address (Settings, Email). Turn it off with "Email me when the session fails or is about to run out".
+- Signed in, the bot recognises its own tile by the account name stored in the session, so it is not listed as a participant in the minutes.
+
 ## When it fails
 
 - "The Microsoft session of the bot expired": Teams sent the bot to the Microsoft sign-in page, or showed the guest name field. Run the script again and import the new file. The bot does not retry as a guest.
 - "This tenant blocks anonymous guests" while signed in: the organiser's tenant does not admit this account either. Only its admins can change that.
 - The import says the file has no Microsoft sign-in cookies: the file is not from `scripts/microsoft-login.mjs`, or the sign-in did not finish.
 
-Not built yet: a daily keep-alive, alerts by email that name Microsoft, and signing in with a saved password. Follow [issue #50](https://github.com/dennisklappe/openminutes/issues/50).
+Not built yet: signing in again with a saved password. Follow [issue #50](https://github.com/dennisklappe/openminutes/issues/50).

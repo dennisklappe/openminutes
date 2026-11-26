@@ -47,4 +47,20 @@ describe('session alert mail', () => {
     expect(await alert(new Date(now.getTime() + 25 * 3_600_000))).toBe(true);
     expect(sent).toHaveLength(2);
   });
+
+  it('names Microsoft Teams in the Microsoft alert and throttles it apart from Google', async () => {
+    const later = new Date(now.getTime() + 26 * 3_600_000);
+    expect(await alert(later)).toBe(false);
+    const microsoft = (at = later) =>
+      sendSessionAlert({ settings, mailDeps: { fetch }, now: () => at }, 'Signed out', 'microsoft');
+    expect(await microsoft()).toBe(true);
+    const mail = JSON.stringify(sent.at(-1));
+    expect(mail).toContain('sign in to Microsoft again');
+    expect(mail).toContain('Microsoft Teams meetings');
+    expect(mail).not.toContain('Google');
+    expect(await microsoft(new Date(later.getTime() + 3_600_000))).toBe(false);
+
+    await settings.set('bot.microsoft_notify', 'false');
+    expect(await microsoft(new Date(later.getTime() + 25 * 3_600_000))).toBe(false);
+  });
 });

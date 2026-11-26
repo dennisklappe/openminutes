@@ -10,6 +10,29 @@ const headline = {
   expired: 'Signed out: Teams meetings fail until you import a new session file.',
 } as const;
 
+const keepAliveText = {
+  ok: 'Session refreshed',
+  failed: 'Refresh failed',
+  needs_attention: 'Needs attention',
+} as const;
+
+function KeepAlive({ keepAlive }: { keepAlive: MicrosoftSessionDto['keepAlive'] }) {
+  if (!keepAlive) {
+    return (
+      <p className="hint">
+        The bot opens Teams once a day to keep the session alive. Nothing has run yet.
+      </p>
+    );
+  }
+  return (
+    <p className={`status-line status-${keepAlive.status === 'ok' ? 'valid' : 'expired'}`}>
+      {keepAlive.status === 'ok' ? <CheckIcon /> : <AlertIcon />}
+      {keepAliveText[keepAlive.status]}, last checked {new Date(keepAlive.at).toLocaleString()}
+      {keepAlive.detail && `: ${keepAlive.detail}`}
+    </p>
+  );
+}
+
 export function MicrosoftSessionSettings() {
   const [state, setState] = useState<MicrosoftSessionDto>();
   const [notice, setNotice] = useState<Notice>();
@@ -67,6 +90,20 @@ export function MicrosoftSessionSettings() {
           or the tenant can end the session earlier.
         </p>
       )}
+      {state.status !== 'missing' && <KeepAlive keepAlive={state.keepAlive} />}
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={state.notify}
+          onChange={(e) => {
+            const notify = e.target.checked;
+            act(notify ? 'Alert mail on.' : 'Alert mail off.', () =>
+              api.setMicrosoftNotifications(notify),
+            );
+          }}
+        />
+        Email me when the session fails or is about to run out
+      </label>
       <label className="field">
         <span>Session file</span>
         <input

@@ -28,7 +28,7 @@ export interface GooglePage {
 
 export interface GoogleContext {
   newPage(): Promise<GooglePage>;
-  storageState(): Promise<GoogleStorageState>;
+  storageState(options?: { indexedDB?: boolean }): Promise<GoogleStorageState>;
   cookies(url: string): Promise<{ name: string }[]>;
 }
 

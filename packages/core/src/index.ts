@@ -28,9 +28,21 @@ export {
   recordKeepAlive,
   type GoogleKeepAlive,
 } from './google-keepalive.js';
+export {
+  botAlertDue,
+  botNotificationsEnabled,
+  botSessionExpiringSoon,
+  loadBotKeepAlive,
+  markBotAlertSent,
+  recordBotKeepAlive,
+  setBotNotifications,
+  type BotKeepAlive,
+} from './bot-keepalive.js';
+export { botAccountName } from './bot-account-name.js';
 export { totp } from './totp.js';
 export {
   BOT_ACCOUNT_PROVIDERS,
+  botSessionCriticalExpiry,
   clearBotSession,
   describeBotSession,
   InvalidBotSessionError,

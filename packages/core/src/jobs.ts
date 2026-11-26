@@ -1,3 +1,5 @@
+import type { BotAccountProvider } from './bot-session-store.js';
+
 export interface MeetingJobPayload {
   meetingId: string;
 }
@@ -47,6 +49,8 @@ export type RetentionPayload = Record<string, never>;
 
 export interface SessionAlertPayload {
   reason: string;
+  /** Absent on jobs queued before Teams sign-in existed, those were all Google. */
+  provider?: BotAccountProvider;
 }
 
 export interface JobPayloads {
@@ -68,6 +72,7 @@ export interface JobPayloads {
   'bin.purge': RetentionPayload;
   'meeting.watchdog': RetentionPayload;
   'bot.google-keepalive': RetentionPayload;
+  'bot.microsoft-keepalive': RetentionPayload;
   'bot.session-alert': SessionAlertPayload;
 }
 
@@ -92,6 +97,7 @@ export const jobNames: readonly JobName[] = [
   'bin.purge',
   'meeting.watchdog',
   'bot.google-keepalive',
+  'bot.microsoft-keepalive',
   'bot.session-alert',
 ];
 

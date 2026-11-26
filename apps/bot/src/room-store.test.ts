@@ -98,7 +98,7 @@ it('applies a remembered alias and keeps the name used in the meeting', async ()
   await test.close();
 });
 
-it('flags the notetaker itself, by the configured name too', async () => {
+it('flags the notetaker itself, by the configured and the signed-in account name too', async () => {
   const test = await createTestDatabase();
   const meetingId = await createMeetingRow(test.db);
 
@@ -111,10 +111,11 @@ it('flags the notetaker itself, by the configured name too', async () => {
         { name: 'Alice', joinedMs: 0, leftMs: null },
         { name: 'Scribe Bot (Guest)', joinedMs: 0, leftMs: null },
         { name: 'openminutes notetaker', joinedMs: 0, leftMs: null },
+        { name: 'Minutes Account', joinedMs: 0, leftMs: null },
       ],
       speakerEvents: [],
     },
-    'Scribe Bot',
+    ['Scribe Bot', 'Minutes Account', undefined],
   );
 
   const people = await test.db
@@ -123,6 +124,7 @@ it('flags the notetaker itself, by the configured name too', async () => {
     .where(eq(participants.meetingId, meetingId));
   expect(people.map((p) => [p.displayName, p.isBot]).sort()).toEqual([
     ['Alice', false],
+    ['Minutes Account', true],
     ['Scribe Bot (Guest)', true],
     ['openminutes notetaker', true],
   ]);

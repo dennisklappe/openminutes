@@ -1,4 +1,5 @@
 import {
+  botAccountName,
   joinJobExpirySeconds,
   lobbyTimeoutMessage,
   loadBotProfile,
@@ -132,12 +133,17 @@ export async function runMeeting(
   }
 
   let scraper: RoomScraper | undefined;
+  // Signed in, Teams shows the bot under its account name, not the configured bot name.
+  let accountName: string | undefined;
   const persistRoom = async () => {
     const finished = scraper;
     scraper = undefined;
     if (!finished) return;
     const room = await finished.stop();
-    await saveRoom(db, meetingId, finished.startedAt, room, await deps.settings.get('bot.name'));
+    await saveRoom(db, meetingId, finished.startedAt, room, [
+      await deps.settings.get('bot.name'),
+      accountName,
+    ]);
   };
 
   let chatScraper: ChatScraper | undefined;
@@ -198,6 +204,7 @@ export async function runMeeting(
         await context.close();
         throw error;
       }
+      accountName = botAccountName(accountSession);
       return { context, page, signedIn: accountSession !== undefined };
     };
     const lobbyTimeout = () => new JoinError('lobby_timeout', lobbyTimeoutMessage(lobbySeconds));
@@ -276,7 +283,7 @@ export async function runMeeting(
     if (isSessionExpired(error) && account) {
       await account.markExpired(deps.settings).catch(() => undefined);
       await deps.queue
-        .send('bot.session-alert', { reason: failureMessage(error) })
+        .send('bot.session-alert', { reason: failureMessage(error), provider: account.provider })
         .catch(() => undefined);
     }
     await recording?.stop().catch(() => undefined);

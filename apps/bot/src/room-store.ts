@@ -12,8 +12,11 @@ export async function saveRoom(
   meetingId: string,
   recordingStartedAt: Date,
   room: RoomRecord,
-  botName?: string | null,
+  /** The configured bot name, and the signed-in account name when the bot joined signed in. */
+  botNames: readonly (string | null | undefined)[] = [],
 ): Promise<void> {
+  const isBot = (name: string) =>
+    isBotName(name) || botNames.some((botName) => botName && isBotName(name, botName));
   if (room.participants.length === 0) return;
   const at = (ms: number | null) =>
     ms === null ? null : new Date(recordingStartedAt.getTime() + ms);
@@ -34,7 +37,7 @@ export async function saveRoom(
           originalName: p.name,
           inviteeEmails: aliases.get(p.name.toLowerCase())?.inviteeEmails ?? [],
           email: aliases.get(p.name.toLowerCase())?.email ?? null,
-          isBot: isBotName(p.name, botName),
+          isBot: isBot(p.name),
           joinedAt: at(p.joinedMs),
           leftAt: at(p.leftMs),
         })),

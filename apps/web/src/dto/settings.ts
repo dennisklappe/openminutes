@@ -108,6 +108,8 @@ export interface GoogleSessionDto {
 export interface MicrosoftSessionDto {
   status: 'missing' | 'valid' | 'expired';
   expiresAt: string | null;
+  keepAlive: GoogleSessionDto['keepAlive'];
+  notify: boolean;
 }
 
 export interface GoogleCredentialsInput {

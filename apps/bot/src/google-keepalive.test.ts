@@ -152,7 +152,10 @@ describe('Google keep-alive', () => {
     const record = await loadKeepAlive(settings);
     expect(record?.status).toBe('needs_attention');
     expect(record?.detail).toMatch(/extra verification/);
-    expect(queue.send).toHaveBeenCalledWith('bot.session-alert', { reason: record?.detail });
+    expect(queue.send).toHaveBeenCalledWith('bot.session-alert', {
+      reason: record?.detail,
+      provider: 'google',
+    });
   });
 
   it('records a failed run when the browser cannot start', async () => {

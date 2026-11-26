@@ -24,7 +24,7 @@ interface KeepAliveDeps {
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 const alert = (deps: KeepAliveDeps, reason: string) =>
-  deps.queue.send('bot.session-alert', { reason });
+  deps.queue.send('bot.session-alert', { reason, provider: 'google' });
 
 /**
  * Signs in again with the saved credentials in a headless browser and stores the new session.

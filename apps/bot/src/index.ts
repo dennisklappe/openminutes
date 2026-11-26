@@ -3,11 +3,13 @@ import { createDatabase, migrateOnStartup } from '@openminutes/db';
 import { loadBotEnv } from './env.js';
 import { runGoogleKeepAlive } from './google-keepalive.js';
 import { launchHeadless } from './google-browser.js';
+import { runMicrosoftKeepAlive } from './microsoft-keepalive.js';
 import { runMeeting } from './session.js';
 import { registerOpenSegments } from './recovery.js';
 import { failInterruptedMeetings } from './slots.js';
 
 const KEEPALIVE_CRON = '41 4 * * *';
+const MICROSOFT_KEEPALIVE_CRON = '53 4 * * *';
 
 const env = loadBotEnv();
 const { db, pool } = createDatabase(env.DATABASE_URL);
@@ -37,6 +39,10 @@ await queue.work('bot.google-keepalive', () =>
   runGoogleKeepAlive({ settings: deps.settings, queue, launch: launchHeadless(env) }),
 );
 await queue.schedule('bot.google-keepalive', KEEPALIVE_CRON, {});
+await queue.work('bot.microsoft-keepalive', () =>
+  runMicrosoftKeepAlive({ settings: deps.settings, queue, launch: launchHeadless(env) }),
+);
+await queue.schedule('bot.microsoft-keepalive', MICROSOFT_KEEPALIVE_CRON, {});
 console.log('bot ready');
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
