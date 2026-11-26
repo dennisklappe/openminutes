@@ -32,4 +32,22 @@ describe('parseTeamsRoom', () => {
   it('returns an empty room when the DOM no longer matches, so callers can tell it from "everyone left"', () => {
     expect(parseFixture('room-changed-dom')).toEqual({ participants: [], speaking: [] });
   });
+
+  it('reads the participant count from the People control', () => {
+    const { document } = parseHTML(
+      '<html><body><div>Chat</div><div>4</div><div>People</div><div>Raise</div></body></html>',
+    ) as unknown as { document: DomNode };
+    expect(parseTeamsRoom(document, teamsRoomSelectors)).toEqual({
+      participants: [],
+      speaking: [],
+      headcount: 4,
+    });
+  });
+
+  it('reports no headcount when Teams hides the count for a single participant', () => {
+    const { document } = parseHTML(
+      '<html><body><div>Chat</div><div>People</div><div>Raise</div></body></html>',
+    ) as unknown as { document: DomNode };
+    expect(parseTeamsRoom(document, teamsRoomSelectors).headcount).toBeUndefined();
+  });
 });

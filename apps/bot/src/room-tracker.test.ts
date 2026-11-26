@@ -29,6 +29,25 @@ describe('RoomTracker', () => {
     });
   });
 
+  it('tracks the count through headcount-only snapshots when no camera is on', () => {
+    const tracker = new RoomTracker();
+    tracker.observe(room(['bot', 'Alice']), 0);
+    expect(tracker.count).toBe(2);
+    // Cameras go off: tiles disappear, the People control still shows two.
+    tracker.observe({ participants: [], speaking: [], headcount: 2 }, 1_000);
+    expect(tracker.count).toBe(2);
+    // Everyone leaves: Teams hides the count for a single participant.
+    tracker.observe({ participants: [], speaking: [], headcount: 1 }, 60_000);
+    expect(tracker.count).toBe(1);
+  });
+
+  it('ignores empty snapshots that carry no headcount, so a page that cannot be read changes nothing', () => {
+    const tracker = new RoomTracker();
+    tracker.observe(room(['bot', 'Alice']), 0);
+    tracker.observe({ participants: [], speaking: [] }, 1_000);
+    expect(tracker.count).toBe(2);
+  });
+
   it('collapses continuous speech and short flickers into one interval', () => {
     const tracker = new RoomTracker();
     const people = ['bot', 'Alice'];

@@ -158,7 +158,12 @@ export const teams: Platform = {
     );
     if (room.participants.length > 0) return room;
     const alone = await teamsLocators(page).aloneNotice.first().isVisible();
-    return alone ? { participants: [selfName], speaking: [] } : room;
+    if (alone) return { participants: [selfName], speaking: [] };
+    // No tiles and no People count: either the bot is alone (Teams hides the
+    // count for a single participant) or the count is momentarily unreadable.
+    // Reporting headcount 1 starts the alone timer, which only fires after it
+    // holds for the full timeout, so a transient render cannot end a meeting.
+    return { participants: [], speaking: [], headcount: room.headcount ?? 1 };
   },
 
   scrapeChat: scrapeTeamsChat,

@@ -34,9 +34,9 @@ export class RoomTracker {
     return this.present;
   }
 
-  /** An empty snapshot means the page could not be read (the bot is always in the room), so it is ignored. */
+  /** An empty snapshot without a headcount means the page could not be read (the bot is always in the room), so it is ignored. */
   observe(raw: RoomSnapshot, atMs: number): void {
-    if (raw.participants.length === 0) return;
+    if (raw.participants.length === 0 && raw.headcount === undefined) return;
     const clip = (name: string) => name.slice(0, MAX_ROOM_NAME);
     const snapshot = {
       ...raw,
