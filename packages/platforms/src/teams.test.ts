@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { chromium, type Browser, type Page } from 'playwright-core';
 import { fixturePage } from './fixture-pages.js';
 import { detectPlatform } from './index.js';
-import { teams } from './teams.js';
+import { allowedDisplayName, teams } from './teams.js';
 
 const hasChromium = existsSync(chromium.executablePath());
 const meeting = 'https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0';
@@ -28,6 +28,41 @@ describe('teams.detect', () => {
     'not a url',
   ])('rejects %s', (url) => {
     expect(detectPlatform(url)).toBeUndefined();
+  });
+});
+
+describe('teams.allowedDisplayName', () => {
+  it('keeps letters, numbers, spaces and the symbols Teams allows', () => {
+    expect(allowedDisplayName("RoboCopy - AI Secretary of doom Cory's _test@1")).toBe(
+      "RoboCopy - AI Secretary of doom Cory's _test@1",
+    );
+    expect(allowedDisplayName('Ünïcøde ñame 123')).toBe('Ünïcøde ñame 123');
+  });
+
+  it('replaces characters Teams rejects with spaces', () => {
+    expect(allowedDisplayName('RoboCopy - AI Secretary of doom(Corys test)')).toBe(
+      'RoboCopy - AI Secretary of doom Corys test',
+    );
+    expect(allowedDisplayName('Bot #1!')).toBe('Bot 1');
+  });
+
+  it('collapses the spaces left behind and trims', () => {
+    expect(allowedDisplayName('  A?(B)  C  ')).toBe('A B C');
+  });
+
+  it('maps typographic apostrophes to the allowed one', () => {
+    expect(allowedDisplayName('O’Brien’s Bot')).toBe("O'Brien's Bot");
+    expect(allowedDisplayName("O’Brien")).toBe("O'Brien");
+  });
+
+  it('keeps combining marks that NFC does not compose', () => {
+    expect(allowedDisplayName('हिन्दी बॉट 🚀')).toBe('हिन्दी बॉट');
+    expect(allowedDisplayName('e\u0301clair')).toBe('éclair');
+  });
+
+  it('falls back to a default when nothing allowed remains', () => {
+    expect(allowedDisplayName('🎉🚀')).toBe('Notetaker');
+    expect(allowedDisplayName('   ')).toBe('Notetaker');
   });
 });
 

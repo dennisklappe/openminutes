@@ -14,6 +14,24 @@ import {
 
 const PAGE_LOAD_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 500;
+
+// The Teams pre-join screen validates the display name: it only accepts
+// letters, numbers, spaces and - ' . _ @. Any other character keeps the
+// Join now button disabled with "Your name can only include letters,
+// numbers, spaces, and these symbols: - ' . _ @".
+// Combining marks (\p{M}) are kept so scripts NFC does not fully compose
+// (Devanagari and friends) survive, and typographic apostrophes map to '.
+const DISALLOWED_NAME_CHARACTERS = /[^\p{L}\p{N}\p{M} '._@-]/gu;
+
+export const allowedDisplayName = (name: string): string => {
+  const sanitized = name
+    .normalize('NFC')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(DISALLOWED_NAME_CHARACTERS, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return sanitized || 'Notetaker';
+};
 async function switchOff(toggle: Locator): Promise<void> {
   if (await toggle.isChecked()) await toggle.uncheck({ force: true });
 }
@@ -126,7 +144,7 @@ export const teams: Platform = {
     const blocked = await failure(page);
     if (blocked && !(await s.nameInput.isVisible())) throw blocked;
 
-    await s.nameInput.fill(options.displayName);
+    await s.nameInput.fill(allowedDisplayName(options.displayName));
     await muteMicrophone(teamsMic(page));
     if (!options.cameraOn) await switchOff(s.cameraToggle);
     await s.joinButton.click();
