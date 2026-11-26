@@ -34,8 +34,8 @@ const MICROSOFT_HOSTS =
   /(^|\.)(microsoftonline\.com|microsoft\.com|cloud\.microsoft|live\.com|office\.com|msauth\.net|msftauth\.net)$/;
 const DEADLINE_MS = 90_000;
 const POLL_MS = 1_000;
-/** Teams writes its tokens a moment after the page loads. */
-const SETTLE_MS = 5_000;
+/** Teams writes its tokens and the MSAL account entry (the bot account name) after it boots. */
+const SETTLE_MS = 15_000;
 
 export const CANNOT_PASS = 'Microsoft asked for a step the bot cannot pass';
 
