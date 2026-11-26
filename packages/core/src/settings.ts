@@ -77,7 +77,10 @@ const definitions = {
   'email.from_address': { secret: false, default: undefined },
   'email.owner_address': { secret: false, default: undefined },
   'email.subject': { secret: false, default: undefined },
+  /** Legacy on/off switch for mailing the organizer, read when email.auto_summary is unset. */
   'email.auto_organizer': { secret: false, default: undefined },
+  /** Who gets the finished summary by mail: organizer or everyone. Unset means off. */
+  'email.auto_summary': { secret: false, default: undefined },
   'email.body': { secret: false, default: undefined },
   'instance.timezone': { secret: false, default: undefined },
   'wizard.completed': { secret: false, default: 'true' },
@@ -85,6 +88,17 @@ const definitions = {
 } as const;
 
 export type SettingKey = keyof typeof definitions;
+
+export type AutoSummaryAudience = 'off' | 'organizer' | 'everyone';
+
+/** Who gets the finished summary by mail. The old email.auto_organizer=true means organizer. */
+export async function loadAutoSummary(
+  settings: Pick<SettingsStore, 'get'>,
+): Promise<AutoSummaryAudience> {
+  const value = await settings.get('email.auto_summary');
+  if (value === 'organizer' || value === 'everyone') return value;
+  return (await settings.get('email.auto_organizer')) === 'true' ? 'organizer' : 'off';
+}
 
 export class SettingsStore {
   constructor(

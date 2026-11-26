@@ -254,7 +254,7 @@ describe('runSummary', () => {
     await settings.delete('export.auto');
   });
 
-  it('queues the mail to the organizer only when that setting is on', async () => {
+  it('queues the automatic summary mail only when that setting is on', async () => {
     received = [];
     failure = undefined;
     const sent: string[] = [];
@@ -271,6 +271,12 @@ describe('runSummary', () => {
     await runSummary({ ...deps(), queue }, await insertSummary(true));
     expect(sent).toEqual(['meeting.email-organizer']);
     await settings.delete('email.auto_organizer');
+
+    sent.length = 0;
+    await settings.set('email.auto_summary', 'everyone');
+    await runSummary({ ...deps(), queue }, await insertSummary(true));
+    expect(sent).toEqual(['meeting.email-organizer']);
+    await settings.delete('email.auto_summary');
   });
 
   it('queues the calendar link, with retries, only when the setting is on', async () => {

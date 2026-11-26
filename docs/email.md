@@ -1,6 +1,6 @@
 # Sharing minutes by email
 
-Share with attendees emails the minutes to the people on the invite. Nothing is sent to attendees by itself: every mail starts with your click, and the dialog says how many people it reaches. The one optional exception is the [organizer summary](#mail-the-summary-to-the-organizer-automatically), which only ever goes to the organizer. Setup takes 5 to 10 minutes.
+Share with attendees emails the minutes to the people on the invite. Nothing is sent to attendees by itself: every mail starts with your click, and the dialog says how many people it reaches. The one optional exception is the [automatic summary mail](#mail-the-summary-automatically), which you choose per audience (organizer only or everyone) and which is off by default. Setup takes 5 to 10 minutes.
 
 ## Set it up
 
@@ -61,16 +61,18 @@ The dialog lists everyone with a known address: people seen in the call matched 
   <img src="images/email-share-preview-light.webp" alt="The email preview">
 </picture>
 
-## Mail the summary to the organizer automatically
+## Mail the summary automatically
 
-Settings, Email, tick **Mail the full summary to the organizer when it is ready**. It is off by default and uses the provider and from address above.
+Settings, Email, **Mail the full summary when it is ready**. Choose who gets it: **Off** (the default), **Organizer only** or **Everyone**. It uses the provider and from address above.
 
-- Once a summary is finished, the whole summary is mailed to the organizer of the calendar event, in the text and in the HTML of the mail. Nobody else gets it, and no click is needed.
+- Once a summary is finished, the whole summary is mailed, in the text and in the HTML of the mail, and no click is needed.
+- Organizer only: the organizer of the calendar event gets it, nobody else. Meetings without a known organizer, such as uploads or imports without a calendar event, are skipped.
+- Everyone: every attendee with a known email address gets their own mail, the same people Share with attendees preselects. People who declined are left out.
 - The subject is the subject template above. The message is a short fixed line.
-- The organizer comes from the calendar (Google and Microsoft). Meetings without a known organizer, such as uploads or imports without a calendar event, are skipped.
-- Each summary version is mailed once. A retry never sends it twice. An edit or a new run makes a new version, which is mailed again.
-- If the mail fails, the attempt is logged and retried by the queue.
+- Each summary version is mailed once per person. A retry never sends it twice. An edit or a new run makes a new version, which is mailed again.
+- If a mail fails, the attempt is logged and the queue retries only the people who have not received it yet.
 - These mails do not count as "already received" in Share with attendees.
+- An earlier "organizer" switch that was on keeps working as Organizer only.
 
 Meetings synced before you update have no organizer saved. The next calendar sync fills it in for meetings that are still ahead.
 

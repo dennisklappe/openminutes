@@ -11,7 +11,7 @@ interface SenderDraft {
   ownerAddress: string;
   subject: string;
   body: string;
-  autoOrganizer: boolean;
+  autoSummary: EmailSettingsDto['autoSummary'];
 }
 
 const draftOf = (state: EmailSettingsDto): SenderDraft => ({
@@ -20,7 +20,7 @@ const draftOf = (state: EmailSettingsDto): SenderDraft => ({
   ownerAddress: state.ownerAddress,
   subject: state.subject,
   body: state.body,
-  autoOrganizer: state.autoOrganizer,
+  autoSummary: state.autoSummary,
 });
 
 function Sender({
@@ -35,7 +35,7 @@ function Sender({
     onSaved(next);
     return draftOf(next);
   });
-  const { fromName, fromAddress, ownerAddress, subject, body, autoOrganizer } = form.draft;
+  const { fromName, fromAddress, ownerAddress, subject, body, autoSummary } = form.draft;
   const domain = state.sendingDomain;
 
   const sendTest = () => {
@@ -129,17 +129,21 @@ function Sender({
         />
         <small>Placeholders: {state.placeholders.map((name) => `{{${name}}}`).join(' ')}.</small>
       </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={autoOrganizer}
+      <label className="field">
+        <span>Mail the full summary when it is ready</span>
+        <select
+          value={autoSummary}
           onChange={(e) => {
-            form.patch({ autoOrganizer: e.target.checked });
+            form.patch({ autoSummary: e.target.value as SenderDraft['autoSummary'] });
           }}
-        />
-        <span>Mail the full summary to the organizer when it is ready</span>
+        >
+          <option value="off">Off</option>
+          <option value="organizer">Organizer only</option>
+          <option value="everyone">Everyone</option>
+        </select>
         <small>
-          Only the organizer of the calendar event gets it, nobody else. Meetings without a known
+          Organizer only mails the organizer of the calendar event. Everyone mails all attendees who
+          have not declined, the same people as Share with attendees. Meetings without a known
           organizer are skipped.
         </small>
       </label>

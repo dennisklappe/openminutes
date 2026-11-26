@@ -1,3 +1,4 @@
+import type { AutoSummaryAudience } from '@openminutes/core';
 import type { CustomTemplate } from '@openminutes/minutes';
 import type { CalendarProviderId } from './settings.js';
 
@@ -151,7 +152,7 @@ export interface EmailSettingsDto {
   placeholders: string[];
   providerReady: boolean;
   sendingDomain: string | null;
-  autoOrganizer: boolean;
+  autoSummary: AutoSummaryAudience;
   google: { connected: boolean; sendAccounts: string[] };
 }
 
@@ -161,7 +162,7 @@ export interface EmailSettingsInput {
   ownerAddress: string;
   subject: string;
   body: string;
-  autoOrganizer: boolean;
+  autoSummary: AutoSummaryAudience;
 }
 
 export interface ShareRecipientDto {

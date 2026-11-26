@@ -1,5 +1,5 @@
 import { createProviders } from '@openminutes/calendar';
-import { LocalStorage, SettingsStore } from '@openminutes/core';
+import { loadAutoSummary, LocalStorage, SettingsStore } from '@openminutes/core';
 import { meetings, shareEmails, summaries } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import { createBuiltinExporters } from '@openminutes/minutes';
@@ -44,17 +44,17 @@ describe('automatic mail of the summary to the organizer', () => {
       },
       body: JSON.stringify(body),
     });
-  const save = (autoOrganizer?: boolean) =>
+  const save = (autoSummary?: 'off' | 'organizer' | 'everyone') =>
     put('/api/settings/email', {
       fromName: 'Minutes',
       fromAddress: 'minutes@example.com',
       ownerAddress: 'owner@example.com',
       subject: '',
       body: '',
-      ...(autoOrganizer !== undefined && { autoOrganizer }),
+      ...(autoSummary !== undefined && { autoSummary }),
     });
 
-  async function meeting(invitees: { email: string; organizer?: boolean }[]) {
+  async function meeting(invitees: { email: string; organizer?: boolean; declined?: boolean }[]) {
     const [row] = await test.db
       .insert(meetings)
       .values({
@@ -105,7 +105,7 @@ describe('automatic mail of the summary to the organizer', () => {
   beforeEach(async () => {
     outbox = [];
     await test.db.delete(shareEmails);
-    await save(false);
+    await save('off');
   });
 
   it('is off by default and the setting round trips', async () => {
@@ -113,14 +113,72 @@ describe('automatic mail of the summary to the organizer', () => {
     await summarize(id, '## Decisions\n\n- Ship it');
     expect(await runEmailOrganizer(deps(), id)).toBe('off');
     expect(outbox).toHaveLength(0);
-    const on = await save(true);
-    expect(((await on.json()) as EmailSettingsDto).autoOrganizer).toBe(true);
+    const on = await save('organizer');
+    expect(((await on.json()) as EmailSettingsDto).autoSummary).toBe('organizer');
     const kept = await save();
-    expect(((await kept.json()) as EmailSettingsDto).autoOrganizer).toBe(true);
+    expect(((await kept.json()) as EmailSettingsDto).autoSummary).toBe('organizer');
+    const all = await save('everyone');
+    expect(((await all.json()) as EmailSettingsDto).autoSummary).toBe('everyone');
+    const off = await save('off');
+    expect(((await off.json()) as EmailSettingsDto).autoSummary).toBe('off');
+  });
+
+  it('reads the old on/off setting as organizer only, and a new choice replaces it', async () => {
+    await settings.set('email.auto_organizer', 'true');
+    const old = await app.request('/api/settings/email', {
+      headers: { 'cf-access-jwt-assertion': signToken(key) },
+    });
+    expect(((await old.json()) as EmailSettingsDto).autoSummary).toBe('organizer');
+    await save('everyone');
+    expect(await settings.get('email.auto_organizer')).toBeUndefined();
+    await save('off');
+    expect(await loadAutoSummary(settings)).toBe('off');
+  });
+
+  it('mails everyone who has not declined, one mail each, and each person once', async () => {
+    await save('everyone');
+    const id = await meeting([
+      { email: 'boss@example.com', organizer: true },
+      { email: 'anna@example.com' },
+      { email: 'gone@example.com', declined: true },
+    ]);
+    await summarize(id, 'Notes');
+    expect(await runEmailOrganizer(deps(), id)).toBe('sent');
+    expect(outbox.map((mail) => mail['to']).sort()).toEqual([
+      ['Anna@example.com'.toLowerCase()],
+      ['boss@example.com'],
+    ]);
+    expect(await runEmailOrganizer(deps(), id)).toBe('already-sent');
+    expect(outbox).toHaveLength(2);
+    // The auto mails are not shares: Share with attendees still lists nobody as received.
+    const [log] = await test.db.select().from(shareEmails);
+    expect(log?.items[0]).toMatch(/^auto-organizer:/);
+  });
+
+  it('retries only the people who did not get the mail', async () => {
+    await save('everyone');
+    const id = await meeting([{ email: 'a@example.com' }, { email: 'b@example.com' }]);
+    await summarize(id, 'Notes');
+    let calls = 0;
+    const flaky = (url: string, init?: RequestInit) => {
+      calls += 1;
+      return calls === 1
+        ? Promise.resolve(new Response('boom', { status: 500 }))
+        : fetchStub(url, init);
+    };
+    await expect(
+      runEmailOrganizer({ ...deps(), mailDeps: { fetch: flaky } }, id),
+    ).rejects.toThrow();
+    expect(outbox).toHaveLength(1);
+    expect(await runEmailOrganizer(deps(), id)).toBe('sent');
+    expect(outbox).toHaveLength(2);
+    expect(new Set(outbox.map((mail) => String(mail['to'])))).toEqual(
+      new Set(['a@example.com', 'b@example.com']),
+    );
   });
 
   it('mails the whole summary to the organizer only', async () => {
-    await save(true);
+    await save('organizer');
     const id = await meeting([
       { email: 'anna@example.com' },
       { email: 'Boss@Example.com', organizer: true },
@@ -137,7 +195,7 @@ describe('automatic mail of the summary to the organizer', () => {
   });
 
   it('never sends the same summary twice, but mails a new version', async () => {
-    await save(true);
+    await save('organizer');
     const id = await meeting([{ email: 'boss@example.com', organizer: true }]);
     await summarize(id, 'First');
     expect(await runEmailOrganizer(deps(), id)).toBe('sent');
@@ -150,7 +208,7 @@ describe('automatic mail of the summary to the organizer', () => {
   });
 
   it('skips a meeting without a known organizer or a summary', async () => {
-    await save(true);
+    await save('organizer');
     const nobody = await meeting([{ email: 'anna@example.com' }]);
     await summarize(nobody, 'Text');
     expect(await runEmailOrganizer(deps(), nobody)).toBe('no-organizer');

@@ -81,7 +81,12 @@ export {
 } from './meetings.js';
 export { JobQueue, type JobSender, type SendOptions } from './queue.js';
 export { isValidTimeZone, loadTimeZone, resolveTimeZone } from './timezone.js';
-export { SettingsStore, type SettingKey } from './settings.js';
+export {
+  loadAutoSummary,
+  SettingsStore,
+  type AutoSummaryAudience,
+  type SettingKey,
+} from './settings.js';
 export { LocalStorage } from './storage.js';
 export type { ByteRange, ObjectStore } from './object-store.js';
 export { S3Storage, s3ConfigSchema, StorageError, type S3Config } from './s3-storage.js';
