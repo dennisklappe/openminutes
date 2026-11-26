@@ -2,10 +2,6 @@ import {
   joinJobExpirySeconds,
   lobbyTimeoutMessage,
   loadBotProfile,
-  loadGoogleSession,
-  loadGoogleCredentials,
-  markGoogleSessionExpired,
-  refreshGoogleSession,
   type JoinJobPayload,
   type JobSender,
   type LocalStorage,
@@ -17,8 +13,8 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 import { createAudioSink, type AudioSink } from './audio-sink.js';
 import { prepareBotSession, type BotSession } from './bot-session.js';
 import type { BotEnv } from './env.js';
+import { accountFor, type BotAccount } from './bot-accounts.js';
 import { contextOptions, launchHeadless, type LaunchGoogleBrowser } from './google-browser.js';
-import { signInWithSavedCredentials } from './google-keepalive.js';
 import { loudMicSamples, installMicGuard } from './mic-guard.js';
 import { startHeartbeat } from './heartbeat.js';
 import { startRecording, type Recording } from './recorder.js';
@@ -61,13 +57,16 @@ function withDeadline<T>(work: Promise<T>, ms: number, error: () => Error): Prom
 const isSessionExpired = (error: unknown) =>
   error instanceof JoinError && error.reason === 'session_expired';
 
-async function signedBackIn(deps: BotDeps, error: unknown): Promise<boolean> {
-  if (!isSessionExpired(error) || !(await loadGoogleCredentials(deps.settings))) return false;
-  const outcome = await signInWithSavedCredentials({
+async function signedBackIn(
+  deps: BotDeps,
+  account: BotAccount | undefined,
+  error: unknown,
+): Promise<boolean> {
+  if (!account || !isSessionExpired(error)) return false;
+  return account.signIn({
     settings: deps.settings,
     launch: deps.launchGoogleBrowser ?? launchHeadless(deps.env),
-  }).catch(() => ({ ok: false }));
-  return outcome.ok;
+  });
 }
 
 async function keepMicMuted(platform: Platform, page: Page, meetingId: string): Promise<void> {
@@ -95,6 +94,7 @@ export async function runMeeting(
   const platform = meeting && platformById(meeting.platform);
   if (meeting?.status !== 'scheduled' || !platform) return;
   if ((meeting.scheduledStart?.toISOString() ?? null) !== scheduledStart) return;
+  const account = accountFor(platform.id);
 
   const setStatus = (status: MeetingStatus, extra: Partial<typeof meetings.$inferInsert> = {}) =>
     db
@@ -176,9 +176,8 @@ export async function runMeeting(
       page: Page;
       signedIn: boolean;
     }> => {
-      const googleSession =
-        platform.id === 'meet' ? await loadGoogleSession(deps.settings) : undefined;
-      const context = await launched.newContext(contextOptions(googleSession));
+      const accountSession = await account?.load(deps.settings);
+      const context = await launched.newContext(contextOptions(accountSession));
       await installMicGuard(context);
       const page = await context.newPage();
       try {
@@ -189,7 +188,7 @@ export async function runMeeting(
             displayName,
             cameraOn,
             lobbyTimeoutMs: lobbySeconds * 1000,
-            signedIn: googleSession !== undefined,
+            signedIn: accountSession !== undefined,
             onLobby: async () => {
               await setStatus('in_lobby');
             },
@@ -199,7 +198,7 @@ export async function runMeeting(
         await context.close();
         throw error;
       }
-      return { context, page, signedIn: googleSession !== undefined };
+      return { context, page, signedIn: accountSession !== undefined };
     };
     const lobbyTimeout = () => new JoinError('lobby_timeout', lobbyTimeoutMessage(lobbySeconds));
     const openWithinDeadline = () =>
@@ -208,17 +207,20 @@ export async function runMeeting(
     try {
       joined = await openWithinDeadline();
     } catch (error) {
-      if (!(await signedBackIn(deps, error))) throw error;
+      if (!(await signedBackIn(deps, account, error))) throw error;
       joined = await openWithinDeadline();
     }
     const { context, page } = joined;
 
-    if (joined.signedIn) {
-      await refreshGoogleSession(deps.settings, await context.storageState()).catch(
-        (error: unknown) => {
-          console.error(`meeting ${meetingId}: Google session could not be refreshed`, error);
-        },
-      );
+    if (joined.signedIn && account) {
+      await account
+        .refresh(deps.settings, await context.storageState({ indexedDB: account.indexedDB }))
+        .catch((error: unknown) => {
+          console.error(
+            `meeting ${meetingId}: ${account.provider} session could not be refreshed`,
+            error,
+          );
+        });
     }
 
     await keepMicMuted(platform, page, meetingId);
@@ -271,8 +273,8 @@ export async function runMeeting(
     await setStatus('ended', { endedAt: new Date() });
     await deps.queue.send('meeting.process', { meetingId });
   } catch (error) {
-    if (isSessionExpired(error)) {
-      await markGoogleSessionExpired(deps.settings).catch(() => undefined);
+    if (isSessionExpired(error) && account) {
+      await account.markExpired(deps.settings).catch(() => undefined);
       await deps.queue
         .send('bot.session-alert', { reason: failureMessage(error) })
         .catch(() => undefined);

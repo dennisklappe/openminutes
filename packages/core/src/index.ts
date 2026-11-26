@@ -30,6 +30,23 @@ export {
 } from './google-keepalive.js';
 export { totp } from './totp.js';
 export {
+  BOT_ACCOUNT_PROVIDERS,
+  clearBotSession,
+  describeBotSession,
+  InvalidBotSessionError,
+  loadBotSession,
+  loadBotSessionInfo,
+  markBotSessionExpired,
+  MAX_BOT_SESSION_BYTES,
+  parseBotSession,
+  refreshBotSession,
+  saveBotSession,
+  type BotAccountProvider,
+  type BotSessionInfo,
+  type BotSessionStatus,
+  type BotStorageState,
+} from './bot-session-store.js';
+export {
   clearGoogleSession,
   criticalExpiry,
   describeGoogleSession,

@@ -1,6 +1,6 @@
 # Microsoft Teams
 
-OpenMinutes joins Teams meetings in the browser as a guest, never signed in to Microsoft. Nothing to install; 5 minutes if you administer Teams.
+OpenMinutes joins Teams meetings in the browser as a guest. Nothing to install; 5 minutes if you administer Teams. Joining signed in with a Microsoft account is being built, see [Signed-in Microsoft account](#signed-in-microsoft-account).
 
 ## Links that work
 
@@ -43,6 +43,21 @@ The organiser's tenant decides, not yours. If you run it, check in the Teams adm
 4. Organisers can turn anonymous join off per meeting in Meeting options: check there if one meeting fails.
 
 Changes can take a few hours. For another tenant only its admins can change it; OpenMinutes does not work around it.
+
+## Signed-in Microsoft account
+
+Work in progress ([issue #50](https://github.com/dennisklappe/openminutes/issues/50)). A signed-in account gets past tenants that block anonymous guests and meetings that require a signed-in attendee. In your own tenant, a bot account that is a member joins without the Unverified or External label. It does not lift Teams bot detection (the Suspected threats lobby); only the organiser's admin can change that.
+
+Once it is set, Teams always joins with that account, as Meet does: the account's name replaces the bot name. Without an account nothing changes, the bot joins as a guest.
+
+You can already create and check the session file:
+
+1. Use a dedicated work account with a Teams licence, never a person's account.
+2. Run `pnpm install` here, then `node scripts/microsoft-login.mjs` (`--channel msedge` or `--channel chromium` for another browser).
+3. Sign in in the window, including MFA, and answer Yes to Stay signed in.
+4. The script saves `microsoft-session.json` (only readable by you) and reopens it in a fresh headless browser. It ends with `Checked` when Teams is still signed in there, and with a warning when not: please report that on the issue.
+
+Importing the file in Settings comes in a later release. Until then, delete the file when you are done; it signs anyone in as the bot account.
 
 <details>
 <summary>Other limits</summary>

@@ -9,3 +9,6 @@ data/
 .DS_Store
 e2e/certs
 __pycache__
+
+# Bot session files from scripts/microsoft-login.mjs sign in as the bot account
+microsoft-session*.json

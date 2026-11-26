@@ -52,6 +52,8 @@ const definitions = {
   'bot.google_keepalive': { secret: false, default: undefined },
   'bot.google_notify': { secret: false, default: 'true' },
   'bot.google_alert_sent_at': { secret: false, default: undefined },
+  'bot.microsoft_session': { secret: true, default: undefined },
+  'bot.microsoft_session_expired': { secret: false, default: undefined },
   'bot.max_concurrent': { secret: false, default: '1' },
   'storage.backend': { secret: false, default: 'local' },
   'storage.s3': { secret: true, default: undefined },
