@@ -53,6 +53,7 @@ Calendar sync (or a pasted link) starts the bot a minute before the meeting. Aft
 - [Google calendar](google-oauth.md): Create a Google Cloud OAuth client so OpenMinutes can read your Google Calendar.
 - [Microsoft calendar](azure-app.md): Create a Microsoft Entra app registration so OpenMinutes can read your Outlook calendar.
 - [Meet bot account](meet-sign-in.md): Let the bot join Google Meet with a dedicated Google account.
+- [Teams bot account](teams-sign-in.md): Let the bot join Microsoft Teams with a dedicated Microsoft account.
 - [Microsoft Teams](teams.md): Which Teams links work, what the bot does on the way in, and why a tenant can stop it.
 - [Transcription and summaries](providers.md): Which providers OpenMinutes supports, what each needs and what it costs.
 - [Email and sharing](email.md): Email providers, the Share with attendees dialog and how to add another provider.

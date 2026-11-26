@@ -19,6 +19,7 @@
   <body>
     <h1>Choose your video and audio options</h1>
     <input data-tid="prejoin-display-name-input" placeholder="Type your name" />
+    <p id="account" hidden>Bot Account</p>
     <label
       >Camera <input type="checkbox" role="switch" data-tid="toggle-video" id="camera" checked
     /></label>
@@ -27,6 +28,13 @@
     /></label>
     <button data-tid="prejoin-join-button" id="join">Join now</button>
     <script>
+      // Signed in, Teams uses the account name and shows no name field. The tests set this cookie
+      // on teams.microsoft.com to stand in for the Microsoft session.
+      const signedIn = /(?:^|; )fixture-account=1(?:;|$)/.test(document.cookie);
+      if (signedIn) {
+        document.querySelector('input').remove();
+        document.getElementById('account').hidden = false;
+      }
       for (const id of ['mic', 'camera']) {
         document.getElementById(id).addEventListener('change', (event) => {
           document.body.dataset[id] = event.currentTarget.checked ? 'on' : 'off';
@@ -34,7 +42,7 @@
       }
       document.getElementById('join').addEventListener('click', () => {
         const params = new URLSearchParams(location.search);
-        params.set('name', document.querySelector('input').value);
+        params.set('name', signedIn ? 'Bot Account' : document.querySelector('input').value);
         for (const id of ['mic', 'camera']) {
           params.set(id, String(document.getElementById(id).checked));
         }

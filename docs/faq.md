@@ -46,6 +46,10 @@ Calendar sign-in needs a hostname you control, ideally behind HTTPS. See [revers
 
 Meet can refuse signed-out guests from automated browsers. Give the bot its own Google account, see [signing the Meet bot in](meet-sign-in.md).
 
+### Why does Teams say the tenant blocks anonymous guests?
+
+The organiser's tenant does not admit guests. Give the bot its own Microsoft work account, see [signing the Teams bot in](teams-sign-in.md).
+
 ### Which transcription providers can I use?
 
 Local faster-whisper (no key), or OpenAI, Groq, Deepgram and AssemblyAI with yours. See [providers](providers.md).

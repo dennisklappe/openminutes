@@ -4,20 +4,21 @@ Static pages that stand in for the Microsoft Teams web app in tests and in the D
 
 They are modelled on knowledge of how the Teams web client is built (the `data-tid` attributes, the launcher, pre-join, lobby and in-meeting screens). They are not recordings of a live meeting, and no real Teams tenant was available when they were written. Every selector in `src/teams-selectors.ts` is a best effort until it has been checked against a live meeting. When you can, replace these pages with real captured DOM and fix the selectors.
 
-| Page       | Models                                                  |
-| ---------- | ------------------------------------------------------- |
-| `launcher` | "How do you want to join" with Continue on this browser |
-| `prejoin`  | name field, microphone and camera switches, Join now    |
-| `lobby`    | waiting to be admitted, then moves on after `lobby` ms  |
-| `meeting`  | participant tiles, speaking outline, chat, leave        |
-| `blocked`  | the tenant does not allow anonymous users               |
-| `denied`   | the organizer denied access                             |
-| `ended`    | the meeting has ended                                   |
-| `left`     | shown after the bot hangs up                            |
+| Page       | Models                                                             |
+| ---------- | ------------------------------------------------------------------ |
+| `launcher` | "How do you want to join" with Continue on this browser            |
+| `prejoin`  | name field, microphone and camera switches, Join now               |
+| `lobby`    | waiting to be admitted, then moves on after `lobby` ms             |
+| `meeting`  | participant tiles, speaking outline, chat, leave                   |
+| `blocked`  | the tenant does not allow anonymous users                          |
+| `denied`   | the organizer denied access                                        |
+| `ended`    | the meeting has ended                                              |
+| `left`     | shown after the bot hangs up                                       |
+| `sign-in`  | the Microsoft sign-in page, served for `login.microsoftonline.com` |
 
 The `room-*.html` files are in-call stages that `src/teams-dom.ts` parses in unit tests: one with a speaker, silent, overlapping speakers and a redesign where no selector matches (the parser must return an empty room, which the bot treats as "scrape failed" rather than "everyone left").
 
-`meeting` also has the same self view, chat panel (`chat-button`, `ckeditor`, `newMessageCommands-send`) and `/__event` reporting as the Meet fixture. The chat selectors are best effort, like the rest. `prejoin` passes the microphone and camera switches on to the meeting as the `mic` and `camera` parameters.
+`meeting` also has the same self view, chat panel (`chat-button`, `ckeditor`, `newMessageCommands-send`) and `/__event` reporting as the Meet fixture. The chat selectors are best effort, like the rest. `prejoin` drops the name field and joins as `Bot Account` when the cookie `fixture-account=1` is set on the Teams host, which stands in for a signed-in Microsoft session; the launcher sends the browser to the Microsoft sign-in page when the link has `signin`, as Teams does when the session is gone. `prejoin` passes the microphone and camera switches on to the meeting as the `mic` and `camera` parameters.
 
 Behaviour of the other pages is driven by query parameters on the meeting link: `lobby` (ms in the lobby), `deny`, `blocked`, `endedLobby`, `others` (comma separated names), `speakers`, `joins` and `leaves` (`Name:fromMs-toMs`, comma separated) and `leaveAfter` (ms until everyone else leaves).
 

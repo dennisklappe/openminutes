@@ -39,6 +39,11 @@
           "lead": "Let the bot join Google Meet with a dedicated Google account."
         },
         {
+          "file": "teams-sign-in",
+          "title": "Teams bot account",
+          "lead": "Let the bot join Microsoft Teams with a dedicated Microsoft account."
+        },
+        {
           "file": "teams",
           "title": "Microsoft Teams",
           "lead": "Which Teams links work, what the bot does on the way in, and why a tenant can stop it."

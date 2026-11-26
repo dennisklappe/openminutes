@@ -49,6 +49,7 @@ import { webhookSettingsRoutes } from './settings/webhooks.js';
 import { emitAfter, emitForPersonMeetings } from './meetings/webhook-triggers.js';
 import { botRoutes } from './settings/bot.js';
 import { googleSessionRoutes } from './settings/google-session.js';
+import { microsoftSessionRoutes } from './settings/microsoft-session.js';
 import { limitsRoutes } from './settings/limits.js';
 import { timeZoneRoutes } from './settings/timezone.js';
 import { speakerSettingsRoutes } from './settings/speakers.js';
@@ -231,6 +232,7 @@ export function createApp(deps: AppDeps): Hono {
   api.route('/settings/email', emailSettingsRoutes({ ...deps, calendar, mailDeps }));
   api.route('/settings', botRoutes(deps));
   api.route('/settings', googleSessionRoutes(deps));
+  api.route('/settings', microsoftSessionRoutes(deps));
   api.route('/settings/updates', updateRoutes({ settings: deps.settings, updates }));
   api.notFound((c) => c.json({ error: 'Not found' }, 404));
 

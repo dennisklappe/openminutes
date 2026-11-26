@@ -104,6 +104,12 @@ export interface GoogleSessionDto {
   notify: boolean;
 }
 
+/** The Microsoft account Teams joins with. Only a session file for now (issue #50). */
+export interface MicrosoftSessionDto {
+  status: 'missing' | 'valid' | 'expired';
+  expiresAt: string | null;
+}
+
 export interface GoogleCredentialsInput {
   email: string;
   password?: string;

@@ -51,6 +51,54 @@ async function failure(page: Page): Promise<JoinError | undefined> {
   return undefined;
 }
 
+const SIGN_IN_HOSTS = new Set(['login.microsoftonline.com', 'login.live.com']);
+
+const isSignInPage = (page: Page) => SIGN_IN_HOSTS.has(new URL(page.url()).hostname);
+
+const sessionExpired = () =>
+  new JoinError(
+    'session_expired',
+    'The Microsoft session of the bot expired, import a new session file under Settings, Microsoft Teams sign-in',
+  );
+
+/**
+ * Signed in, Teams shows no name field on the pre-join screen: the account name is used. A
+ * redirect to the Microsoft sign-in page, or a name field after all, means the session is gone.
+ */
+async function signedInPrejoin(page: Page): Promise<void> {
+  const s = teamsLocators(page);
+  const prejoin = s.joinButton.or(s.nameInput).or(s.anonymousBlockedNotice).first();
+  const deadline = Date.now() + PAGE_LOAD_TIMEOUT_MS;
+  while (!(await prejoin.isVisible())) {
+    if (isSignInPage(page)) throw sessionExpired();
+    if (await s.launcherJoin.isVisible()) await s.launcherJoin.click().catch(() => undefined);
+    if (Date.now() > deadline) throw new Error('The Teams join page did not load');
+    await page.waitForTimeout(POLL_INTERVAL_MS / 2);
+  }
+  if (await s.nameInput.isVisible()) throw sessionExpired();
+  const blocked = await failure(page);
+  if (blocked) throw blocked;
+}
+
+async function waitForAdmission(page: Page, options: JoinOptions): Promise<void> {
+  const s = teamsLocators(page);
+  const deadline = Date.now() + options.lobbyTimeoutMs;
+  let announcedLobby = false;
+  while (!(await s.hangupButton.isVisible())) {
+    if (options.signedIn && isSignInPage(page)) throw sessionExpired();
+    const error = await failure(page);
+    if (error) throw error;
+    if (!announcedLobby && (await s.lobbyNotice.first().isVisible())) {
+      announcedLobby = true;
+      await options.onLobby();
+    }
+    if (Date.now() > deadline) {
+      throw new JoinError('lobby_timeout', 'Nobody admitted the bot before the lobby timeout');
+    }
+    await page.waitForTimeout(POLL_INTERVAL_MS);
+  }
+}
+
 export const teams: Platform = {
   id: 'teams',
   label: 'Microsoft Teams',
@@ -60,6 +108,14 @@ export const teams: Platform = {
   async join(page: Page, url: string, options: JoinOptions): Promise<void> {
     const s = teamsLocators(page);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: PAGE_LOAD_TIMEOUT_MS });
+    if (options.signedIn) {
+      await signedInPrejoin(page);
+      await muteMicrophone(teamsMic(page));
+      if (!options.cameraOn) await switchOff(s.cameraToggle);
+      await s.joinButton.click();
+      await waitForAdmission(page, options);
+      return;
+    }
     await s.launcherJoin.or(s.nameInput).first().waitFor({ timeout: PAGE_LOAD_TIMEOUT_MS });
     if (await s.launcherJoin.isVisible()) await s.launcherJoin.click();
 
@@ -75,20 +131,7 @@ export const teams: Platform = {
     if (!options.cameraOn) await switchOff(s.cameraToggle);
     await s.joinButton.click();
 
-    const deadline = Date.now() + options.lobbyTimeoutMs;
-    let announcedLobby = false;
-    while (!(await s.hangupButton.isVisible())) {
-      const error = await failure(page);
-      if (error) throw error;
-      if (!announcedLobby && (await s.lobbyNotice.first().isVisible())) {
-        announcedLobby = true;
-        await options.onLobby();
-      }
-      if (Date.now() > deadline) {
-        throw new JoinError('lobby_timeout', 'Nobody admitted the bot before the lobby timeout');
-      }
-      await page.waitForTimeout(POLL_INTERVAL_MS);
-    }
+    await waitForAdmission(page, options);
   },
 
   async sendChatMessage(page: Page, text: string): Promise<void> {

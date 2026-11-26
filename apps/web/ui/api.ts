@@ -53,6 +53,7 @@ import type {
   BotSettingsInput,
   GoogleCredentialsInput,
   GoogleSessionDto,
+  MicrosoftSessionDto,
   LimitsDto,
   TimeZoneDto,
   ParticipantAliasesDto,
@@ -495,6 +496,14 @@ export const api = {
       method: 'PUT',
       body: { notify },
     }),
+  microsoftSession: () => request<MicrosoftSessionDto>('/settings/bot/microsoft-session'),
+  importMicrosoftSession: async (file: File) =>
+    request<MicrosoftSessionDto>('/settings/bot/microsoft-session', {
+      method: 'PUT',
+      body: JSON.parse(await file.text()) as unknown,
+    }),
+  removeMicrosoftSession: () =>
+    request<MicrosoftSessionDto>('/settings/bot/microsoft-session', { method: 'DELETE' }),
   storageSettings: () => request<StorageSettingsDto>('/settings/storage'),
   saveStorageSettings: (body: StorageSettingsInput) =>
     request<StorageSettingsDto>('/settings/storage', { method: 'PUT', body }),

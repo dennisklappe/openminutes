@@ -10,6 +10,7 @@ import { BotSettings } from './BotSettings.js';
 import { CalendarSection } from './CalendarSection.js';
 import { EmailSettings } from './EmailSettings.js';
 import { GoogleSessionSettings } from './GoogleSessionSettings.js';
+import { MicrosoftSessionSettings } from './MicrosoftSessionSettings.js';
 import { LimitsSettings } from './LimitsSettings.js';
 import { MinutesSettings } from './MinutesSettings.js';
 import { PromptsSection } from './PromptsSection.js';
@@ -155,6 +156,13 @@ const sections: Section[] = [
     title: 'Google Meet sign-in',
     description: 'Let the bot join Google Meet with its own Google account instead of as a guest.',
     render: () => <GoogleSessionSettings />,
+  },
+  {
+    id: 'microsoft-teams',
+    label: 'Microsoft Teams sign-in',
+    title: 'Microsoft Teams sign-in',
+    description: 'Let the bot join Teams with its own Microsoft account instead of as a guest.',
+    render: () => <MicrosoftSessionSettings />,
   },
   {
     id: 'phone',

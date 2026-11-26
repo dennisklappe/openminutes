@@ -33,7 +33,8 @@ flowchart TD
 | Waiting in the lobby                               | The host admits OpenMinutes Notetaker, or raise the lobby timeout (default 10 minutes) under Settings, General, Meeting limits, see [meeting lifecycle](meeting-lifecycle.md) |
 | Google Meet refused the request                    | Sign the bot in to a dedicated Google account, see below                                                                                                                      |
 | The Google session of the bot expired              | Import a new session, see [Meet sign-in](meet-sign-in.md)                                                                                                                     |
-| This tenant blocks anonymous guests (Teams)        | The tenant must allow anonymous users, no workaround, see [Teams](teams.md)                                                                                                   |
+| The Microsoft session of the bot expired           | Import a new session file, see [Teams sign-in](teams-sign-in.md)                                                                                                              |
+| This tenant blocks anonymous guests (Teams)        | The tenant must allow anonymous users, or sign the bot in, see [Teams sign-in](teams-sign-in.md)                                                                              |
 | The bot stopped while this meeting was in progress | The bot container restarted. Audio is kept: press Transcribe                                                                                                                  |
 
 ## The status says "Google Meet refused the request to join"

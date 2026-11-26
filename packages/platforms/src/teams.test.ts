@@ -39,9 +39,15 @@ describe.skipIf(!hasChromium)('teams join flow against the fixtures', () => {
   });
   afterAll(() => browser.close());
 
-  async function open(): Promise<Page> {
+  async function open(signedIn = false): Promise<Page> {
     const context = await browser.newContext();
-    await context.route(/^https:\/\/teams\.(microsoft|live)\.com\//, (route) => {
+    if (signedIn) {
+      await context.addCookies([
+        { name: 'fixture-account', value: '1', domain: 'teams.microsoft.com', path: '/' },
+      ]);
+    }
+    const hosts = /^https:\/\/(teams\.(microsoft|live)\.com|login\.microsoftonline\.com)\//;
+    await context.route(hosts, (route) => {
       const body = fixturePage(new URL(route.request().url()));
       return body
         ? route.fulfill({ contentType: 'text/html', body })
@@ -162,5 +168,40 @@ describe.skipIf(!hasChromium)('teams join flow against the fixtures', () => {
   it('times out in the lobby', async () => {
     const attempt = teams.join(await open(), `${meeting}?lobby=60000`, options(1_500));
     await expect(attempt).rejects.toMatchObject({ reason: 'lobby_timeout' });
+  });
+
+  describe('signed in with a Microsoft account', () => {
+    const signedIn = () => ({ ...options(), signedIn: true });
+
+    it('joins with the account name and fills in no name', async () => {
+      const page = await open(true);
+      let lobbySeen = false;
+      await teams.join(page, `${meeting}?lobby=300`, {
+        ...signedIn(),
+        onLobby: () => {
+          lobbySeen = true;
+        },
+      });
+      expect(lobbySeen).toBe(true);
+      expect(await teams.state(page)).toBe('active');
+      expect(new URL(page.url()).searchParams.get('name')).toBe('Bot Account');
+      expect(await page.locator('body').getAttribute('data-mic')).toBe('off');
+      expect(await page.locator('body').getAttribute('data-camera')).toBe('off');
+    });
+
+    it('reports an expired session when Teams sends the bot to the sign-in page', async () => {
+      const attempt = teams.join(await open(true), `${meeting}?signin=1`, signedIn());
+      await expect(attempt).rejects.toMatchObject({ reason: 'session_expired' });
+    });
+
+    it('reports an expired session when Teams asks for a guest name', async () => {
+      const attempt = teams.join(await open(), `${meeting}?lobby=100`, signedIn());
+      await expect(attempt).rejects.toMatchObject({ reason: 'session_expired' });
+    });
+
+    it('still reports a tenant that blocks the account', async () => {
+      const attempt = teams.join(await open(true), `${meeting}?blocked=1`, signedIn());
+      await expect(attempt).rejects.toMatchObject({ reason: 'anonymous_blocked' });
+    });
   });
 });

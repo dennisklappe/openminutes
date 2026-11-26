@@ -23,6 +23,10 @@
     <button>Open your Teams app</button>
     <script>
       document.getElementById('web').addEventListener('click', () => {
+        if (new URLSearchParams(location.search).has('signin')) {
+          location.href = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
+          return;
+        }
         location.href =
           '/fixture/' +
           (new URLSearchParams(location.search).has('blocked') ? 'blocked' : 'prejoin') +
