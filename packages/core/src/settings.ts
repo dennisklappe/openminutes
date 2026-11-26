@@ -77,6 +77,7 @@ const definitions = {
   'email.from_address': { secret: false, default: undefined },
   'email.owner_address': { secret: false, default: undefined },
   'email.subject': { secret: false, default: undefined },
+  'email.auto_organizer': { secret: false, default: undefined },
   'email.body': { secret: false, default: undefined },
   'instance.timezone': { secret: false, default: undefined },
   'wizard.completed': { secret: false, default: 'true' },

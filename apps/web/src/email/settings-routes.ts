@@ -12,6 +12,7 @@ import { calendarAccounts, eq } from '@openminutes/db';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { EmailSettingsDto, ProviderTestDto } from '../dto.js';
+import { AUTO_ORGANIZER_KEY } from './auto-organizer.js';
 import { isReady, loadEmailConfig } from './config.js';
 import { loadMailer } from './mailer.js';
 import { resolveFromAddress, SenderDomainError, sendingDomain } from './sender-domain.js';
@@ -29,6 +30,7 @@ const input = z.object({
   ownerAddress: optionalEmail,
   subject: z.string().trim().max(300),
   body: z.string().max(10_000),
+  autoOrganizer: z.boolean().optional(),
 });
 
 const keys = {
@@ -62,6 +64,7 @@ export function emailSettingsRoutes(deps: EmailSettingsDeps): Hono {
       placeholders: [...PLACEHOLDERS],
       providerReady: isReady(config),
       sendingDomain: sendingDomain(config) ?? null,
+      autoOrganizer: (await settings.get(AUTO_ORGANIZER_KEY)) === 'true',
       google: { connected: google.length > 0, sendAccounts: await sendAccounts(calendar) },
     };
   };
@@ -85,6 +88,8 @@ export function emailSettingsRoutes(deps: EmailSettingsDeps): Hono {
       if (value === '') await settings.delete(key);
       else await settings.set(key, value);
     }
+    if (body.data.autoOrganizer === true) await settings.set(AUTO_ORGANIZER_KEY, 'true');
+    else if (body.data.autoOrganizer === false) await settings.delete(AUTO_ORGANIZER_KEY);
     return c.json(await read());
   });
 

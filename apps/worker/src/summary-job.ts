@@ -149,6 +149,9 @@ export async function runSummary(deps: SummaryDeps, summaryId: string): Promise<
     if (deps.queue && (await deps.settings.get('export.auto')) === 'true') {
       await deps.queue.send('meeting.export', { meetingId: summary.meetingId });
     }
+    if (deps.queue && (await deps.settings.get('email.auto_organizer')) === 'true') {
+      await deps.queue.send('meeting.email-organizer', { meetingId: summary.meetingId });
+    }
     if (deps.queue && (await deps.settings.get('minutes.calendar_link')) === 'true') {
       await deps.queue.send(
         'meeting.calendar-link',

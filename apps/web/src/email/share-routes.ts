@@ -86,11 +86,20 @@ export function shareEmailRoutes(deps: ShareEmailDeps): Hono {
 
   async function sentMap(meetingId: string): Promise<Map<string, Date>> {
     const rows = await db
-      .select({ recipient: shareEmails.recipient, sentAt: shareEmails.sentAt })
+      .select({
+        recipient: shareEmails.recipient,
+        sentAt: shareEmails.sentAt,
+        items: shareEmails.items,
+      })
       .from(shareEmails)
       .where(and(eq(shareEmails.meetingId, meetingId), eq(shareEmails.status, 'sent')))
       .orderBy(asc(shareEmails.sentAt));
-    return new Map(rows.map((row) => [row.recipient, row.sentAt]));
+    // The automatic mail to the organiser is only the summary, not a share, so it does not count.
+    return new Map(
+      rows
+        .filter((row) => !row.items.some((item) => item.startsWith('auto-organizer:')))
+        .map((row) => [row.recipient, row.sentAt]),
+    );
   }
 
   async function parse(raw: Request): Promise<ShareRequest> {

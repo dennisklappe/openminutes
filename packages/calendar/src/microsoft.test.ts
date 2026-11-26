@@ -103,6 +103,7 @@ describe('microsoft provider', () => {
                   id: 'e1',
                   subject: 'Review',
                   isOrganizer: false,
+                  organizer: { emailAddress: { address: 'Boss@other.io', name: 'Bo Boss' } },
                   start: { dateTime: '2026-01-02T10:00:00.0000000', timeZone: 'UTC' },
                   end: { dateTime: '2026-01-02T11:00:00.0000000', timeZone: 'UTC' },
                   onlineMeeting: { joinUrl: teams },
@@ -156,6 +157,7 @@ describe('microsoft provider', () => {
         location: null,
         seriesKey: null,
         invitees: [
+          { email: 'Boss@other.io', name: 'Bo Boss', declined: false, organizer: true },
           { email: 'me@example.com', name: null, declined: false },
           { email: 'guest@other.io', name: 'Gus Guest', declined: true },
         ],

@@ -124,7 +124,7 @@ describe('web API', () => {
     const unsupported = await post('/api/meetings', { url: 'https://zoom.us/j/123' }, authed());
     expect(unsupported.status).toBe(400);
     expect(await unsupported.json()).toEqual({
-      error: 'Only Google Meet and Microsoft Teams links are supported',
+      error: 'Only Google Meet, Microsoft Teams and Whereby links are supported',
     });
     expect((await post('/api/meetings', {}, authed())).status).toBe(400);
   });

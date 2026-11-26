@@ -151,6 +151,7 @@ export interface EmailSettingsDto {
   placeholders: string[];
   providerReady: boolean;
   sendingDomain: string | null;
+  autoOrganizer: boolean;
   google: { connected: boolean; sendAccounts: string[] };
 }
 
@@ -160,6 +161,7 @@ export interface EmailSettingsInput {
   ownerAddress: string;
   subject: string;
   body: string;
+  autoOrganizer: boolean;
 }
 
 export interface ShareRecipientDto {

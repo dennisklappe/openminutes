@@ -31,6 +31,7 @@ interface GoogleEvent {
     email?: string;
     displayName?: string;
     self?: boolean;
+    organizer?: boolean;
     resource?: boolean;
     responseStatus?: string;
   }[];
@@ -77,6 +78,7 @@ function toEvent(event: GoogleEvent): CalendarEvent {
               email: a.email,
               name: a.displayName?.trim() || null,
               declined: a.responseStatus === 'declined',
+              ...(a.organizer === true && { organizer: true }),
             },
           ]
         : [],

@@ -15,6 +15,7 @@ import { createDatabase, migrateOnStartup } from '@openminutes/db';
 import { z } from 'zod';
 import { createApp } from './app.js';
 import { DEFAULT_IMPORT_MAX_GB } from './imports/config.js';
+import { runEmailOrganizer } from './email/auto-organizer.js';
 import { googleMailDeps } from './email/mailer.js';
 import { sendSessionAlert } from './settings/session-alert.js';
 import { runCalendarLink } from './minutes/calendar-link.js';
@@ -72,6 +73,9 @@ const exporters = createWebExporters({
 await queue.work('meeting.export', ({ meetingId }) =>
   runAutoExport({ db, settings, storage, exporters, publicUrl }, meetingId),
 );
+await queue.work('meeting.email-organizer', async ({ meetingId }) => {
+  await runEmailOrganizer({ db, settings, mailDeps: googleMailDeps(calendar) }, meetingId);
+});
 await queue.work('meeting.calendar-link', ({ meetingId, force }) =>
   runCalendarLink({ calendar, publicUrl }, meetingId, force),
 );

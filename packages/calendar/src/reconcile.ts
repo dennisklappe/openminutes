@@ -46,7 +46,7 @@ function detailsOf(event: JoinableEvent) {
 }
 
 const inviteeSignature = (invitees: readonly CalendarInvitee[] | null) =>
-  JSON.stringify(invitees?.map((i) => [i.email, i.name, i.declined]));
+  JSON.stringify(invitees?.map((i) => [i.email, i.name, i.declined, i.organizer === true]));
 
 function withoutEditedTitle(meeting: MeetingRow, details: ReturnType<typeof detailsOf>) {
   const { title, ...rest } = details;

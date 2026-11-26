@@ -35,6 +35,7 @@ export {
 export type { GithubContext, GithubDeps } from './exporters/github.js';
 export { createBuiltinExporters } from './exporters/index.js';
 export { escapeHtml } from './html.js';
+export { markdownToHtml } from './markdown.js';
 export { minutesFilename } from './filename.js';
 export { POWERED_BY } from './footer.js';
 export {

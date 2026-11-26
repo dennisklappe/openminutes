@@ -130,7 +130,12 @@ describe('google provider', () => {
                   location: ' Room 4 ',
                   organizer: { self: true },
                   attendees: [
-                    { email: 'me@example.com', self: true, responseStatus: 'accepted' },
+                    {
+                      email: 'me@example.com',
+                      self: true,
+                      organizer: true,
+                      responseStatus: 'accepted',
+                    },
                     { email: 'room@resource.calendar.google.com', resource: true },
                     {
                       email: 'guest@other.io',
@@ -175,7 +180,7 @@ describe('google provider', () => {
         location: 'Room 4',
         seriesKey: null,
         invitees: [
-          { email: 'me@example.com', name: null, declined: false },
+          { email: 'me@example.com', name: null, declined: false, organizer: true },
           { email: 'guest@other.io', name: 'Gus Guest', declined: true },
         ],
       },

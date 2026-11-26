@@ -62,6 +62,7 @@ export interface JobPayloads {
   'calendar.sync': CalendarSyncPayload;
   'meeting.summarize': SummaryJobPayload;
   'meeting.export': MeetingJobPayload;
+  'meeting.email-organizer': MeetingJobPayload;
   'meeting.calendar-link': CalendarLinkPayload;
   'audio.retention': RetentionPayload;
   'bin.purge': RetentionPayload;
@@ -85,6 +86,7 @@ export const jobNames: readonly JobName[] = [
   'calendar.sync',
   'meeting.summarize',
   'meeting.export',
+  'meeting.email-organizer',
   'meeting.calendar-link',
   'audio.retention',
   'bin.purge',

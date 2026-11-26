@@ -25,6 +25,8 @@ export interface ShareEmailInput {
   title: string;
   date: string;
   item?: ShareItem;
+  /** A block placed after the message, such as the minutes themselves. Html must be safe. */
+  content?: { text: string; html: string };
 }
 
 export interface ShareEmail {
@@ -84,11 +86,16 @@ export function renderShareEmail(input: ShareEmailInput): ShareEmail {
     ),
   );
   const blocks = paragraphs(input.body, input);
-  const text = [...blocks, `--\n${POWERED_BY.text}: ${POWERED_BY.url}`].join('\n\n');
+  const text = [
+    ...blocks,
+    ...(input.content ? [input.content.text] : []),
+    `--\n${POWERED_BY.text}: ${POWERED_BY.url}`,
+  ].join('\n\n');
   const html = [
     '<!doctype html><html><body style="margin:0;padding:24px;background:#f6f7f9">',
     '<div style="max-width:560px;margin:0 auto;padding:28px;background:#ffffff;border-radius:12px;font:15px/1.55 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#111827">',
     ...blocks.map(htmlBlock),
+    ...(input.content ? [input.content.html] : []),
     `<p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280">Powered by <a href="${POWERED_BY.url}" target="_blank" rel="noopener noreferrer" style="color:#6b7280">${POWERED_BY.label}</a></p>`,
     '</div></body></html>',
   ].join('');

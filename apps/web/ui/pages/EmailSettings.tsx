@@ -11,6 +11,7 @@ interface SenderDraft {
   ownerAddress: string;
   subject: string;
   body: string;
+  autoOrganizer: boolean;
 }
 
 const draftOf = (state: EmailSettingsDto): SenderDraft => ({
@@ -19,6 +20,7 @@ const draftOf = (state: EmailSettingsDto): SenderDraft => ({
   ownerAddress: state.ownerAddress,
   subject: state.subject,
   body: state.body,
+  autoOrganizer: state.autoOrganizer,
 });
 
 function Sender({
@@ -33,7 +35,7 @@ function Sender({
     onSaved(next);
     return draftOf(next);
   });
-  const { fromName, fromAddress, ownerAddress, subject, body } = form.draft;
+  const { fromName, fromAddress, ownerAddress, subject, body, autoOrganizer } = form.draft;
   const domain = state.sendingDomain;
 
   const sendTest = () => {
@@ -126,6 +128,20 @@ function Sender({
           }}
         />
         <small>Placeholders: {state.placeholders.map((name) => `{{${name}}}`).join(' ')}.</small>
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={autoOrganizer}
+          onChange={(e) => {
+            form.patch({ autoOrganizer: e.target.checked });
+          }}
+        />
+        <span>Mail the full summary to the organizer when it is ready</span>
+        <small>
+          Only the organizer of the calendar event gets it, nobody else. Meetings without a known
+          organizer are skipped.
+        </small>
       </label>
       <div className="actions">
         <button

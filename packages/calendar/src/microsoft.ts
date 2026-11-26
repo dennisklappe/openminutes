@@ -1,3 +1,4 @@
+import type { CalendarInvitee } from '@openminutes/db';
 import type { Endpoints } from './endpoints.js';
 import { getJson, patchJson, postForm, type Fetch } from './http.js';
 import { extractJoinLink } from './links.js';
@@ -29,6 +30,7 @@ interface GraphEvent {
   location?: { displayName?: string };
   body?: { content?: string };
   responseStatus?: { response?: string };
+  organizer?: { emailAddress?: { address?: string; name?: string } };
   attendees?: {
     type?: string;
     status?: { response?: string };
@@ -70,19 +72,38 @@ function toEvent(event: GraphEvent, accountEmail: string): CalendarEvent {
       return address && a.type !== 'resource' && address.toLowerCase() !== self ? [address] : [];
     }),
     location: event.location?.displayName?.trim() || null,
-    invitees: (event.attendees ?? []).flatMap((a) => {
-      const address = a.emailAddress?.address;
-      if (!address || a.type === 'resource') return [];
-      const name = a.emailAddress?.name?.trim();
-      return [
-        {
-          email: address,
-          name: name && name !== address ? name : null,
-          declined: a.status?.response === 'declined',
-        },
-      ];
-    }),
+    invitees: inviteesOf(event),
   };
+}
+
+/** Microsoft leaves the organiser out of the attendees, so the organiser is added to the list. */
+function inviteesOf(event: GraphEvent): CalendarInvitee[] {
+  const organizer = event.organizer?.emailAddress?.address?.toLowerCase();
+  const invitees = (event.attendees ?? []).flatMap((a): CalendarInvitee[] => {
+    const address = a.emailAddress?.address;
+    if (!address || a.type === 'resource') return [];
+    const name = a.emailAddress?.name?.trim();
+    return [
+      {
+        email: address,
+        name: name && name !== address ? name : null,
+        declined: a.status?.response === 'declined',
+        ...(address.toLowerCase() === organizer && { organizer: true }),
+      },
+    ];
+  });
+  const address = event.organizer?.emailAddress?.address;
+  if (!address || invitees.some((invitee) => invitee.organizer)) return invitees;
+  const name = event.organizer?.emailAddress?.name?.trim();
+  return [
+    {
+      email: address,
+      name: name && name !== address ? name : null,
+      declined: false,
+      organizer: true,
+    },
+    ...invitees,
+  ];
 }
 
 export function createMicrosoftProvider(

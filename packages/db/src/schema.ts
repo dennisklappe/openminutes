@@ -66,6 +66,8 @@ export interface CalendarInvitee {
   email: string;
   name: string | null;
   declined: boolean;
+  /** Set on the person who organised the calendar event. */
+  organizer?: boolean;
 }
 export type SummaryStatus = (typeof summaryStatuses)[number];
 
