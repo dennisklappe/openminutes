@@ -1,67 +1,28 @@
-import { z } from 'zod';
-import { isValidTotpSecret } from './totp.js';
+import {
+  clearBotCredentials,
+  InvalidBotCredentialsError,
+  loadBotCredentials,
+  loadBotCredentialsInfo,
+  saveBotCredentials,
+  type BotCredentials,
+  type BotCredentialsInfo,
+} from './bot-credentials.js';
 import type { SettingsStore } from './settings.js';
 
-const credentialsSchema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
-  totpSecret: z.string().optional(),
-});
+export type GoogleCredentials = BotCredentials;
+export type GoogleCredentialsInfo = BotCredentialsInfo;
+export { InvalidBotCredentialsError as InvalidGoogleCredentialsError };
 
-export type GoogleCredentials = z.infer<typeof credentialsSchema>;
+export const loadGoogleCredentials = (settings: SettingsStore) =>
+  loadBotCredentials('google', settings);
 
-export interface GoogleCredentialsInfo {
-  email: string;
-  hasPassword: boolean;
-  hasTotp: boolean;
-}
+export const loadGoogleCredentialsInfo = (settings: SettingsStore) =>
+  loadBotCredentialsInfo('google', settings);
 
-export class InvalidGoogleCredentialsError extends Error {}
-
-export async function loadGoogleCredentials(
+export const saveGoogleCredentials = (
   settings: SettingsStore,
-): Promise<GoogleCredentials | undefined> {
-  const stored = await settings.get('bot.google_credentials');
-  return stored === undefined ? undefined : credentialsSchema.parse(JSON.parse(stored));
-}
-
-export async function loadGoogleCredentialsInfo(
-  settings: SettingsStore,
-): Promise<GoogleCredentialsInfo | undefined> {
-  const credentials = await loadGoogleCredentials(settings);
-  return (
-    credentials && {
-      email: credentials.email,
-      hasPassword: true,
-      hasTotp: credentials.totpSecret !== undefined,
-    }
-  );
-}
-
-/**
- * Saves the credentials. A blank password or authenticator secret keeps the stored one when the
- * email is unchanged.
- */
-export async function saveGoogleCredentials(
-  settings: SettingsStore,
-  input: { email: string; password?: string | undefined; totpSecret?: string | undefined },
-): Promise<void> {
-  const current = await loadGoogleCredentials(settings);
-  const keep = current?.email === input.email.trim() ? current : undefined;
-  const totpSecret = input.totpSecret?.trim() || keep?.totpSecret;
-  if (totpSecret !== undefined && !isValidTotpSecret(totpSecret)) {
-    throw new InvalidGoogleCredentialsError('The authenticator secret is not valid');
-  }
-  const parsed = credentialsSchema.safeParse({
-    email: input.email.trim(),
-    password: input.password || keep?.password,
-    ...(totpSecret !== undefined && { totpSecret }),
-  });
-  if (!parsed.success) {
-    throw new InvalidGoogleCredentialsError('Enter the bot account email and password');
-  }
-  await settings.set('bot.google_credentials', JSON.stringify(parsed.data));
-}
+  input: Parameters<typeof saveBotCredentials>[2],
+) => saveBotCredentials('google', settings, input);
 
 export const clearGoogleCredentials = (settings: SettingsStore) =>
-  settings.delete('bot.google_credentials');
+  clearBotCredentials('google', settings);

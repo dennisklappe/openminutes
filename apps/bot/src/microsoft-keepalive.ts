@@ -1,5 +1,6 @@
 import {
   botSessionExpiringSoon,
+  loadBotCredentials,
   loadBotSession,
   markBotSessionExpired,
   recordBotKeepAlive,
@@ -8,6 +9,7 @@ import {
   type SettingsStore,
 } from '@openminutes/core';
 import { contextOptions, type LaunchGoogleBrowser } from './google-browser.js';
+import { signInWithSavedMicrosoftCredentials } from './microsoft-login.js';
 
 const TEAMS_URL = 'https://teams.microsoft.com/v2/';
 // Teams moves between these two hosts; anything else (the Microsoft sign-in pages) is signed out.
@@ -20,6 +22,8 @@ interface KeepAliveDeps {
   settings: SettingsStore;
   queue: JobSender;
   launch: LaunchGoogleBrowser;
+  /** Signs in with the saved password; replaced in tests. */
+  signIn?: typeof signInWithSavedMicrosoftCredentials;
 }
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -49,15 +53,40 @@ async function visitWithSession(deps: KeepAliveDeps): Promise<boolean> {
   }
 }
 
+/** Signed out: signs in again with the saved password, else marks the session expired. */
+async function recover(deps: KeepAliveDeps, hadSession: boolean): Promise<void> {
+  if (!(await loadBotCredentials('microsoft', deps.settings))) {
+    if (hadSession) await markBotSessionExpired('microsoft', deps.settings);
+    const reason = 'Microsoft signed the bot out, import a new session file';
+    await recordBotKeepAlive('microsoft', deps.settings, 'failed', reason);
+    await alert(deps, reason);
+    return;
+  }
+  const outcome = await (deps.signIn ?? signInWithSavedMicrosoftCredentials)(deps);
+  if (outcome.ok) {
+    await recordBotKeepAlive(
+      'microsoft',
+      deps.settings,
+      'ok',
+      'Signed in again with the saved password',
+    );
+    return;
+  }
+  if (hadSession) await markBotSessionExpired('microsoft', deps.settings);
+  await recordBotKeepAlive('microsoft', deps.settings, 'needs_attention', outcome.reason);
+  await alert(deps, outcome.reason);
+}
+
 /**
  * Daily visit to Teams with the Microsoft session, so the sliding sign-in cookie stays fresh and
- * an ended session is found before a meeting. Does nothing without a Microsoft session, and
- * signing in again needs a new session file for now (password sign-in comes later, issue #50).
+ * an ended session is found before a meeting. Signed out, it signs in again with the saved
+ * password. Does nothing without a Microsoft session or saved password.
  */
 export async function runMicrosoftKeepAlive(deps: KeepAliveDeps): Promise<void> {
-  if ((await loadBotSession('microsoft', deps.settings)) === undefined) return;
+  const hadSession = (await loadBotSession('microsoft', deps.settings)) !== undefined;
+  if (!hadSession && !(await loadBotCredentials('microsoft', deps.settings))) return;
   try {
-    if (await visitWithSession(deps)) {
+    if (hadSession && (await visitWithSession(deps))) {
       await deps.settings.delete('bot.microsoft_session_expired');
       await recordBotKeepAlive('microsoft', deps.settings, 'ok');
       const expiry = await botSessionExpiringSoon('microsoft', deps.settings);
@@ -66,10 +95,7 @@ export async function runMicrosoftKeepAlive(deps: KeepAliveDeps): Promise<void> 
       }
       return;
     }
-    await markBotSessionExpired('microsoft', deps.settings);
-    const reason = 'Microsoft signed the bot out, import a new session file';
-    await recordBotKeepAlive('microsoft', deps.settings, 'failed', reason);
-    await alert(deps, reason);
+    await recover(deps, hadSession);
   } catch (error) {
     const reason = `The keep-alive visit failed: ${message(error)}`;
     await recordBotKeepAlive('microsoft', deps.settings, 'failed', reason);

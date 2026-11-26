@@ -19,6 +19,15 @@ export {
   type GoogleCredentialsInfo,
 } from './google-credentials.js';
 export {
+  clearBotCredentials,
+  InvalidBotCredentialsError,
+  loadBotCredentials,
+  loadBotCredentialsInfo,
+  saveBotCredentials,
+  type BotCredentials,
+  type BotCredentialsInfo,
+} from './bot-credentials.js';
+export {
   alertDue,
   expiringSoon,
   EXPIRY_WARNING_MS,

@@ -1,4 +1,4 @@
-import { loadBotSessionInfo, SettingsStore } from '@openminutes/core';
+import { loadBotCredentials, loadBotSessionInfo, SettingsStore } from '@openminutes/core';
 import { settings } from '@openminutes/db';
 import { createTestDatabase } from '@openminutes/db/testing';
 import { Hono } from 'hono';
@@ -47,6 +47,7 @@ describe('Microsoft session API', () => {
       expiresAt: null,
       keepAlive: null,
       notify: true,
+      credentials: null,
     });
   });
 
@@ -101,5 +102,45 @@ describe('Microsoft session API', () => {
     expect(dto.notify).toBe(false);
     const google = await app.request('/bot/google-session');
     expect(((await google.json()) as { notify: boolean }).notify).toBe(true);
+  });
+
+  const credentials = (method: string, body?: unknown) =>
+    app.request('/bot/microsoft-credentials', {
+      method,
+      ...(body !== undefined && {
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    });
+
+  it('saves the sign-in details encrypted and never returns them', async () => {
+    const response = await credentials('PUT', {
+      email: 'bot@example.com',
+      password: 'password-secret-value',
+      totpSecret: 'JBSWY3DPEHPK3PXP',
+    });
+    const dto = (await response.json()) as MicrosoftSessionDto;
+    expect(dto.credentials).toEqual({ email: 'bot@example.com', hasPassword: true, hasTotp: true });
+    expect(JSON.stringify(dto)).not.toContain('password-secret-value');
+    const rows = await test.db.select().from(settings);
+    expect(JSON.stringify(rows)).not.toContain('password-secret-value');
+    expect(JSON.stringify(rows)).not.toContain('JBSWY3DPEHPK3PXP');
+    expect(await loadBotCredentials('google', store)).toBeUndefined();
+  });
+
+  it('keeps the saved password when it is left blank', async () => {
+    await credentials('PUT', { email: 'bot@example.com' });
+    expect((await loadBotCredentials('microsoft', store))?.password).toBe('password-secret-value');
+  });
+
+  it('rejects an invalid authenticator secret and a missing password', async () => {
+    const bad = await credentials('PUT', { email: 'bot@example.com', totpSecret: '1!' });
+    expect(bad.status).toBe(400);
+    expect((await credentials('PUT', { email: 'new@example.com' })).status).toBe(400);
+  });
+
+  it('removes the sign-in details', async () => {
+    const dto = (await (await credentials('DELETE')).json()) as MicrosoftSessionDto;
+    expect(dto.credentials).toBeNull();
   });
 });

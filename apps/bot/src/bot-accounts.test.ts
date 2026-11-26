@@ -54,9 +54,9 @@ describe('accountFor', () => {
     expect((await loadBotSessionInfo('google', store)).status).toBe('valid');
   });
 
-  it('cannot sign Teams back in without a session file yet', async () => {
+  it('cannot sign Teams back in without saved credentials', async () => {
     const launch = vi.fn();
-    expect(await accountFor('teams')?.signIn({ settings: store, launch })).toBe(false);
+    expect(await accountFor('teams')?.signIn({ settings: store, launch })).toEqual({ ok: false });
     expect(launch).not.toHaveBeenCalled();
   });
 });

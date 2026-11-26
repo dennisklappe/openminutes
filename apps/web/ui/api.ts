@@ -509,6 +509,10 @@ export const api = {
       method: 'PUT',
       body: { notify },
     }),
+  saveMicrosoftCredentials: (body: GoogleCredentialsInput) =>
+    request<MicrosoftSessionDto>('/settings/bot/microsoft-credentials', { method: 'PUT', body }),
+  removeMicrosoftCredentials: () =>
+    request<MicrosoftSessionDto>('/settings/bot/microsoft-credentials', { method: 'DELETE' }),
   storageSettings: () => request<StorageSettingsDto>('/settings/storage'),
   saveStorageSettings: (body: StorageSettingsInput) =>
     request<StorageSettingsDto>('/settings/storage', { method: 'PUT', body }),

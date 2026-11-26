@@ -1,4 +1,10 @@
-import { loadBotKeepAlive, loadBotSession, saveBotSession, SettingsStore } from '@openminutes/core';
+import {
+  loadBotKeepAlive,
+  loadBotSession,
+  saveBotCredentials,
+  saveBotSession,
+  SettingsStore,
+} from '@openminutes/core';
 import { createTestDatabase } from '@openminutes/db/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GoogleBrowser, GooglePage } from './google-browser.js';
@@ -40,6 +46,7 @@ function fakeBrowser(script: Script) {
     locator: () => {
       throw new Error('the keep-alive does not fill anything');
     },
+    innerText: () => Promise.resolve(''),
     waitForTimeout: (ms) => {
       waits.push(ms);
       url = script.settled;
@@ -81,6 +88,7 @@ describe('Microsoft keep-alive', () => {
       'bot.microsoft_session',
       'bot.microsoft_session_expired',
       'bot.microsoft_keepalive',
+      'bot.microsoft_credentials',
       'bot.google_keepalive',
     ] as const) {
       await settings.delete(key);
@@ -124,6 +132,44 @@ describe('Microsoft keep-alive', () => {
       reason: record?.detail,
       provider: 'microsoft',
     });
+  });
+
+  it('signs in again with the saved password when Teams signed the bot out', async () => {
+    await saveBotSession('microsoft', settings, stored(30));
+    await saveBotCredentials('microsoft', settings, { email: 'bot@example.com', password: 'pw' });
+    const fake = fakeBrowser({ settled: 'https://login.microsoftonline.com/common/oauth2' });
+    const signIn = vi.fn(() => Promise.resolve({ ok: true as const }));
+    await runMicrosoftKeepAlive({ settings, queue, launch: fake.launch, signIn });
+    expect(signIn).toHaveBeenCalledOnce();
+    expect(await loadBotKeepAlive('microsoft', settings)).toMatchObject({
+      status: 'ok',
+      detail: 'Signed in again with the saved password',
+    });
+    expect(queue.send).not.toHaveBeenCalled();
+  });
+
+  it('needs attention when the password sign-in hits a step the bot cannot pass', async () => {
+    await saveBotSession('microsoft', settings, stored(30));
+    await saveBotCredentials('microsoft', settings, { email: 'bot@example.com', password: 'pw' });
+    const fake = fakeBrowser({ settled: 'https://login.microsoftonline.com/common/oauth2' });
+    const reason = 'Microsoft asked for a step the bot cannot pass: a security key or passkey';
+    const signIn = vi.fn(() => Promise.resolve({ ok: false as const, reason }));
+    await runMicrosoftKeepAlive({ settings, queue, launch: fake.launch, signIn });
+    expect(await loadBotKeepAlive('microsoft', settings)).toMatchObject({
+      status: 'needs_attention',
+      detail: reason,
+    });
+    expect(await settings.get('bot.microsoft_session_expired')).toBe('true');
+    expect(queue.send).toHaveBeenCalledWith('bot.session-alert', { reason, provider: 'microsoft' });
+  });
+
+  it('signs in with the saved password when no session was imported', async () => {
+    await saveBotCredentials('microsoft', settings, { email: 'bot@example.com', password: 'pw' });
+    const fake = fakeBrowser({ settled: 'https://teams.microsoft.com/v2/' });
+    const signIn = vi.fn(() => Promise.resolve({ ok: true as const }));
+    await runMicrosoftKeepAlive({ settings, queue, launch: fake.launch, signIn });
+    expect(signIn).toHaveBeenCalledOnce();
+    expect(fake.launch).not.toHaveBeenCalled();
   });
 
   it('warns when the sign-in cookie ends soon after the refresh', async () => {

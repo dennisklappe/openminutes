@@ -4,6 +4,7 @@ import { api, errorMessage } from '../api.js';
 import { SettingsCard } from '../SettingsCard.js';
 import { useSettingsForm } from '../useSettingsForm.js';
 import { AlertIcon, CheckIcon } from '../icons.js';
+import { BotCredentialsCard } from './BotCredentialsCard.js';
 
 const headline = {
   missing: 'No Google account: the bot joins Google Meet as a guest.',
@@ -32,108 +33,6 @@ function KeepAlive({ state }: { state: GoogleSessionDto }) {
       {keepAliveText[keepAlive.status]}, last checked {new Date(keepAlive.at).toLocaleString()}
       {keepAlive.detail && `: ${keepAlive.detail}`}
     </p>
-  );
-}
-
-interface CredentialsDraft {
-  email: string;
-  password: string;
-  totpSecret: string;
-}
-
-const credentialsOf = (state: GoogleSessionDto): CredentialsDraft => ({
-  email: state.credentials?.email ?? '',
-  password: '',
-  totpSecret: '',
-});
-
-function Credentials({
-  state,
-  onSaved,
-}: {
-  state: GoogleSessionDto;
-  onSaved: (next: GoogleSessionDto) => void;
-}) {
-  const saved = state.credentials;
-  const form = useSettingsForm(credentialsOf(state), async ({ email, password, totpSecret }) => {
-    const next = await api.saveGoogleCredentials({
-      email,
-      ...(password && { password }),
-      ...(totpSecret && { totpSecret }),
-    });
-    onSaved(next);
-    return credentialsOf(next);
-  });
-  const { email, password, totpSecret } = form.draft;
-
-  return (
-    <SettingsCard
-      form={form}
-      title="Sign in with email and password"
-      description="Optional. The bot signs in again by itself whenever the session ends. The details are stored encrypted on your own server and are never shown again. Use the dedicated bot account only."
-      actions={
-        saved && (
-          <button
-            type="button"
-            onClick={() => {
-              form.setNotice(undefined);
-              api.removeGoogleCredentials().then(
-                (next) => {
-                  onSaved(next);
-                  form.setNotice({ ok: true, text: 'Sign-in details removed.' });
-                },
-                (failure: unknown) => {
-                  form.setNotice({ ok: false, text: errorMessage(failure) });
-                },
-              );
-            }}
-          >
-            Remove
-          </button>
-        )
-      }
-    >
-      <label className="field">
-        <span>Bot account email</span>
-        <input
-          type="email"
-          autoComplete="off"
-          value={email}
-          placeholder="notetaker@example.com"
-          onChange={(e) => {
-            form.patch({ email: e.target.value });
-          }}
-        />
-      </label>
-      <label className="field">
-        <span>Password</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          placeholder={saved?.hasPassword ? 'Saved, leave blank to keep' : ''}
-          onChange={(e) => {
-            form.patch({ password: e.target.value });
-          }}
-        />
-      </label>
-      <label className="field">
-        <span>Authenticator secret (optional)</span>
-        <input
-          type="password"
-          autoComplete="off"
-          value={totpSecret}
-          placeholder={saved?.hasTotp ? 'Saved, leave blank to keep' : ''}
-          onChange={(e) => {
-            form.patch({ totpSecret: e.target.value });
-          }}
-        />
-        <small>
-          Only needed when the account uses 2-step verification with an authenticator app. It is the
-          setup key shown next to the QR code.
-        </small>
-      </label>
-    </SettingsCard>
   );
 }
 
@@ -229,7 +128,13 @@ export function GoogleSessionSettings() {
   return (
     <>
       <SessionCard state={state} onChanged={setState} />
-      <Credentials state={state} onSaved={setState} />
+      <BotCredentialsCard
+        credentials={state.credentials}
+        description="Optional. The bot signs in again by itself whenever the session ends. The details are stored encrypted on your own server and are never shown again. Use the dedicated bot account only."
+        save={api.saveGoogleCredentials}
+        remove={api.removeGoogleCredentials}
+        onSaved={setState}
+      />
     </>
   );
 }

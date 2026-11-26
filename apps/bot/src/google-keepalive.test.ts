@@ -59,6 +59,7 @@ function fakeBrowser(script: Script) {
         return Promise.resolve();
       },
     }),
+    innerText: () => Promise.resolve(''),
     waitForTimeout: () => Promise.resolve(),
   };
   const browser: GoogleBrowser = {

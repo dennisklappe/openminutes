@@ -58,16 +58,26 @@ function withDeadline<T>(work: Promise<T>, ms: number, error: () => Error): Prom
 const isSessionExpired = (error: unknown) =>
   error instanceof JoinError && error.reason === 'session_expired';
 
-async function signedBackIn(
+/**
+ * Signs in again with saved credentials after a join found the session expired. Throws the
+ * join error, with the sign-in failure added, when that is not possible.
+ */
+async function signBackIn(
   deps: BotDeps,
   account: BotAccount | undefined,
   error: unknown,
-): Promise<boolean> {
-  if (!account || !isSessionExpired(error)) return false;
-  return account.signIn({
+): Promise<void> {
+  if (!account || !isSessionExpired(error)) throw error;
+  const outcome = await account.signIn({
     settings: deps.settings,
     launch: deps.launchGoogleBrowser ?? launchHeadless(deps.env),
   });
+  if (outcome.ok) return;
+  if (!outcome.reason) throw error;
+  throw new JoinError(
+    'session_expired',
+    `${failureMessage(error)}. Signing in again failed: ${outcome.reason}`,
+  );
 }
 
 async function keepMicMuted(platform: Platform, page: Page, meetingId: string): Promise<void> {
@@ -214,7 +224,7 @@ export async function runMeeting(
     try {
       joined = await openWithinDeadline();
     } catch (error) {
-      if (!(await signedBackIn(deps, account, error))) throw error;
+      await signBackIn(deps, account, error);
       joined = await openWithinDeadline();
     }
     const { context, page } = joined;

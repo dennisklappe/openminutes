@@ -23,6 +23,8 @@ export interface GooglePage {
   ): Promise<unknown>;
   url(): string;
   locator(selector: string): LoginLocator;
+  /** Visible text, used to recognise sign-in steps the bot cannot pass. */
+  innerText(selector: string): Promise<string>;
   waitForTimeout(ms: number): Promise<void>;
 }
 

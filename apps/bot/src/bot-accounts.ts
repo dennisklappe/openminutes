@@ -1,4 +1,5 @@
 import {
+  loadBotCredentials,
   loadBotSession,
   loadGoogleCredentials,
   markBotSessionExpired,
@@ -9,11 +10,17 @@ import {
 } from '@openminutes/core';
 import type { LaunchGoogleBrowser } from './google-browser.js';
 import { signInWithSavedCredentials } from './google-keepalive.js';
+import { signInWithSavedMicrosoftCredentials } from './microsoft-login.js';
 
 export interface SignInDeps {
   settings: SettingsStore;
   launch: LaunchGoogleBrowser;
 }
+
+export type SignInOutcome = { ok: true } | { ok: false; reason?: string };
+
+const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+const notSaved: SignInOutcome = { ok: false };
 
 /** The signed-in account a platform joins with, when one is set. */
 export interface BotAccount {
@@ -23,13 +30,13 @@ export interface BotAccount {
   load(settings: SettingsStore): Promise<BotStorageState | undefined>;
   refresh(settings: SettingsStore, state: BotStorageState): Promise<void>;
   markExpired(settings: SettingsStore): Promise<void>;
-  /** Signs in again with saved credentials; false when there are none or it failed. */
-  signIn(deps: SignInDeps): Promise<boolean>;
+  /** Signs in again with saved credentials; the reason when there are none or it failed. */
+  signIn(deps: SignInDeps): Promise<SignInOutcome>;
 }
 
 const account = (
   provider: BotAccountProvider,
-  signIn: BotAccount['signIn'] = () => Promise.resolve(false),
+  signIn: BotAccount['signIn'] = () => Promise.resolve(notSaved),
 ): BotAccount => ({
   provider,
   indexedDB: provider === 'microsoft',
@@ -41,13 +48,21 @@ const account = (
 
 const ACCOUNTS: Partial<Record<string, BotAccount>> = {
   meet: account('google', async (deps) => {
-    if (!(await loadGoogleCredentials(deps.settings))) return false;
-    const outcome = await signInWithSavedCredentials(deps).catch(() => ({ ok: false }));
-    return outcome.ok;
+    if (!(await loadGoogleCredentials(deps.settings))) return notSaved;
+    return signInWithSavedCredentials(deps).catch((error: unknown) => ({
+      ok: false as const,
+      reason: message(error),
+    }));
   }),
-  // Teams joins signed in once a Microsoft session is imported (issue #50). Password sign-in
-  // comes later, so an expired Microsoft session needs a new session file.
-  teams: account('microsoft'),
+  // Teams joins signed in once a Microsoft session is imported or the saved password signed in
+  // (issue #50). Without saved credentials an expired session needs a new session file.
+  teams: account('microsoft', async (deps) => {
+    if (!(await loadBotCredentials('microsoft', deps.settings))) return notSaved;
+    return signInWithSavedMicrosoftCredentials(deps).catch((error: unknown) => ({
+      ok: false as const,
+      reason: message(error),
+    }));
+  }),
 };
 
 export const accountFor = (platformId: string): BotAccount | undefined => ACCOUNTS[platformId];

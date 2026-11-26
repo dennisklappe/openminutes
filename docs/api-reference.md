@@ -203,6 +203,8 @@ Generated from the route table by `apps/web/src/api-reference.test.ts`. Run `UPD
 | `PUT` | `/api/settings/bot/google-session` | Full key |
 | `DELETE` | `/api/settings/bot/google-session` | Full key |
 | `PUT` | `/api/settings/bot/microsoft-notifications` | Full key |
+| `PUT` | `/api/settings/bot/microsoft-credentials` | Full key |
+| `DELETE` | `/api/settings/bot/microsoft-credentials` | Full key |
 | `GET` | `/api/settings/bot/microsoft-session` | Read or full key |
 | `PUT` | `/api/settings/bot/microsoft-session` | Full key |
 | `DELETE` | `/api/settings/bot/microsoft-session` | Full key |

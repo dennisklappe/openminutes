@@ -33,6 +33,7 @@ function fakeSignIn() {
         return Promise.resolve();
       },
     }),
+    innerText: () => Promise.resolve(''),
     waitForTimeout: () => {
       if (step === 'pending' && ++polls >= 2) step = 'password';
       return Promise.resolve();
