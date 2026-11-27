@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/dennisklappe/openminutes/compare/v0.4.0...v0.5.0) (2026-11-27)
+
+
+### Features
+
+* choose who gets the automatic summary mail ([#54](https://github.com/dennisklappe/openminutes/issues/54)) ([b8703b8](https://github.com/dennisklappe/openminutes/commit/b8703b85cd25ae51fd0810260cfc20ddc38df589))
+* import a Microsoft session in Settings and join Teams signed in ([#57](https://github.com/dennisklappe/openminutes/issues/57)) ([5f89047](https://github.com/dennisklappe/openminutes/commit/5f89047f0e3bffb6dcf1091f3e4a18bdfd8a221d))
+* keep the Microsoft bot session alive and alert per provider ([#58](https://github.com/dennisklappe/openminutes/issues/58)) ([8c6af74](https://github.com/dennisklappe/openminutes/commit/8c6af7451190c39cab00d98c49ed99d45551ce74))
+* optionally mail the full summary to the meeting organizer ([#52](https://github.com/dennisklappe/openminutes/issues/52)) ([b0c8445](https://github.com/dennisklappe/openminutes/commit/b0c84453eb2843b6613c461ed4746e81f9099839))
+* sign the Teams bot in with a saved Microsoft password and authenticator code ([#59](https://github.com/dennisklappe/openminutes/issues/59)) ([2a37258](https://github.com/dennisklappe/openminutes/commit/2a37258e6e1ef66f78ff34aff400b4eea037b8c9))
+* store a Microsoft bot session and join Teams signed in with it ([#56](https://github.com/dennisklappe/openminutes/issues/56)) ([64d2539](https://github.com/dennisklappe/openminutes/commit/64d2539ffb6474937367447afa5061b060e2edd9))
+
 ## [0.4.0](https://github.com/dennisklappe/openminutes/compare/v0.3.1...v0.4.0) (2026-11-16)
 
 
